@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guacd-{{ .Release.Name }}
+  labels:
+    {{- include "guacamole.labels" . | nindent 4 }}
+    component: guacd
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "guacamole.selectorLabels" . | nindent 6 }}
+      component: guacd
+  template:
+    metadata:
+      labels:
+        {{- include "guacamole.selectorLabels" . | nindent 8 }}
+        component: guacd
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: guacd
+        image: "{{ .Values.guacd.image }}"
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: {{ .Values.containerSecurityContext.guacdUid }}
+          allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+          capabilities:
+            drop:
+            {{- toYaml .Values.containerSecurityContext.dropCapabilities | nindent 14 }}
+        env:
+          - name: GUACD_LOG_LEVEL
+            value: {{ .Values.guacd.logLevel | quote }}
+        ports:
+        - name: guacd
+          containerPort: {{ .Values.guacd.servicePort }}

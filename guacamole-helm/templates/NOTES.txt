@@ -1,0 +1,34 @@
+Thank you for installing the Guacamole and Desktop Manager Helm chart!
+
+This chart deploys two main components:
+
+1. Apache Guacamole - Remote Desktop Gateway
+   URL: https://{{ include "guacamole.hostname" . }}
+   - Provides the core remote desktop functionality
+   - Handles remote desktop protocol connections (RDP, VNC, SSH)
+   - Default credentials: guacadmin/guacadmin (please change on first login)
+
+2. Desktop Manager - Management Interface
+   URL: https://{{ include "desktop-manager.hostname" . }}
+   - Provides an easy-to-use interface for managing remote desktops
+   - Automates desktop creation and configuration
+   - Integrates with Rancher for container management
+
+Database Information:
+--------------------
+MySQL Host: mysql-{{ .Release.Name }}
+Guacamole Database: {{ .Values.mysql.database }}
+Desktop Manager Database: desktop_manager
+
+Next Steps:
+----------
+1. Access the Guacamole interface and change the default password
+2. Access the Desktop Manager to start creating and managing remote desktops
+3. Configure your Rancher API token if not already set:
+   kubectl create secret generic desktop-api-{{ .Release.Name }} \
+     --namespace {{ .Release.Namespace }} \
+     --from-literal=rancher-token=YOUR_TOKEN
+
+For more information and troubleshooting, please visit:
+https://github.com/apache/guacamole-client
+https://github.com/your-org/desktop-manager

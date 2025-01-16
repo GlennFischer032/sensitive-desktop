@@ -1,0 +1,11 @@
+Flask
+PyJWT
+PyYAML
+requests
+SQLAlchemy
+Werkzeug
+flasgger
+PyMySQL
+cryptography
+gunicorn
+flask-cors

@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: desktop-frontend-{{ .Release.Name }}
+  labels:
+    {{- include "guacamole.labels" . | nindent 4 }}
+    component: desktop-frontend
+spec:
+  replicas: {{ .Values.desktopFrontend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "desktop-frontend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "desktop-frontend.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: desktop-frontend
+        image: {{ .Values.desktopFrontend.image }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+        env:
+        {{- range $key, $value := .Values.desktopFrontend.env }}
+          - name: {{ $key }}
+            value: {{ $value | quote }}
+        {{- end }}
+        ports:
+        - containerPort: {{ .Values.desktopFrontend.containerPort }}
+          name: http
+        {{- if .Values.desktopFrontend.healthcheck.enabled }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.desktopFrontend.healthcheck.path }}
+            port: http
+          initialDelaySeconds: {{ .Values.desktopFrontend.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.desktopFrontend.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.desktopFrontend.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.desktopFrontend.healthcheck.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.desktopFrontend.healthcheck.path }}
+            port: http
+          initialDelaySeconds: {{ .Values.desktopFrontend.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.desktopFrontend.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.desktopFrontend.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.desktopFrontend.healthcheck.failureThreshold }}
+        {{- end }}

@@ -1,0 +1,138 @@
+# Default values for the chart.
+
+replicaCount: 1
+
+# Security contexts applied at the Pod level.
+# If your cluster enforces these via PSP/PSA, make sure they match your policies.
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+  fsGroupChangePolicy: OnRootMismatch
+  fsGroup: 1000
+
+# Security contexts for the containers themselves:
+containerSecurityContext:
+  # guacd / guacamole will run as UID 1000
+  guacdUid: 1000
+  guacamoleUid: 1000
+  # MySQL default user is typically UID 999, we can enforce that:
+  mysqlUid: 999
+  # Disallow privilege escalation, drop all capabilities
+  allowPrivilegeEscalation: false
+  dropCapabilities: ["ALL"]
+
+#####################################################
+# Desktop Manager API values
+#####################################################
+desktopApi:
+  replicaCount: 1
+  image: "glennfischer032/desktop-manager-api:latest"
+  containerPort: 5000  # Port the container listens on
+  servicePort: 80
+  rancherToken: ""  # Set this via helm install --set desktopApi.rancherToken=<token>
+  healthcheck:
+    enabled: true
+    path: /api/health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  env:
+    # From .env and docker-compose
+    SECRET_KEY: "dev_secret_key_123"
+    MYSQL_HOST: "mysql-{{ .Release.Name }}"
+    MYSQL_PORT: "3306"
+    MYSQL_DATABASE: "desktop_manager"
+    MYSQL_USER: "{{ .Values.mysql.user }}"
+    MYSQL_PASSWORD: "{{ .Values.mysql.userPassword }}"
+    # Using ingress URL for Guacamole
+    GUACAMOLE_API_URL: "https://{{ include \"guacamole.hostname\" . }}/guacamole/api"
+    GUACAMOLE_USERNAME: "{{ .Values.guacamole.adminUser }}"
+    GUACAMOLE_PASSWORD: "{{ .Values.guacamole.adminPassword }}"
+    ADMIN_USERNAME: "admin"
+    ADMIN_PASSWORD: "admin123"
+    RANCHER_API_TOKEN: ""  # Set this via helm install --set desktopApi.env.RANCHER_API_TOKEN=<token>
+    RANCHER_API_URL: "https://rancher.cloud.e-infra.cz"
+    RANCHER_CLUSTER_ID: "c-m-qvndqhf6"
+    RANCHER_REPO_NAME: "cerit-sc"
+    NAMESPACE: "fischer-ns"
+    FLASK_APP: "app.py"
+    FLASK_ENV: "production"  # Changed from development in docker-compose
+    PYTHONUNBUFFERED: "1"
+
+#####################################################
+# Desktop Manager Frontend values
+#####################################################
+desktopFrontend:
+  replicaCount: 1
+  image: "glennfischer032/desktop-manager-frontend:latest"
+  containerPort: 5000  # Port the container listens on
+  servicePort: 80
+  healthcheck:
+    enabled: true
+    path: /
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  env:
+    SECRET_KEY: "dev_secret_key_123"
+    # Using ingress URLs for API and Guacamole
+    API_URL: "https://{{ include \"desktop-manager.hostname\" . }}/api"
+    GUACAMOLE_URL: "https://{{ include \"guacamole.hostname\" . }}"
+    FLASK_APP: "app.py"
+    FLASK_ENV: "production"
+    PYTHONUNBUFFERED: "1"
+
+#####################################################
+# MySQL values
+#####################################################
+mysql:
+  image: "mysql:8.0"
+  initdbImage: "glennfischer032/guacamole-init-db:latest"
+  rootPassword: "rootpass"  # From .env MYSQL_ROOT_PASSWORD
+  database: "guacamole_db"  # This is for Guacamole
+  desktopDatabase: "desktop_manager"  # This is for Desktop Manager
+  user: "guacamole_user"
+  userPassword: "guacpass"  # From .env MYSQL_PASSWORD
+  servicePort: 3306
+  args:
+    - "--default-authentication-plugin=mysql_native_password"
+    - "--bind-address=0.0.0.0"
+  persistence:
+    enabled: true
+    storageClass: "nfs-csi"
+    accessMode: ReadWriteOnce
+    size: 1Gi
+  healthcheck:
+    enabled: true
+    command: ["mysqladmin", "ping", "-h", "localhost"]
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 5
+    failureThreshold: 5
+
+#####################################################
+# guacd values
+#####################################################
+guacd:
+  image: "guacamole/guacd"
+  servicePort: 4822
+  logLevel: "info"
+
+#####################################################
+# guacamole (web app) values
+#####################################################
+guacamole:
+  image: "glennfischer032/guac-no-root:latest"  # Non-root image for security
+  containerPort: 8080  # Port the container listens on
+  servicePort: 80
+  adminUser: "guacadmin"  # Added to match deployment template
+  adminPassword: "guacadmin"  # Added to match deployment template
+  env:
+    MYSQL_HOSTNAME: "mysql-{{ .Release.Name }}"
+    MYSQL_DATABASE: "{{ .Values.mysql.database }}"
+    MYSQL_USER: "{{ .Values.mysql.user }}"
+    MYSQL_PASSWORD: "{{ .Values.mysql.userPassword }}"
+    GUACD_HOSTNAME: "guacd-{{ .Release.Name }}"

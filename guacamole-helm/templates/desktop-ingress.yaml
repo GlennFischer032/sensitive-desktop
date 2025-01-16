@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: desktop-frontend-{{ .Release.Name }}
+  labels:
+    {{- include "guacamole.labels" . | nindent 4 }}
+    component: desktop-frontend
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    kubernetes.io/tls-acme: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+    - hosts:
+        - {{ include "desktop-manager.hostname" . }}
+      secretName: {{ printf "manage-desktops-%s-%s-dyn-cloud-e-infra-cz-tls" .Release.Name .Release.Namespace }}
+  rules:
+  - host: {{ include "desktop-manager.hostname" . }}
+    http:
+      paths:
+      - path: "/api"
+        pathType: Prefix
+        backend:
+          service:
+            name: desktop-api-{{ .Release.Name }}
+            port:
+              number: 80
+      - path: "/"
+        pathType: Prefix
+        backend:
+          service:
+            name: desktop-frontend-{{ .Release.Name }}
+            port:
+              number: 80

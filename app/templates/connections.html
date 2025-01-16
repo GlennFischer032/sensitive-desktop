@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Connections - Desktop Manager{% endblock %}
+
+{% block content %}
+<div class="header-with-button">
+    <h2>Connections</h2>
+    <a href="{{ url_for('add_connection') }}" class="button">Add Connection</a>
+</div>
+
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+<div class="message">
+    {% for message in messages %}
+    <p>{{ message }}</p>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="table-container">
+    {% if connections %}
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Created At</th>
+                <th>Created By</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for conn in connections %}
+            <tr id="connection-{{ conn.name }}">
+                <td>{{ conn.name }}</td>
+                <td>{{ conn.created_at }}</td>
+                <td>{{ conn.created_by }}</td>
+                <td class="action-buttons">
+                    <a href="http://localhost:8080/guacamole/#/client/{{ conn.guacamole_connection_id }}" target="_blank" class="action-button connect-button">Connect</a>
+                    <form action="{{ url_for('delete_connection', connection_name=conn.name) }}" method="post" 
+                          onsubmit="handleDelete(event, '{{ conn.name }}')">
+                        <button type="submit" class="action-button delete-button">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No connections found. Click "Add Connection" to create one.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+async function handleDelete(event, connectionName) {
+    event.preventDefault();
+    
+    if (!confirm('Are you sure you want to delete this connection?')) {
+        return;
+    }
+
+    const form = event.target;
+    const row = document.getElementById(`connection-${connectionName}`);
+    const actionButtons = row.querySelector('.action-buttons');
+    
+    // Replace buttons with loading animation
+    actionButtons.innerHTML = `
+        <span class="deleting-text">Deleting</span>
+        <div class="loading-dots">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+        </div>
+    `;
+    
+    row.classList.add('deleting-row');
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            // Fade out and remove the row
+            row.style.transition = 'opacity 0.5s';
+            row.style.opacity = '0';
+            setTimeout(() => {
+                row.remove();
+                // If this was the last row, show the empty state
+                const tbody = document.querySelector('tbody');
+                if (!tbody.hasChildNodes()) {
+                    location.reload();
+                }
+            }, 500);
+        } else {
+            const error = await response.text();
+            throw new Error(error);
+        }
+    } catch (error) {
+        actionButtons.innerHTML = `
+            <span class="error-text">Error: ${error.message}</span>
+            <button onclick="location.reload()" class="action-button">Retry</button>
+        `;
+    }
+}
+</script>
+
+<style>
+.error-text {
+    color: #e74c3c;
+    font-style: italic;
+}
+</style>
+{% endblock %}

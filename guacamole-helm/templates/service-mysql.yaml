@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-{{ .Release.Name }}
+  labels:
+    app: guacamole
+    component: mysql
+    release: "{{ .Release.Name }}"
+spec:
+  type: ClusterIP
+  ports:
+  - name: mysql
+    port: {{ .Values.mysql.servicePort }}
+    targetPort: {{ .Values.mysql.servicePort }}
+  selector:
+    app: guacamole
+    component: mysql
+    release: "{{ .Release.Name }}"

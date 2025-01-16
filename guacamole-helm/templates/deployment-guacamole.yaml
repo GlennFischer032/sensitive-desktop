@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: guacamole-{{ .Release.Name }}
+  labels:
+    app: guacamole
+    component: guacamole
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: guacamole
+      component: guacamole
+      release: "{{ .Release.Name }}"
+  template:
+    metadata:
+      labels:
+        app: guacamole
+        component: guacamole
+        release: "{{ .Release.Name }}"
+    spec:
+      securityContext:
+{{- if .Values.podSecurityContext }}
+{{ toYaml .Values.podSecurityContext | indent 8 }}
+{{- end }}
+
+      containers:
+      - name: guacamole
+        image: "{{ .Values.guacamole.image }}"
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: {{ .Values.containerSecurityContext.guacamoleUid }}
+          allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+          capabilities:
+            drop:
+{{ toYaml .Values.containerSecurityContext.dropCapabilities | indent 14 }}
+        env:
+        {{- range $key, $value := .Values.guacamole.env }}
+          - name: {{ $key }}
+            value: {{ $value | quote }}
+        {{- end }}
+          - name: GUACD_HOSTNAME
+            value: "guacd-{{ .Release.Name }}"
+          - name: GUACD_PORT
+            value: "{{ .Values.guacd.servicePort }}"
+          - name: MYSQL_HOSTNAME
+            value: "mysql-{{ .Release.Name }}"
+          - name: MYSQL_PORT
+            value: "{{ .Values.mysql.servicePort }}"
+          - name: MYSQL_DATABASE
+            value: "{{ .Values.mysql.database }}"
+          - name: MYSQL_USER
+            value: "{{ .Values.mysql.user }}"
+          - name: MYSQL_PASSWORD
+            value: "{{ .Values.mysql.userPassword }}"
+          - name: HOME
+            value: "/home/guac"
+          - name: GUACAMOLE_HOME
+            value: "/opt/guac-data"
+        ports:
+        - name: http
+          containerPort: {{ .Values.guacamole.containerPort }}

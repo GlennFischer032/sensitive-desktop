@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Desktop Manager{% endblock %}
+
+{% block content %}
+<h2>Welcome to Desktop Manager</h2>
+
+<div class="dashboard-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-top: 2rem;">
+    <div class="dashboard-card" style="background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h3>Connections</h3>
+        <p>Manage your desktop connections</p>
+        <a href="{{ url_for('view_connections') }}" class="button">View Connections</a>
+    </div>
+
+    <div class="dashboard-card" style="background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <h3>Users</h3>
+        <p>Manage system users</p>
+        <a href="{{ url_for('view_users') }}" class="button">View Users</a>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+<div class="message">
+    {% for message in messages %}
+    <p>{{ message }}</p>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+{% endblock %}

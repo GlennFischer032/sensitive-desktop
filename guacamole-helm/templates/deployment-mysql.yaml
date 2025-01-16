@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-{{ .Release.Name }}
+  labels:
+    {{- include "guacamole.labels" . | nindent 4 }}
+    component: mysql
+spec:
+  replicas: 1  # MySQL should be a single instance
+  selector:
+    matchLabels:
+      {{- include "guacamole.selectorLabels" . | nindent 6 }}
+      component: mysql
+  template:
+    metadata:
+      labels:
+        {{- include "guacamole.selectorLabels" . | nindent 8 }}
+        component: mysql
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: mysql
+        image: "{{ .Values.mysql.image }}"
+        imagePullPolicy: IfNotPresent
+        args:
+        {{- range .Values.mysql.args }}
+          - {{ . | quote }}
+        {{- end }}
+        securityContext:
+          runAsUser: {{ .Values.containerSecurityContext.mysqlUid }}
+          allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+          capabilities:
+            drop:
+            {{- toYaml .Values.containerSecurityContext.dropCapabilities | nindent 14 }}
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            value: {{ .Values.mysql.rootPassword | quote }}
+          - name: MYSQL_DATABASE
+            value: {{ .Values.mysql.database | quote }}
+          - name: MYSQL_USER
+            value: {{ .Values.mysql.user | quote }}
+          - name: MYSQL_PASSWORD
+            value: {{ .Values.mysql.userPassword | quote }}
+        ports:
+        - name: mysql
+          containerPort: {{ .Values.mysql.servicePort }}
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+        {{- if .Values.mysql.healthcheck.enabled }}
+        livenessProbe:
+          exec:
+            command: {{ .Values.mysql.healthcheck.command }}
+          initialDelaySeconds: {{ .Values.mysql.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.mysql.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.mysql.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.mysql.healthcheck.failureThreshold }}
+        readinessProbe:
+          exec:
+            command: {{ .Values.mysql.healthcheck.command }}
+          initialDelaySeconds: {{ .Values.mysql.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.mysql.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.mysql.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.mysql.healthcheck.failureThreshold }}
+        {{- end }}
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-data-{{ .Release.Name }}

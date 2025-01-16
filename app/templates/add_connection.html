@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Add Connection - Desktop Manager{% endblock %}
+
+{% block content %}
+<div class="header-with-button">
+    <h2>Add Connection</h2>
+    <a href="{{ url_for('view_connections') }}" class="button">Back to Connections</a>
+</div>
+
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+<div class="message">
+    {% for message in messages %}
+    <p>{{ message }}</p>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="form-container">
+    <form id="connection-form" method="post" onsubmit="handleSubmit(event)" action="{{ url_for('add_connection') }}">
+        <div class="form-group">
+            <label for="name">Connection Name:</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+        <div class="button-container">
+            <button type="submit" class="button" id="submit-button">Create Connection</button>
+        </div>
+    </form>
+    <div id="loading-container" style="display: none;">
+        <div class="loading-wave">
+            <div class="loading-bar"></div>
+            <div class="loading-bar"></div>
+            <div class="loading-bar"></div>
+            <div class="loading-bar"></div>
+        </div>
+        <div class="loading-text">Creating connection...</div>
+    </div>
+</div>
+
+<script>
+function handleSubmit(event) {
+    event.preventDefault();
+    
+    const form = document.getElementById('connection-form');
+    const loadingContainer = document.getElementById('loading-container');
+    
+    // Hide form and show loading animation
+    form.style.display = 'none';
+    loadingContainer.style.display = 'block';
+    
+    // Submit the form
+    form.submit();
+}
+</script>
+
+<style>
+.loading-text {
+    text-align: center;
+    margin-top: 1rem;
+    color: #3498db;
+    font-style: italic;
+    animation: fade 1.5s infinite;
+}
+
+.form-container {
+    max-width: 400px;
+    margin: 2rem auto;
+}
+</style>
+{% endblock %}

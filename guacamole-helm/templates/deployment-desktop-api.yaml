@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: desktop-api-{{ .Release.Name }}
+  labels:
+    {{- include "guacamole.labels" . | nindent 4 }}
+    component: desktop-api
+spec:
+  replicas: {{ .Values.desktopApi.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "desktop-api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "desktop-api.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: desktop-api
+        image: {{ .Values.desktopApi.image }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+        env:
+        {{- range $key, $value := .Values.desktopApi.env }}
+          - name: {{ $key }}
+            value: {{ $value | quote }}
+        {{- end }}
+          - name: RANCHER_API_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: desktop-api-{{ .Release.Name }}
+                key: rancher-token
+        ports:
+        - containerPort: {{ .Values.desktopApi.containerPort }}
+          name: http
+        {{- if .Values.desktopApi.healthcheck.enabled }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.desktopApi.healthcheck.path }}
+            port: http
+          initialDelaySeconds: {{ .Values.desktopApi.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.desktopApi.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.desktopApi.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.desktopApi.healthcheck.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.desktopApi.healthcheck.path }}
+            port: http
+          initialDelaySeconds: {{ .Values.desktopApi.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.desktopApi.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.desktopApi.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.desktopApi.healthcheck.failureThreshold }}
+        {{- end }}

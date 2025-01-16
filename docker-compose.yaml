@@ -1,0 +1,114 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"  # Using standard MySQL port
+    volumes:
+      - ./desktop-manager-api/guacamole-init.sql:/docker-entrypoint-initdb.d/01-guacamole-init.sql
+      - ./desktop-manager-api/guacamole-init-users.sql:/docker-entrypoint-initdb.d/02-guacamole-init-users.sql
+      - ./desktop-manager-api/init.sql:/docker-entrypoint-initdb.d/03-init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    command: --default-authentication-plugin=mysql_native_password --bind-address=0.0.0.0
+    networks:
+      - desktop-network
+
+  guacd:
+    image: guacamole/guacd
+    networks:
+      - desktop-network
+
+  guacamole:
+    image: guacamole/guacamole
+    environment:
+      MYSQL_HOSTNAME: mysql
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      GUACD_HOSTNAME: guacd
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8080:8080"  # Using standard Guacamole port
+    networks:
+      - desktop-network
+
+  desktop-api:
+    build:
+      context: ./desktop-manager-api
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - GUACAMOLE_API_URL=${GUACAMOLE_API_URL}
+      - GUACAMOLE_USERNAME=${GUACAMOLE_USERNAME}
+      - GUACAMOLE_PASSWORD=${GUACAMOLE_PASSWORD}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - RANCHER_API_TOKEN=${RANCHER_API_TOKEN}
+      - RANCHER_API_URL=${RANCHER_API_URL}
+      - RANCHER_CLUSTER_ID=${RANCHER_CLUSTER_ID}
+      - RANCHER_REPO_NAME=${RANCHER_REPO_NAME}
+      - NAMESPACE=${NAMESPACE}
+      - FLASK_ENV=development
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      mysql:
+        condition: service_healthy
+      guacamole:
+        condition: service_started
+    networks:
+      - desktop-network
+    restart: on-failure:3
+    healthcheck:
+      test: /healthcheck.sh
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  desktop-frontend:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - API_URL=http://desktop-api:5000
+      - GUACAMOLE_URL=http://guacamole:8080
+      - FLASK_ENV=development
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      desktop-api:
+        condition: service_healthy
+    networks:
+      - desktop-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  desktop-network:
+    driver: bridge
