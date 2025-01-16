@@ -134,7 +134,6 @@ Key configuration options in `values.yaml`:
 - Kubernetes cluster (for production)
 - Helm 3.x
 - Python 3.8+
-- Node.js 14+
 
 ### Building Images
 
