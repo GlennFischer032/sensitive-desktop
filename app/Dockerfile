@@ -10,11 +10,14 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first to leverage Docker cache
-COPY requirements.txt .
+# Copy pyproject.toml to leverage Docker cache
+COPY pyproject.toml ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt gunicorn
+# Install uv
+RUN pip install --no-cache-dir uv
+
+# Install Python dependencies using uv and pyproject.toml
+RUN uv pip install --system .
 
 # Copy application code
 COPY . .
@@ -28,6 +31,7 @@ USER 1000
 # Set environment variables
 ENV FLASK_APP=app.py
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # Expose port
 EXPOSE 5000

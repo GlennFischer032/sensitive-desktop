@@ -94,7 +94,7 @@ services:
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - API_URL=http://desktop-api:5000
-      - GUACAMOLE_URL=http://guacamole:8080
+      - GUACAMOLE_URL=${GUACAMOLE_URL}
       - FLASK_ENV=development
       - PYTHONUNBUFFERED=1
     depends_on:

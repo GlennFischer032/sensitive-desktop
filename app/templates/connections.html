@@ -5,18 +5,8 @@
 {% block content %}
 <div class="header-with-button">
     <h2>Connections</h2>
-    <a href="{{ url_for('add_connection') }}" class="button">Add Connection</a>
+    <a href="{{ url_for('connections.add_connection') }}" class="button">Add Connection</a>
 </div>
-
-{% with messages = get_flashed_messages() %}
-{% if messages %}
-<div class="message">
-    {% for message in messages %}
-    <p>{{ message }}</p>
-    {% endfor %}
-</div>
-{% endif %}
-{% endwith %}
 
 <div class="table-container">
     {% if connections %}
@@ -37,7 +27,7 @@
                 <td>{{ conn.created_by }}</td>
                 <td class="action-buttons">
                     <a href="{{ guacamole_url }}/{{ conn.guacamole_connection_id }}" target="_blank" class="action-button connect-button">Connect</a>
-                    <form action="{{ url_for('delete_connection', connection_name=conn.name) }}" method="post" 
+                    <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post" 
                           onsubmit="handleDelete(event, '{{ conn.name }}')">
                         <button type="submit" class="action-button delete-button">Delete</button>
                     </form>
@@ -88,6 +78,22 @@ async function handleDelete(event, connectionName) {
         });
 
         if (response.ok) {
+            // Show success notification
+            const notificationContainer = document.createElement('div');
+            notificationContainer.className = 'notification-container';
+            notificationContainer.innerHTML = `
+                <div class="notification success">
+                    Connection deleted successfully
+                </div>
+            `;
+            document.body.appendChild(notificationContainer);
+
+            // Remove notification after delay
+            setTimeout(() => {
+                notificationContainer.querySelector('.notification').style.opacity = '0';
+                setTimeout(() => notificationContainer.remove(), 300);
+            }, 3000);
+
             // Fade out and remove the row
             row.style.transition = 'opacity 0.5s';
             row.style.opacity = '0';
@@ -112,10 +118,5 @@ async function handleDelete(event, connectionName) {
 }
 </script>
 
-<style>
-.error-text {
-    color: #e74c3c;
-    font-style: italic;
-}
-</style>
+
 {% endblock %}

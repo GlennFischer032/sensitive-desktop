@@ -6,17 +6,41 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <div class="notification-container">
+        <div class="notification success">
+            {{ messages[0] }}
+        </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const notifications = document.querySelectorAll('.notification');
+        notifications.forEach(notification => {
+            // Trigger fade out after 3 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                // Remove the notification after animation completes
+                setTimeout(() => {
+                    notification.parentElement.remove();
+                }, 300);
+            }, 3000);
+        });
+    });
+    </script>
     {% if not hide_nav %}
     <div class="nav-container">
         <div class="nav-links">
             {% if session.get('is_admin') %}
-            <a href="{{ url_for('dashboard') }}">Dashboard</a>
-            <a href="{{ url_for('view_connections') }}">Connections</a>
-            <a href="{{ url_for('view_users') }}">Users</a>
+            <a href="{{ url_for('users.dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('connections.view_connections') }}">Connections</a>
+            <a href="{{ url_for('users.view_users') }}">Users</a>
             {% else %}
-            <a href="{{ url_for('view_connections') }}">Connections</a>
+            <a href="{{ url_for('connections.view_connections') }}">Connections</a>
             {% endif %}
-            <a href="{{ url_for('logout') }}">Logout</a>
+            <a href="{{ url_for('auth.logout') }}">Logout</a>
         </div>
     </div>
     {% endif %}

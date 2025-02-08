@@ -16,7 +16,7 @@
     {% endif %}
     {% endwith %}
 
-    <form method="post" action="{{ url_for('add_user') }}" id="user-form">
+    <form method="post" action="{{ url_for('users.add_user') }}" id="user-form">
         <div class="form-group">
             <label for="username">Username:</label>
             <input type="text" id="username" name="username" required>
@@ -50,7 +50,7 @@
 
         <div style="margin-top: 2rem; text-align: center;">
             <button type="submit" class="button" id="submit-btn">Add User</button>
-            <a href="{{ url_for('view_users') }}" class="button" style="margin-left: 1rem; background-color: #95a5a6;">Cancel</a>
+            <a href="{{ url_for('users.view_users') }}" class="button" style="margin-left: 1rem; background-color: #95a5a6;">Cancel</a>
         </div>
     </form>
 </div>

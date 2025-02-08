@@ -3,20 +3,10 @@
 {% block title %}Users - Desktop Manager{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center;">
+<div class="header-with-button">
     <h2>Users</h2>
-    <a href="{{ url_for('add_user') }}" class="button">Add User</a>
+    <a href="{{ url_for('users.add_user') }}" class="button">Add User</a>
 </div>
-
-{% with messages = get_flashed_messages() %}
-{% if messages %}
-<div class="message">
-    {% for message in messages %}
-    <p>{{ message }}</p>
-    {% endfor %}
-</div>
-{% endif %}
-{% endwith %}
 
 <div class="table-container">
     {% if users %}
@@ -31,12 +21,12 @@
         </thead>
         <tbody>
             {% for user in users %}
-            <tr>
+            <tr id="user-{{ user.username }}">
                 <td>{{ user.username }}</td>
                 <td>{{ 'Admin' if user.is_admin else 'User' }}</td>
                 <td>{{ user.lastActive or 'Never' }}</td>
                 <td class="action-buttons">
-                    <form action="{{ url_for('delete_user', username=user.username) }}" method="post" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this user?');">
+                    <form action="{{ url_for('users.delete_user', username=user.username) }}" method="post" onsubmit="handleDelete(event, '{{ user.username }}')">
                         <button type="submit" class="action-button delete-button">Delete</button>
                     </form>
                 </td>
@@ -50,4 +40,79 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+async function handleDelete(event, username) {
+    event.preventDefault();
+    
+    if (!confirm('Are you sure you want to delete this user?')) {
+        return;
+    }
+
+    const form = event.target;
+    const row = document.getElementById(`user-${username}`);
+    const actionButtons = row.querySelector('.action-buttons');
+    
+    // Replace button with loading animation
+    actionButtons.innerHTML = `
+        <span class="deleting-text">Deleting</span>
+        <div class="loading-dots">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+        </div>
+    `;
+    
+    row.classList.add('deleting-row');
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            // Show success notification
+            const notificationContainer = document.createElement('div');
+            notificationContainer.className = 'notification-container';
+            notificationContainer.innerHTML = `
+                <div class="notification success">
+                    User deleted successfully
+                </div>
+            `;
+            document.body.appendChild(notificationContainer);
+
+            // Remove notification after delay
+            setTimeout(() => {
+                notificationContainer.querySelector('.notification').style.opacity = '0';
+                setTimeout(() => notificationContainer.remove(), 300);
+            }, 3000);
+
+            // Fade out and remove the row
+            row.style.transition = 'opacity 0.5s';
+            row.style.opacity = '0';
+            setTimeout(() => {
+                row.remove();
+                // If this was the last row, show the empty state
+                const tbody = document.querySelector('tbody');
+                if (!tbody.hasChildNodes()) {
+                    location.reload();
+                }
+            }, 500);
+        } else {
+            const error = await response.text();
+            throw new Error(error);
+        }
+    } catch (error) {
+        actionButtons.innerHTML = `
+            <span class="error-text">Error: ${error.message}</span>
+            <button onclick="location.reload()" class="action-button">Retry</button>
+        `;
+    }
+}
+</script>
+
 {% endblock %}

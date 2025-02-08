@@ -370,3 +370,77 @@ tr:hover {
         text-align: center;
     }
 }
+
+/* Dashboard and Cards */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.dashboard-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Header Layouts */
+.header-with-button {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Status and Loading States */
+.error-text {
+    color: #e74c3c;
+    font-style: italic;
+}
+
+.loading-text {
+    text-align: center;
+    margin-top: 1rem;
+    color: #3498db;
+    font-style: italic;
+    animation: fade 1.5s infinite;
+}
+
+/* Form Layouts */
+.form-container {
+    max-width: 400px;
+    margin: 2rem auto;
+}
+
+/* Notifications */
+.notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.notification {
+    background: white;
+    padding: 1rem 2rem;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    margin-bottom: 10px;
+    transform: translateX(100%);
+    opacity: 0;
+    animation: slideIn 0.3s ease forwards;
+    transition: opacity 0.3s ease;
+}
+
+.notification.success {
+    border-left: 4px solid #2ecc71;
+    color: #27ae60;
+}
+
+@keyframes slideIn {
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}

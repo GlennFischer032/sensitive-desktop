@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "desktop-manager-api"
+version = "0.1.0"
+description = "Desktop Manager API"
+authors = [{name = "Glenn"}]
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0.0",
+    "pyjwt>=2.8.0",
+    "pyyaml>=6.0.1",
+    "requests>=2.31.0",
+    "sqlalchemy>=2.0.25",
+    "werkzeug>=3.0.0",
+    "flasgger>=0.9.7.1",
+    "pymysql>=1.1.0",
+    "cryptography>=41.0.0",
+    "gunicorn>=21.2.0",
+    "flask-cors>=4.0.0"
+]
+
+[tool.setuptools]
+packages = {find = {where = ["."]}}

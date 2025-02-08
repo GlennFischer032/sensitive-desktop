@@ -5,7 +5,7 @@
 {% block content %}
 <div class="header-with-button">
     <h2>Add Connection</h2>
-    <a href="{{ url_for('view_connections') }}" class="button">Back to Connections</a>
+    <a href="{{ url_for('connections.view_connections') }}" class="button">Back to Connections</a>
 </div>
 
 {% with messages = get_flashed_messages() %}
@@ -19,10 +19,10 @@
 {% endwith %}
 
 <div class="form-container">
-    <form id="connection-form" method="post" onsubmit="handleSubmit(event)" action="{{ url_for('add_connection') }}">
+    <form id="connection-form" method="post" onsubmit="handleSubmit(event)" action="{{ url_for('connections.add_connection') }}">
         <div class="form-group">
             <label for="name">Connection Name:</label>
-            <input type="text" id="name" name="name" required>
+            <input type="text" id="name" name="connection_name" required>
         </div>
         <div class="button-container">
             <button type="submit" class="button" id="submit-button">Create Connection</button>
@@ -55,18 +55,5 @@ function handleSubmit(event) {
 }
 </script>
 
-<style>
-.loading-text {
-    text-align: center;
-    margin-top: 1rem;
-    color: #3498db;
-    font-style: italic;
-    animation: fade 1.5s infinite;
-}
 
-.form-container {
-    max-width: 400px;
-    margin: 2rem auto;
-}
-</style>
 {% endblock %}

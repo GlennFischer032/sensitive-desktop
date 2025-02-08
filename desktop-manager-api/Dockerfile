@@ -15,11 +15,14 @@ RUN apt-get update && apt-get install -y \
 RUN groupadd -g 1000 appuser && \
     useradd -u 1000 -g appuser -s /bin/bash -m appuser
 
-# Copy requirements first to leverage Docker cache
-COPY requirements.txt .
+# Copy pyproject.toml to leverage Docker cache
+COPY pyproject.toml ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install uv
+RUN pip install --no-cache-dir uv
+
+# Install Python dependencies using uv and pyproject.toml
+RUN uv pip install --system .
 
 # Copy application code
 COPY . .
