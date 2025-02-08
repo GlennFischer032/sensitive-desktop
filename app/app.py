@@ -241,14 +241,19 @@ def view_connections():
             if not session.get('is_admin'):
                 connections = [conn for conn in connections if conn.get('created_by') == session.get('username')]
             app.logger.info(f"Found {len(connections)} connections")
-            return render_template('connections.html', connections=connections)
+            app.logger.info(f"Rendering template with GUACAMOLE_URL: {GUACAMOLE_URL}")
+            app.logger.info(f"GUACAMOLE_URL type: {type(GUACAMOLE_URL)}")
+            app.logger.info(f"GUACAMOLE_URL repr: {repr(GUACAMOLE_URL)}")
+            for conn in connections:
+                app.logger.info(f"Connection: {conn}")
+            return render_template('connections.html', connections=connections, guacamole_url=GUACAMOLE_URL+'/guacamole/#/client/')
         else:
             flash('Failed to fetch connections')
-            return render_template('connections.html', connections=[])
+            return render_template('connections.html', connections=[], guacamole_url=GUACAMOLE_URL)
     except Exception as e:
         app.logger.error(f"Error fetching connections: {str(e)}")
         flash(f'Error fetching connections: {str(e)}')
-        return render_template('connections.html', connections=[])
+        return render_template('connections.html', connections=[], guacamole_url=GUACAMOLE_URL)
 
 @app.route('/connections/add', methods=['GET', 'POST'])
 @login_required

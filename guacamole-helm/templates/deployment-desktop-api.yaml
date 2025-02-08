@@ -17,17 +17,60 @@ spec:
     spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+      - name: wait-for-mysql
+        image: mysql:8.0
+        command: ['sh', '-c', 'until mysqladmin ping -h mysql-{{ .Release.Name }} -u root -p{{ .Values.mysql.rootPassword }}; do echo waiting for mysql; sleep 2; done;']
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
       containers:
       - name: desktop-api
         image: {{ .Values.desktopApi.image }}
         imagePullPolicy: IfNotPresent
         securityContext:
-          {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          {{- toYaml .Values.desktopApi.securityContext | nindent 12 }}
         env:
-        {{- range $key, $value := .Values.desktopApi.env }}
-          - name: {{ $key }}
-            value: {{ $value | quote }}
-        {{- end }}
+          - name: ADMIN_PASSWORD
+            value: {{ .Values.desktopApi.env.ADMIN_PASSWORD | quote }}
+          - name: ADMIN_USERNAME
+            value: {{ .Values.desktopApi.env.ADMIN_USERNAME | quote }}
+          - name: FLASK_APP
+            value: {{ .Values.desktopApi.env.FLASK_APP | quote }}
+          - name: FLASK_ENV
+            value: {{ .Values.desktopApi.env.FLASK_ENV | quote }}
+          - name: GUACAMOLE_API_URL
+            value: "http://guacamole-{{ .Release.Name }}/guacamole/api"
+          - name: GUACAMOLE_PASSWORD
+            value: {{ .Values.guacamole.adminPassword | quote }}
+          - name: GUACAMOLE_USERNAME
+            value: {{ .Values.guacamole.adminUser | quote }}
+          - name: MYSQL_DATABASE
+            value: {{ .Values.mysql.desktopDatabase | quote }}
+          - name: MYSQL_HOST
+            value: "mysql-{{ .Release.Name }}"
+          - name: MYSQL_PASSWORD
+            value: {{ .Values.mysql.userPassword | quote }}
+          - name: MYSQL_PORT
+            value: {{ .Values.mysql.servicePort | quote }}
+          - name: MYSQL_USER
+            value: {{ .Values.mysql.user | quote }}
+          - name: NAMESPACE
+            value: {{ .Release.Namespace | quote }}
+          - name: PYTHONUNBUFFERED
+            value: {{ .Values.desktopApi.env.PYTHONUNBUFFERED | quote }}
+          - name: RANCHER_API_URL
+            value: {{ .Values.desktopApi.env.RANCHER_API_URL | quote }}
+          - name: RANCHER_CLUSTER_ID
+            value: {{ .Values.desktopApi.env.RANCHER_CLUSTER_ID | quote }}
+          - name: RANCHER_REPO_NAME
+            value: {{ .Values.desktopApi.env.RANCHER_REPO_NAME | quote }}
+          - name: SECRET_KEY
+            value: {{ .Values.desktopApi.env.SECRET_KEY | quote }}
           - name: RANCHER_API_TOKEN
             valueFrom:
               secretKeyRef:

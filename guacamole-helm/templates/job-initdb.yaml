@@ -20,16 +20,29 @@ spec:
 {{- if .Values.podSecurityContext }}
 {{ toYaml .Values.podSecurityContext | indent 8 }}
 {{- end }}
+      initContainers:
+      - name: wait-for-mysql
+        image: mysql:8.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+        command: ['sh', '-c', 'until mysqladmin ping -h mysql-{{ .Release.Name }} -u root -p{{ .Values.mysql.rootPassword }}; do echo waiting for mysql; sleep 2; done;']
       containers:
       - name: guacamole-init
         image: "{{ .Values.mysql.initdbImage }}"
         imagePullPolicy: IfNotPresent
         securityContext:
-          runAsUser: {{ .Values.containerSecurityContext.guacamoleUid }}
-          allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
           capabilities:
             drop:
-{{ toYaml .Values.containerSecurityContext.dropCapabilities | indent 14 }}
+              - ALL
         command: ["/bin/sh"]
         args:
           - "-c"

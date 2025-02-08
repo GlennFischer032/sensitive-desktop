@@ -22,7 +22,7 @@ spec:
         image: {{ .Values.desktopFrontend.image }}
         imagePullPolicy: IfNotPresent
         securityContext:
-          {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          {{- toYaml .Values.desktopFrontend.securityContext | nindent 12 }}
         env:
         {{- range $key, $value := .Values.desktopFrontend.env }}
           - name: {{ $key }}

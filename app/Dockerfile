@@ -10,10 +10,6 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -g 1000 appuser && \
-    useradd -u 1000 -g appuser -s /bin/bash -m appuser
-
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
 
@@ -24,10 +20,10 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn
 COPY . .
 
 # Set ownership to non-root user
-RUN chown -R appuser:appuser /app
+RUN chown -R 1000:1000 /app
 
 # Switch to non-root user
-USER appuser
+USER 1000
 
 # Set environment variables
 ENV FLASK_APP=app.py

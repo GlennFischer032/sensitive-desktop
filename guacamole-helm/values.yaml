@@ -21,16 +21,26 @@ containerSecurityContext:
   # Disallow privilege escalation, drop all capabilities
   allowPrivilegeEscalation: false
   dropCapabilities: ["ALL"]
+  capabilities:
+    drop:
+      - ALL
 
 #####################################################
 # Desktop Manager API values
 #####################################################
 desktopApi:
   replicaCount: 1
-  image: "glennfischer032/desktop-manager-api:latest"
+  image: "glennfischer032/desktop-manager-api:test"
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
   containerPort: 5000  # Port the container listens on
   servicePort: 80
-  rancherToken: ""  # Set this via helm install --set desktopApi.rancherToken=<token>
+  rancherToken: "token-z5fcl:bctltsf8v4vchr5qln4rsbbqtg6sv2fq5vfg2h8tplbbzw6h74xwvx"  # Set this via helm install --set desktopApi.rancherToken=<token>
   healthcheck:
     enabled: true
     path: /api/health
@@ -52,7 +62,7 @@ desktopApi:
     GUACAMOLE_PASSWORD: "{{ .Values.guacamole.adminPassword }}"
     ADMIN_USERNAME: "admin"
     ADMIN_PASSWORD: "admin123"
-    RANCHER_API_TOKEN: ""  # Set this via helm install --set desktopApi.env.RANCHER_API_TOKEN=<token>
+    RANCHER_API_TOKEN: "token-z5fcl:bctltsf8v4vchr5qln4rsbbqtg6sv2fq5vfg2h8tplbbzw6h74xwvx"  # Set this via helm install --set desktopApi.env.RANCHER_API_TOKEN=<token>
     RANCHER_API_URL: "https://rancher.cloud.e-infra.cz"
     RANCHER_CLUSTER_ID: "c-m-qvndqhf6"
     RANCHER_REPO_NAME: "cerit-sc"
@@ -66,7 +76,14 @@ desktopApi:
 #####################################################
 desktopFrontend:
   replicaCount: 1
-  image: "glennfischer032/desktop-manager-frontend:latest"
+  image: "glennfischer032/desktop-manager-frontend:test"
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
   containerPort: 5000  # Port the container listens on
   servicePort: 80
   healthcheck:
@@ -78,9 +95,8 @@ desktopFrontend:
     failureThreshold: 3
   env:
     SECRET_KEY: "dev_secret_key_123"
-    # Using ingress URLs for API and Guacamole
-    API_URL: "https://{{ include \"desktop-manager.hostname\" . }}/api"
-    GUACAMOLE_URL: "https://{{ include \"guacamole.hostname\" . }}"
+    API_URL: http://desktop-api-guacamole:80
+    GUACAMOLE_URL: "https://guacamole-fischer-ns.dyn.cloud.e-infra.cz"
     FLASK_APP: "app.py"
     FLASK_ENV: "production"
     PYTHONUNBUFFERED: "1"
@@ -107,9 +123,9 @@ mysql:
     size: 1Gi
   healthcheck:
     enabled: true
-    command: ["mysqladmin", "ping", "-h", "localhost"]
-    initialDelaySeconds: 10
-    periodSeconds: 5
+    command: ["mysql", "-h", "localhost", "-u", "root", "-p'rootpass'", "-e", "SELECT 1"]
+    initialDelaySeconds: 30
+    periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 5
 

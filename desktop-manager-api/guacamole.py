@@ -206,45 +206,35 @@ def create_guacamole_connection(token, connection_name, ip_address, password, da
         "protocol": "vnc",
         "parameters": {
             "hostname": hostname,
-            "port": str(port),  # Convert port to string
-            "password": str(password)  # Convert password to string as well
+            "port": str(port),
+            "password": str(password),
+            "username": "",  # Add empty username for VNC auth
+            "security": "vnc",  # Explicitly set VNC security type
+            "ignore-cert": "true",  # Ignore certificate verification
+            "clipboard-encoding": "UTF-8",
+            "disable-copy": "true",
+            "disable-paste": "true",
+            "recording-exclude-output": "true",
+            "recording-exclude-mouse": "true",
+            "recording-include-keys": "",
+            "create-recording-path": "",
+            "enable-sftp": "",
+            "sftp-disable-download": "true",
+            "sftp-disable-upload": "true",
+            "enable-audio": "false",
+            "color-depth": "24",  # Set color depth explicitly
+            "swap-red-blue": "",
+            "cursor": "local",  # Use local cursor
+            "force-lossless": ""
         },
         "attributes": {
-            "max-connections": "",
-            "max-connections-per-user": "",
+            "max-connections": "1",
+            "max-connections-per-user": "1",
             "weight": "",
             "failover-only": "",
             "guacd-port": "",
             "guacd-encryption": "",
-            "enable-sftp": "",
-            "sftp-root-directory": "",
-            "sftp-server-alive-interval": "",
-            "sftp-username": "",
-            "sftp-password": "",
-            "sftp-private-key": "",
-            "sftp-passphrase": "",
-            "sftp-host-key": "",
-            "recording-exclude-output": "",
-            "recording-exclude-mouse": "",
-            "recording-exclude-touch": "",
-            "recording-exclude-audio": "",
-            "recording-exclude-video": "",
-            "recording-include-output": "",
-            "recording-include-mouse": "",
-            "recording-include-touch": "",
-            "recording-include-audio": "",
-            "recording-include-video": "",
-            "enable-audio": "",
-            "audio-servername": "",
-            "enable-printing": "",
-            "enable-clipboard": "",
-            "create-drive-path": "",
-            "disable-copy": "",
-            "disable-paste": "",
-            "read-only": "",
-            "disable-audio": "",
-            "enable-audio-input": "",
-            "shared": "true"
+            "guacd-hostname": ""
         }
     }
 

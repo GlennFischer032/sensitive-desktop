@@ -51,14 +51,28 @@ spec:
         {{- if .Values.mysql.healthcheck.enabled }}
         livenessProbe:
           exec:
-            command: {{ .Values.mysql.healthcheck.command }}
+            command:
+              - mysqladmin
+              - ping
+              - -h
+              - localhost
+              - -u
+              - root
+              - -p{{ .Values.mysql.rootPassword }}
           initialDelaySeconds: {{ .Values.mysql.healthcheck.initialDelaySeconds }}
           periodSeconds: {{ .Values.mysql.healthcheck.periodSeconds }}
           timeoutSeconds: {{ .Values.mysql.healthcheck.timeoutSeconds }}
           failureThreshold: {{ .Values.mysql.healthcheck.failureThreshold }}
         readinessProbe:
           exec:
-            command: {{ .Values.mysql.healthcheck.command }}
+            command:
+              - mysqladmin
+              - ping
+              - -h
+              - localhost
+              - -u
+              - root
+              - -p{{ .Values.mysql.rootPassword }}
           initialDelaySeconds: {{ .Values.mysql.healthcheck.initialDelaySeconds }}
           periodSeconds: {{ .Values.mysql.healthcheck.periodSeconds }}
           timeoutSeconds: {{ .Values.mysql.healthcheck.timeoutSeconds }}
