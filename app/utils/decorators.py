@@ -8,7 +8,7 @@ def login_required(f):
         token = session.get('token')
         if not token:
             current_app.logger.info("No token found in session, redirecting to login")
-            return redirect(url_for('login'))
+            return redirect(url_for('auth.login'))
         try:
             current_app.logger.info(f"Attempting to decode token with secret key: {current_app.config['SECRET_KEY'][:5]}...")
             decoded = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
@@ -18,12 +18,12 @@ def login_required(f):
             current_app.logger.info("Token expired, redirecting to login")
             session.clear()
             flash('Session expired. Please log in again.')
-            return redirect(url_for('login'))
+            return redirect(url_for('auth.login'))
         except jwt.InvalidTokenError:
             current_app.logger.info("Invalid token, redirecting to login")
             session.clear()
             flash('Invalid token. Please log in again.')
-            return redirect(url_for('login'))
+            return redirect(url_for('auth.login'))
     return decorated_function
 
 def admin_required(f):
