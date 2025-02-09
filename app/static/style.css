@@ -444,3 +444,50 @@ tr:hover {
         opacity: 1;
     }
 }
+
+/* Error Pages */
+.error-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+    padding: 2rem;
+}
+
+.error-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    max-width: 500px;
+    width: 100%;
+}
+
+.error-content h1 {
+    color: #2c3e50;
+    margin-bottom: 1.5rem;
+    font-size: 2rem;
+}
+
+.error-message {
+    margin-bottom: 2rem;
+    color: #34495e;
+}
+
+.error-message p {
+    margin-bottom: 1rem;
+}
+
+.error-details {
+    font-family: monospace;
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-top: 1rem;
+}
+
+.retry-info {
+    color: #e74c3c;
+    font-weight: bold;
+}

@@ -1,23 +1,41 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=42.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "desktop-frontend"
+name = "desktop_frontend"
 version = "0.1.0"
 description = "Desktop Manager Frontend"
 authors = [{name = "Glenn"}]
 requires-python = ">=3.11"
 dependencies = [
-    "flask==3.0.0",
-    "pyotp==2.8.0",
-    "werkzeug==3.0.0",
-    "qrcode==7.3.1",
-    "pillow==10.0.1",
-    "requests==2.31.0",
-    "pyjwt==2.8.0",
-    "gunicorn==23.0.0"
+    "flask",
+    "flask-cors",
+    "gunicorn",
+    "requests",
+    "pydantic",
+    "pydantic-settings",
+    "werkzeug",
+    "PyJWT",
+    # Security dependencies
+    "flask-talisman",
+    "flask-seasurf",
+    "flask-limiter",
+    "bleach",
+    "email-validator",
+    "itsdangerous",
+    "pyOpenSSL"
 ]
 
-[tool.setuptools]
-packages = {find = {where = ["."]}}
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+exclude = ["tests*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3

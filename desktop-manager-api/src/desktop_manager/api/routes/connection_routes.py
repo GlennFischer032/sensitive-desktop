@@ -1,10 +1,17 @@
-import os
 from flask import Blueprint, request, jsonify
-from auth import token_required, admin_required
-from database import get_db
-from models import Connection
-from utils import sanitize_name, generate_unique_connection_name, generate_random_string
-from guacamole import (
+from typing import List, Dict, Any, Optional
+from desktop_manager.core.auth import token_required, admin_required
+from desktop_manager.api.models.base import get_db
+from desktop_manager.api.models.connection import Connection
+from desktop_manager.api.schemas.connection import (
+    ConnectionCreate,
+    ConnectionResponse,
+    ConnectionList,
+    ConnectionScaleUp,
+    ConnectionScaleDown
+)
+from desktop_manager.utils.utils import sanitize_name, generate_unique_connection_name, generate_random_string
+from desktop_manager.core.guacamole import (
     guacamole_login,
     ensure_admins_group,
     create_guacamole_connection,
@@ -12,82 +19,91 @@ from guacamole import (
     grant_group_permission_on_connection,
     delete_guacamole_connection
 )
-from rancher import RancherAPI, DesktopValues
-from config import Config
+from desktop_manager.core.rancher import RancherAPI, DesktopValues
+from desktop_manager.config.settings import get_settings
 import yaml
 from sqlalchemy.exc import IntegrityError
 import logging
+from http import HTTPStatus
 
 connections_bp = Blueprint('connections_bp', __name__)
 
 @connections_bp.route('/scaleup', methods=['POST'])
 @token_required
-def scale_up():
-    logging.info(f"=== Received request to /scaleup ===")
+def scale_up() -> tuple[Dict[str, Any], int]:
+    """
+    Scale up a new desktop connection.
+    
+    This endpoint creates a new desktop connection by:
+    1. Validating the input data
+    2. Creating a Rancher deployment
+    3. Setting up a Guacamole connection
+    4. Storing the connection details in the database
+    
+    Returns:
+        tuple: A tuple containing:
+            - Dict with connection details or error message
+            - HTTP status code
+    """
+    logging.info("=== Received request to /scaleup ===")
     logging.info(f"Request path: {request.path}")
     logging.info(f"Request method: {request.method}")
     logging.info(f"Request headers: {request.headers}")
+    
     db_session = next(get_db())
     try:
+        # Validate input data using Pydantic
         data = request.get_json()
-        logging.info(f"Received scale up request with data: {data}")
-        base_name = data.get('name')
-        if not base_name:
-            return jsonify({'error': 'Name is required'}), 400
-
+        scale_up_data = ConnectionScaleUp(**data)
+        
         # Sanitize and generate unique name
-        base_name = sanitize_name(base_name)
+        base_name = sanitize_name(scale_up_data.name)
         logging.info(f"Sanitized base name: {base_name}")
         name = generate_unique_connection_name(base_name, db_session)
         logging.info(f"Generated unique name: {name}")
 
         # Create Rancher API client
         logging.info("Creating Rancher API client...")
+        settings = get_settings()
         rancher_api = RancherAPI(
-            Config.RANCHER_API_URL,
-            Config.RANCHER_API_TOKEN,
-            Config.RANCHER_CLUSTER_ID,
-            Config.RANCHER_REPO_NAME,
-            Config.NAMESPACE
+            settings.RANCHER_API_URL,
+            settings.RANCHER_API_TOKEN,
+            settings.RANCHER_CLUSTER_ID,
+            settings.RANCHER_REPO_NAME,
+            settings.NAMESPACE
         )
 
-        # Generate a unique connection ID and a strong VNC password
+        # Generate connection details
         connection_id = generate_random_string()
-        vnc_password = generate_random_string(32)  # 32 characters for strong security
+        vnc_password = generate_random_string(32)
         logging.info(f"Generated connection ID: {connection_id}")
 
-        # Install the Helm chart with the VNC password
+        # Install the Helm chart
         logging.info("Installing Helm chart...")
         try:
-            # Update DesktopValues to include VNC password
             values = DesktopValues(
                 name=name,
-                image=Config.DESKTOP_IMAGE,
+                image=settings.DESKTOP_IMAGE,
                 imagePullPolicy="Always",
                 serviceType="NodePort",
-                vncPassword=vnc_password  # Pass the VNC password to the desktop
+                vncPassword=vnc_password
             )
             
-            response = rancher_api.install_chart(name, Config.NAMESPACE, values)
+            response = rancher_api.install_chart(name, settings.NAMESPACE, values)
             logging.info(f"Install chart response: {response.text}")
-            if response.status_code >= 400:
+            if response.status_code >= HTTPStatus.BAD_REQUEST:
                 raise Exception(f"Failed to install chart: {response.text}")
             
-            # Get operation details from response
             operation_data = response.json()
             logging.info(f"Operation data: {operation_data}")
-            operation_name = operation_data.get('operationName')
-            operation_namespace = operation_data.get('operationNamespace')
-            logging.info(f"Operation name: {operation_name}, namespace: {operation_namespace}")
             
-            # Generate VNC URL using the Rancher namespace and release name
-            ip_address = f"{Config.NAMESPACE}-{name}.dyn.cloud.e-infra.cz:5900"
+            ip_address = f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz:5900"
             logging.info(f"Using VNC URL: {ip_address}")
         except Exception as e:
             logging.error(f"Failed to install Helm chart: {str(e)}")
             raise
 
-        # Create Guacamole connection with the same VNC password
+        # Create Guacamole connection
         logging.info("Logging into Guacamole...")
         guacamole_token = guacamole_login()
         logging.info("Ensuring admins group...")
@@ -98,14 +114,13 @@ def scale_up():
                 guacamole_token,
                 name,
                 ip_address,
-                vnc_password  # Use the same VNC password for Guacamole
+                vnc_password
             )
             logging.info(f"Created Guacamole connection with ID: {guacamole_connection_id}")
         except Exception as e:
             logging.error(f"Failed to create Guacamole connection: {str(e)}")
-            # Clean up Rancher resources on failure
             try:
-                rancher_api.uninstall_chart(name, Config.NAMESPACE)
+                rancher_api.uninstall_chart(name, settings.NAMESPACE)
                 logging.info("Cleaned up Rancher resources after Guacamole connection failure")
             except Exception as cleanup_error:
                 logging.error(f"Failed to clean up Rancher resources: {cleanup_error}")
@@ -128,9 +143,8 @@ def scale_up():
             logging.info(f"Granted user permissions to {request.current_user.username}")
         except Exception as e:
             logging.error(f"Failed to grant permissions: {str(e)}")
-            # Clean up Rancher and Guacamole resources on failure
             try:
-                rancher_api.uninstall_chart(name, Config.NAMESPACE)
+                rancher_api.uninstall_chart(name, settings.NAMESPACE)
                 delete_guacamole_connection(guacamole_token, guacamole_connection_id)
                 logging.info("Cleaned up resources after permission failure")
             except Exception as cleanup_error:
@@ -143,16 +157,30 @@ def scale_up():
             new_connection = Connection(
                 name=name,
                 created_by=request.current_user.username,
-                guacamole_connection_id=str(guacamole_connection_id)  # Convert to string
+                guacamole_connection_id=str(guacamole_connection_id)
             )
             db_session.add(new_connection)
             db_session.commit()
             logging.info("Connection created in database successfully")
+            
+            # Create response using Pydantic model
+            response_data = ConnectionResponse(
+                id=new_connection.id,
+                name=new_connection.name,
+                created_by=new_connection.created_by,
+                created_at=new_connection.created_at,
+                guacamole_connection_id=new_connection.guacamole_connection_id
+            )
+            
+            return jsonify({
+                'message': 'Connection scaled up successfully',
+                'connection': response_data.model_dump()
+            }), HTTPStatus.OK
+
         except Exception as e:
             logging.error(f"Failed to create database entry: {str(e)}")
-            # Clean up all resources on database failure
             try:
-                rancher_api.uninstall_chart(name, Config.NAMESPACE)
+                rancher_api.uninstall_chart(name, settings.NAMESPACE)
                 delete_guacamole_connection(guacamole_token, guacamole_connection_id)
                 logging.info("Cleaned up resources after database failure")
             except Exception as cleanup_error:
@@ -160,20 +188,10 @@ def scale_up():
             db_session.rollback()
             raise
 
-        return jsonify({
-            'message': 'Connection scaled up successfully',
-            'connection': {
-                'name': name,
-                'created_by': request.current_user.username,
-                'created_at': new_connection.created_at.isoformat(),
-                'guacamole_connection_id': str(guacamole_connection_id)  # Convert to string
-            }
-        }), 200
-
     except Exception as e:
         logging.error(f"Error in scale_up: {str(e)}")
         db_session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
     finally:
         db_session.close()
 
@@ -228,16 +246,17 @@ def scale_down():
             return jsonify({'error': 'Connection not found'}), 404
 
         # Create Rancher API client
+        settings = get_settings()
         rancher_api = RancherAPI(
-            Config.RANCHER_API_URL,
-            Config.RANCHER_API_TOKEN,
-            Config.RANCHER_CLUSTER_ID,
-            Config.RANCHER_REPO_NAME,
-            Config.NAMESPACE
+            settings.RANCHER_API_URL,
+            settings.RANCHER_API_TOKEN,
+            settings.RANCHER_CLUSTER_ID,
+            settings.RANCHER_REPO_NAME,
+            settings.NAMESPACE
         )
 
         # Uninstall Helm chart
-        rancher_api.uninstall_chart(name, Config.NAMESPACE)
+        rancher_api.uninstall_chart(name, settings.NAMESPACE)
 
         # Delete Guacamole connection
         guacamole_token = guacamole_login()
@@ -257,37 +276,19 @@ def scale_down():
 
 @connections_bp.route('/list', methods=['GET'])
 @token_required
-def list_connections():
+def list_connections() -> tuple[Dict[str, Any], int]:
     """
-    List all connections
-    ---
-    tags:
-      - connections
-    responses:
-      200:
-        description: List of connections
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                connections:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      name:
-                        type: string
-                      created_at:
-                        type: string
-                      created_by:
-                        type: string
-                      guacamole_connection_id:
-                        type: string
-      500:
-        description: Internal server error
+    List all connections.
+    
+    Returns a list of all connections in the system, including their details
+    such as name, creation time, creator, and Guacamole connection ID.
+    
+    Returns:
+        tuple: A tuple containing:
+            - Dict with list of connections or error message
+            - HTTP status code
     """
-    logging.info(f"=== Received request to /list ===")
+    logging.info("=== Received request to /list ===")
     logging.info(f"Request path: {request.path}")
     logging.info(f"Request method: {request.method}")
     logging.info(f"Request headers: {request.headers}")
@@ -295,19 +296,25 @@ def list_connections():
     db_session = next(get_db())
     try:
         connections = db_session.query(Connection).all()
-        result = {
-            'connections': [{
-                'name': c.name,
-                'created_at': c.created_at.isoformat(),
-                'created_by': c.created_by,
-                'guacamole_connection_id': c.guacamole_connection_id
-            } for c in connections]
-        }
+        
+        # Create response using Pydantic model
+        response_data = ConnectionList(
+            connections=[
+                ConnectionResponse(
+                    id=c.id,
+                    name=c.name,
+                    created_at=c.created_at,
+                    created_by=c.created_by,
+                    guacamole_connection_id=c.guacamole_connection_id
+                ) for c in connections
+            ]
+        )
+        
         logging.info(f"Found {len(connections)} connections")
-        return jsonify(result), 200
+        return jsonify(response_data.model_dump()), HTTPStatus.OK
     except Exception as e:
         logging.error(f"Error listing connections: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
     finally:
         db_session.close()
 

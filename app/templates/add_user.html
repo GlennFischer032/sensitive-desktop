@@ -6,30 +6,47 @@
 <div style="max-width: 600px; margin: 0 auto;">
     <h2>Add New User</h2>
 
-    {% with messages = get_flashed_messages() %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-    <div class="message error">
-        {% for message in messages %}
-        <p>{{ message }}</p>
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}" style="padding: 1rem; margin-bottom: 1rem; border-radius: 4px; 
+            {% if category == 'error' %}background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2;{% endif %}
+            {% if category == 'success' %}background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;{% endif %}
+            {% if category == 'warning' %}background-color: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2;{% endif %}">
+            <p style="margin: 0;">{{ message }}</p>
+        </div>
         {% endfor %}
-    </div>
     {% endif %}
     {% endwith %}
+
+    <div class="requirements-box" style="background-color: #e3f2fd; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; border: 1px solid #bbdefb;">
+        <h4 style="margin-top: 0; color: #1976d2;">Requirements:</h4>
+        <ul style="margin-bottom: 0; color: #2196f3;">
+            <li>Username must be at least 3 characters long</li>
+            <li>Password must be at least 8 characters long</li>
+            <li>Password must contain at least one uppercase letter</li>
+            <li>Password must contain at least one lowercase letter</li>
+            <li>Password must contain at least one number</li>
+        </ul>
+    </div>
 
     <form method="post" action="{{ url_for('users.add_user') }}" id="user-form">
         <div class="form-group">
             <label for="username">Username:</label>
-            <input type="text" id="username" name="username" required>
+            <input type="text" id="username" name="username" required minlength="3">
+            <small class="error-message" id="username-error" style="color: #c62828; display: none;"></small>
         </div>
 
         <div class="form-group">
             <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
+            <input type="password" id="password" name="password" required minlength="8">
+            <small class="error-message" id="password-error" style="color: #c62828; display: none;"></small>
         </div>
 
         <div class="form-group">
             <label for="confirm_password">Confirm Password:</label>
-            <input type="password" id="confirm_password" name="confirm_password" required>
+            <input type="password" id="confirm_password" name="confirm_password" required minlength="8">
+            <small class="error-message" id="confirm-password-error" style="color: #c62828; display: none;"></small>
         </div>
 
         <div class="form-group">
@@ -61,15 +78,65 @@
 document.getElementById('user-form').addEventListener('submit', function(e) {
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirm_password').value;
+    const username = document.getElementById('username').value;
 
-    if (password !== confirmPassword) {
+    // Clear previous error messages
+    document.querySelectorAll('.error-message').forEach(el => {
+        el.style.display = 'none';
+        el.textContent = '';
+    });
+
+    let hasError = false;
+
+    // Username validation
+    if (username.length < 3) {
         e.preventDefault();
-        alert('Passwords do not match!');
-        return;
+        const usernameError = document.getElementById('username-error');
+        usernameError.textContent = 'Username must be at least 3 characters long';
+        usernameError.style.display = 'block';
+        hasError = true;
     }
 
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('submit-btn').style.display = 'none';
+    // Password validation
+    if (password.length < 8) {
+        e.preventDefault();
+        const passwordError = document.getElementById('password-error');
+        passwordError.textContent = 'Password must be at least 8 characters long';
+        passwordError.style.display = 'block';
+        hasError = true;
+    } else if (!/[A-Z]/.test(password)) {
+        e.preventDefault();
+        const passwordError = document.getElementById('password-error');
+        passwordError.textContent = 'Password must contain at least one uppercase letter';
+        passwordError.style.display = 'block';
+        hasError = true;
+    } else if (!/[a-z]/.test(password)) {
+        e.preventDefault();
+        const passwordError = document.getElementById('password-error');
+        passwordError.textContent = 'Password must contain at least one lowercase letter';
+        passwordError.style.display = 'block';
+        hasError = true;
+    } else if (!/[0-9]/.test(password)) {
+        e.preventDefault();
+        const passwordError = document.getElementById('password-error');
+        passwordError.textContent = 'Password must contain at least one number';
+        passwordError.style.display = 'block';
+        hasError = true;
+    }
+
+    // Confirm password validation
+    if (password !== confirmPassword) {
+        e.preventDefault();
+        const confirmPasswordError = document.getElementById('confirm-password-error');
+        confirmPasswordError.textContent = 'Passwords do not match';
+        confirmPasswordError.style.display = 'block';
+        hasError = true;
+    }
+
+    if (!hasError) {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('submit-btn').style.display = 'none';
+    }
 });
 </script>
 {% endblock %}

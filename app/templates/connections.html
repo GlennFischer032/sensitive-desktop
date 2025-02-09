@@ -26,7 +26,7 @@
                 <td>{{ conn.created_at }}</td>
                 <td>{{ conn.created_by }}</td>
                 <td class="action-buttons">
-                    <a href="{{ guacamole_url }}/{{ conn.guacamole_connection_id }}" target="_blank" class="action-button connect-button">Connect</a>
+                    <a href="{{ external_guacamole_url }}/#/client/{{ conn.guacamole_connection_id }}" target="_blank" class="action-button connect-button">Connect</a>
                     <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post" 
                           onsubmit="handleDelete(event, '{{ conn.name }}')">
                         <button type="submit" class="action-button delete-button">Delete</button>

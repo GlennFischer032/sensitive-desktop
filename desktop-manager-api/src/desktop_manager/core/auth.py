@@ -1,7 +1,7 @@
 from flask import request, jsonify, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import User
-from database import get_db
+from desktop_manager.api.models.user import User
+from desktop_manager.api.models.base import get_db
 import jwt
 from datetime import datetime, timedelta
 from functools import wraps

@@ -2,8 +2,10 @@ from flask import render_template, request, redirect, url_for, session, flash, c
 import requests
 from . import auth_bp
 from utils.decorators import login_required, admin_required
+from middleware.security import rate_limit
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
+@rate_limit(requests_per_minute=5, requests_per_hour=20)  # Stricter limits for login attempts
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -32,6 +34,7 @@ def login():
             session['token'] = data['token']
             session['username'] = data['username']
             session['is_admin'] = data['is_admin']
+            session.permanent = True  # Use permanent session with lifetime from config
             
             current_app.logger.info(f"Login successful for {username}, is_admin: {session['is_admin']}")
             
@@ -46,7 +49,9 @@ def login():
     return render_template('login.html')
 
 @auth_bp.route('/logout')
+@login_required  # Ensure user is logged in before logging out
+@rate_limit(requests_per_minute=10)  # Basic rate limiting for logout
 def logout():
-    current_app.logger.info("Logging out user")
+    current_app.logger.info(f"Logging out user: {session.get('username')}")
     session.clear()
     return redirect(url_for('auth.login'))

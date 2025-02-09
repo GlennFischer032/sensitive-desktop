@@ -47,8 +47,12 @@ services:
     build:
       context: ./desktop-manager-api
       dockerfile: Dockerfile
+      args:
+        - DEV_MODE=1
     ports:
       - "5000:5000"
+    volumes:
+      - ./desktop-manager-api/src:/app/src
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - MYSQL_HOST=mysql
@@ -89,12 +93,19 @@ services:
     build:
       context: ./app
       dockerfile: Dockerfile
+      args:
+        - FLASK_DEBUG=1
     ports:
       - "5001:5000"
+    volumes:
+      - ./app:/app
+      - /app/.venv/
+      - /app/desktop_frontend.egg-info/
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - API_URL=http://desktop-api:5000
       - GUACAMOLE_URL=${GUACAMOLE_URL}
+      - EXTERNAL_GUACAMOLE_URL=http://localhost:8080/guacamole
       - FLASK_ENV=development
       - PYTHONUNBUFFERED=1
     depends_on:

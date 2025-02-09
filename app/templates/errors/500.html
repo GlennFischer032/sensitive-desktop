@@ -1,11 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}Internal Server Error{% endblock %}
+{% block title %}Server Error - Desktop Manager{% endblock %}
 
 {% block content %}
 <div class="error-container">
-    <h1>500 - Internal Server Error</h1>
-    <p>An unexpected error has occurred. Please try again later.</p>
-    <a href="{{ url_for('index') }}" class="button">Go Home</a>
+    <div class="error-content">
+        <h1>Internal Server Error</h1>
+        <div class="error-message">
+            <p>{{ error.message if error and error.message else "Something went wrong on our end. Please try again later." }}</p>
+            {% if error and error.details %}
+            <p class="error-details">{{ error.details }}</p>
+            {% endif %}
+        </div>
+        <div class="error-actions">
+            <button onclick="window.location.reload()" class="button">Try Again</button>
+            <a href="{{ url_for('connections.view_connections') }}" class="button secondary">Go to Connections</a>
+        </div>
+    </div>
 </div>
 {% endblock %}

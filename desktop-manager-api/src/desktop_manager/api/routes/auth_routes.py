@@ -1,11 +1,18 @@
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import User
-from database import get_db
+from desktop_manager.api.models.user import User
+from desktop_manager.api.models.base import get_db
+from desktop_manager.core.guacamole import (
+    delete_guacamole_user, 
+    ensure_all_users_group, 
+    guacamole_login, 
+    create_guacamole_user, 
+    ensure_admins_group, 
+    add_user_to_group
+)
+from desktop_manager.core.auth import token_required, admin_required
 import jwt
 from datetime import datetime, timedelta
-from guacamole import delete_guacamole_user, ensure_all_users_group, guacamole_login, create_guacamole_user, ensure_admins_group, add_user_to_group
-from auth import token_required, admin_required
 
 auth_bp = Blueprint('auth_bp', __name__)
 

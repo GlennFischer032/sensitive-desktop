@@ -15,17 +15,16 @@ RUN apt-get update && apt-get install -y \
 RUN groupadd -g 1000 appuser && \
     useradd -u 1000 -g appuser -s /bin/bash -m appuser
 
-# Copy pyproject.toml to leverage Docker cache
+# Copy project files
 COPY pyproject.toml ./
+COPY src ./src
 
 # Install uv
 RUN pip install --no-cache-dir uv
 
 # Install Python dependencies using uv and pyproject.toml
 RUN uv pip install --system .
-
-# Copy application code
-COPY . .
+RUN uv pip install --system flask[async] gunicorn
 
 # Create a healthcheck script
 COPY healthcheck.sh /healthcheck.sh
@@ -38,11 +37,21 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 # Set environment variables
-ENV FLASK_APP=app.py
+ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
+ENV FLASK_APP=desktop_manager.main:app
+
+# Build argument to determine the environment
+ARG DEV_MODE=0
+ENV DEV_MODE=${DEV_MODE}
+ENV FLASK_DEBUG=${DEV_MODE}
 
 # Expose port
 EXPOSE 5000
 
-# Run the application with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "app:create_app()"]
+# Use shell form to allow environment variable substitution
+CMD if [ "$DEV_MODE" = "1" ]; then \
+        flask run --host=0.0.0.0 --port=5000; \
+    else \
+        gunicorn --bind 0.0.0.0:5000 --workers 4 "desktop_manager.main:app"; \
+    fi

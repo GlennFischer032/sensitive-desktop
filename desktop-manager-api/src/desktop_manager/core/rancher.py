@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Dict, Optional, List, Any
 import requests
-from config import Config
+from desktop_manager.config.settings import get_settings
 
 @dataclass
 class WebRTCImages:
@@ -82,11 +82,12 @@ class DesktopValues:
 
 class RancherAPI:
     def __init__(self, api_url=None, api_token=None, cluster_id=None, repo_name=None, namespace=None):
-        self.api_url = api_url or Config.RANCHER_API_URL
-        self.api_token = api_token or Config.RANCHER_API_TOKEN
-        self.cluster_id = cluster_id or Config.RANCHER_CLUSTER_ID
-        self.repo_name = repo_name or Config.RANCHER_REPO_NAME
-        self.namespace = namespace or Config.NAMESPACE
+        settings = get_settings()
+        self.api_url = api_url or settings.RANCHER_API_URL
+        self.api_token = api_token or settings.RANCHER_API_TOKEN
+        self.cluster_id = cluster_id or settings.RANCHER_CLUSTER_ID
+        self.repo_name = repo_name or settings.RANCHER_REPO_NAME
+        self.namespace = namespace or settings.NAMESPACE
 
     def install_chart(self, release_name: str, namespace: str, values: DesktopValues) -> requests.Response:
         headers = {

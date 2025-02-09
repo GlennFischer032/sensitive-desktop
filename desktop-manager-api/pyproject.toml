@@ -1,26 +1,48 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=42.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [project]
-name = "desktop-manager-api"
+name = "desktop_manager"
 version = "0.1.0"
 description = "Desktop Manager API"
-authors = [{name = "Glenn"}]
 requires-python = ">=3.11"
 dependencies = [
-    "flask>=3.0.0",
-    "pyjwt>=2.8.0",
-    "pyyaml>=6.0.1",
-    "requests>=2.31.0",
-    "sqlalchemy>=2.0.25",
-    "werkzeug>=3.0.0",
-    "flasgger>=0.9.7.1",
-    "pymysql>=1.1.0",
-    "cryptography>=41.0.0",
-    "gunicorn>=21.2.0",
-    "flask-cors>=4.0.0"
+    "flask",
+    "flask-cors",
+    "gunicorn",
+    "mysqlclient",
+    "sqlalchemy",
+    "requests",
+    "pydantic",
+    "pydantic-settings",
+    "python-jose[cryptography]",
+    "passlib[bcrypt]",
+    "python-multipart",
+    "kubernetes",
+    "werkzeug",
+    "PyJWT",
+    # Security dependencies
+    "argon2-cffi",
+    "bleach",
+    "pydantic[email]",
+    "flask-limiter",
+    "flask-talisman",
+    "flask-seasurf",
+    "email-validator"
 ]
 
-[tool.setuptools]
-packages = {find = {where = ["."]}}
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["desktop_manager*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3

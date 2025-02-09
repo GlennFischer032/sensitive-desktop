@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Too Many Requests - Desktop Manager{% endblock %}
+
+{# Hide navigation bar for error pages #}
+{% set hide_nav = true %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-content">
+        <h1>Rate Limit Exceeded</h1>
+        <div class="error-message">
+            <p>{{ error.message if error and error.message else "You've made too many requests. Please wait a moment before trying again." }}</p>
+            {% if error and error.retry_after %}
+            <p class="retry-info">You can try again in <span id="countdown">{{ error.retry_after }}</span> seconds.</p>
+            {% endif %}
+        </div>
+        <div class="error-actions">
+            <button onclick="window.location.reload()" class="button secondary">Try Again</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Countdown timer and auto-refresh
+    const countdownElement = document.getElementById('countdown');
+    if (countdownElement) {
+        let timeLeft = parseInt(countdownElement.textContent) + 1;
+        
+        const countdown = setInterval(() => {
+            timeLeft--;
+            countdownElement.textContent = timeLeft;
+            
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                window.location.href = '/auth/login';
+            }
+        }, 1000);
+    }
+</script>
+{% endblock %} 
