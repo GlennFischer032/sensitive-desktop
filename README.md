@@ -2,28 +2,115 @@
 
 A comprehensive solution for managing and accessing remote desktops in a secure, containerized environment. This project combines Apache Guacamole's remote desktop gateway capabilities with a custom Desktop Manager interface for automated desktop provisioning and management.
 
-## Project Overview
+## Quick Start with Docker Compose
 
-The Sensitive Desktop project consists of several key components:
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd sensitive-desktop
+   ```
 
-1. **Desktop Manager Frontend**
-   - Web-based interface for managing remote desktops
-   - Built with Flask and modern web technologies
-   - Provides intuitive desktop creation and management
+2. Create a `.env` file with the following required variables:
+   ```env
+   # Database Configuration
+   MYSQL_ROOT_PASSWORD=your_root_password
+   MYSQL_DATABASE=guacamole_db
+   MYSQL_USER=guacamole_user
+   MYSQL_PASSWORD=your_password
 
-2. **Desktop Manager API**
-   - RESTful API service for desktop management
-   - Integrates with Rancher for container orchestration
-   - Handles desktop provisioning and configuration
+   # Guacamole Admin Credentials
+   GUACAMOLE_USERNAME=guacadmin
+   GUACAMOLE_PASSWORD=guacadmin
+   GUACAMOLE_API_URL=http://guacamole:8080/guacamole/api
+   GUACAMOLE_URL=http://guacamole:8080/guacamole
 
-3. **Apache Guacamole**
-   - Remote desktop gateway supporting multiple protocols (RDP, VNC, SSH)
-   - Customized for secure, non-root execution
-   - Integrated with MySQL for session and connection management
+   # Desktop Manager API Configuration
+   SECRET_KEY=your_secret_key
+   ADMIN_USERNAME=admin
+   ADMIN_PASSWORD=your_admin_password
 
-4. **Deployment Options**
-   - Docker Compose for development and testing
-   - Helm Chart for production Kubernetes deployment
+   # Rancher Configuration
+   RANCHER_API_TOKEN=your_rancher_token
+   RANCHER_API_URL=https://rancher.cloud.e-infra.cz
+   RANCHER_CLUSTER_ID=your_cluster_id
+   RANCHER_REPO_NAME=your_repo
+   NAMESPACE=your_namespace
+   ```
+
+3. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Access the applications:
+   - Desktop Manager Frontend: http://localhost:5001
+   - Desktop Manager API: http://localhost:5000
+   - Guacamole: http://localhost:8080/guacamole
+
+## Services Overview
+
+The project consists of several interconnected services:
+
+- **Desktop Manager Frontend** (port 5001)
+  - Web interface for managing remote desktops
+  - User authentication and desktop management
+  - Connection to remote desktops via Guacamole
+
+- **Desktop Manager API** (port 5000)
+  - Backend service for desktop provisioning
+  - User and connection management
+  - Integration with Rancher
+
+- **Apache Guacamole** (port 8080)
+  - Remote desktop gateway
+  - Supports RDP, VNC, and SSH protocols
+  - Web-based remote desktop viewer
+
+- **MySQL Database** (port 3306)
+  - Stores user data and connections
+  - Manages Guacamole configurations
+  - Handles desktop manager state
+
+## Basic Usage
+
+1. **First Login**
+   - Access the Desktop Manager at http://localhost:5001
+   - Log in with the admin credentials set in `.env`
+   - Create additional users as needed
+
+2. **Creating a Desktop**
+   - Click "Connections" in the navigation menu
+   - Create a new connection
+   - Wait for provisioning to complete
+
+3. **Accessing Desktops**
+   - Select "Connect" on a connection to launch the remote session
+   - Use the same credentials as for the Desktop Manager Frontend
+   - Use the Guacamole interface to interact with the desktop
+
+## Using Guacamole Interface
+
+When accessing a remote desktop through Guacamole, you have access to several features:
+
+1. **Basic Navigation**
+   - Use your mouse and keyboard as normal
+   - Press Ctrl+Alt+Shift to access the Guacamole menu
+
+2. **Guacamole Menu Options**
+   - Screen: Zoom, display settings, and fullscreen mode
+   - Clipboard: Disabled for security reasons
+   - Input Methods: Change keyboard layout
+   - Settings: Adjust mouse, display, and performance settings
+
+4. **Common Keyboard Shortcuts**
+   - Ctrl+Alt+Shift: Show/hide Guacamole menu
+   - Ctrl+Alt+Enter: Toggle fullscreen
+   - Ctrl+Alt+PrtScn: Screenshot
+
+For more detailed information about using Guacamole, refer to:
+- [Guacamole User Guide](https://guacamole.apache.org/doc/gug/)
+- [Using the Guacamole Interface](https://guacamole.apache.org/doc/gug/using-guacamole.html)
+- [Keyboard Shortcuts](https://guacamole.apache.org/doc/gug/using-guacamole.html#keyboard-shortcuts)
 
 ## Project Structure
 
@@ -33,114 +120,10 @@ sensitive-desktop/
 ├── desktop-manager-api/      # Desktop Manager API Service
 ├── guacamole-helm/          # Kubernetes Helm Chart
 ├── docker-compose.yaml      # Docker Compose configuration
-├── .env.example            # Example environment variables
 └── README.md               # This file
 ```
 
-## Quick Start
-
-### Development Environment (Docker Compose)
-
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd sensitive-desktop
-   ```
-
-2. Copy the example environment file:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Update the `.env` file with your configuration:
-   - Set database credentials
-   - Configure Rancher API token
-   - Adjust other settings as needed
-
-4. Start the services:
-   ```bash
-   docker-compose up -d
-   ```
-
-5. Access the applications:
-   - Desktop Manager: http://localhost:5000
-   - Guacamole: http://localhost:8080/guacamole
-
-### Production Deployment (Kubernetes)
-
-1. Navigate to the Helm chart directory:
-   ```bash
-   cd guacamole-helm
-   ```
-
-2. Review and customize `values.yaml`:
-   - Set image repositories and tags
-   - Configure storage settings
-   - Set security parameters
-   - Update ingress hostnames
-
-3. Install the Helm chart:
-   ```bash
-   helm install sensitive-desktop . \
-     --namespace your-namespace \
-     --set desktopApi.rancherToken=your-rancher-token
-   ```
-
-4. Access the applications:
-   - Desktop Manager: https://manage-desktops-[RELEASE]-[NAMESPACE].dyn.cloud.e-infra.cz
-   - Guacamole: https://[RELEASE]-[NAMESPACE].dyn.cloud.e-infra.cz/guacamole
-
-## Configuration
-
-### Environment Variables
-
-Key environment variables for the project:
-
-```env
-# Desktop Manager API
-SECRET_KEY=your_secret_key
-RANCHER_API_TOKEN=your_rancher_token
-RANCHER_API_URL=https://rancher.cloud.e-infra.cz
-RANCHER_CLUSTER_ID=your_cluster_id
-NAMESPACE=your_namespace
-
-# Database
-MYSQL_ROOT_PASSWORD=rootpass
-MYSQL_DATABASE=guacamole_db
-MYSQL_USER=guacamole_user
-MYSQL_PASSWORD=guacpass
-
-# Guacamole
-GUACAMOLE_USER=guacadmin
-GUACAMOLE_PASSWORD=guacadmin
-```
-
-### Helm Chart Values
-
-Key configuration options in `values.yaml`:
-
-- Container images and tags
-- Resource limits and requests
-- Security contexts
-- Ingress configuration
-- Storage settings
-- Health check parameters
-
-## Development
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Kubernetes cluster (for production)
-- Helm 3.x
-- Python 3.8+
-
-### Building Images
-
-```bash
-# Build Desktop Manager API
-docker build -t desktop-manager-api ./desktop-manager-api
-
-# Build Desktop Manager Frontend
-docker build -t desktop-manager-frontend ./app
-```
+For detailed documentation of individual components, please refer to their respective README files:
+- [Desktop Manager Frontend](app/README.md)
+- [Desktop Manager API](desktop-manager-api/README.md)
+- [Guacamole Helm Chart](guacamole-helm/README.md)
