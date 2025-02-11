@@ -30,7 +30,7 @@ containerSecurityContext:
 #####################################################
 desktopApi:
   replicaCount: 1
-  image: "glennfischer032/desktop-manager-api:test"
+  image: "glennfischer032/desktop-manager-api:20250211-213546"
   securityContext:
     runAsUser: 1000
     runAsGroup: 1000
@@ -76,7 +76,7 @@ desktopApi:
 #####################################################
 desktopFrontend:
   replicaCount: 1
-  image: "glennfischer032/desktop-manager-frontend:test"
+  image: "glennfischer032/desktop-manager-frontend:20250211-212217"
   securityContext:
     runAsUser: 1000
     runAsGroup: 1000

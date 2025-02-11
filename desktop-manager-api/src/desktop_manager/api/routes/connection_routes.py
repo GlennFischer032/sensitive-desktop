@@ -97,7 +97,7 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             operation_data = response.json()
             logging.info(f"Operation data: {operation_data}")
             
-            ip_address = f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz:5900"
+            ip_address = f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz"
             logging.info(f"Using VNC URL: {ip_address}")
         except Exception as e:
             logging.error(f"Failed to install Helm chart: {str(e)}")

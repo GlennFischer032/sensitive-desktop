@@ -82,9 +82,9 @@ services:
     restart: on-failure:3
     healthcheck:
       test: /healthcheck.sh
-      interval: 10s
-      timeout: 5s
-      retries: 3
+      interval: 20s
+      timeout: 10s
+      retries: 5
       start_period: 30s
     extra_hosts:
       - "host.docker.internal:host-gateway"
