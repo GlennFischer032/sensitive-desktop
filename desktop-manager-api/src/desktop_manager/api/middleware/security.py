@@ -125,58 +125,36 @@ def sanitize_input(data: Any) -> Any:
     return data
 
 def validate_request_data():
-    """Request data validation decorator."""
+    """
+    Decorator to validate request data.
+    
+    Returns:
+        Decorated function
+    """
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def decorated_function(*args, **kwargs):
             try:
-                # Sanitize input data
+                # Get request data
                 if request.is_json:
-                    request.json = sanitize_input(request.get_json())
+                    data = request.get_json()
+                else:
+                    data = request.form.to_dict()
                 
-                # Validate content type for POST/PUT/PATCH
-                if request.method in ["POST", "PUT", "PATCH"]:
-                    if not request.is_json:
-                        raise ValidationError(
-                            "Content-Type must be application/json",
-                            {"content_type": ["Invalid content type"]}
-                        )
+                # Sanitize input
+                sanitized_data = sanitize_input(data)
                 
+                # Update request data
+                if request.is_json:
+                    request.json = sanitized_data
+                else:
+                    request.form = sanitized_data
+                    
                 return f(*args, **kwargs)
             except Exception as e:
-                logger.error(f"Request validation error: {str(e)}")
                 return jsonify({
-                    "error": "Validation Error",
+                    "error": "Invalid request data",
                     "message": str(e)
                 }), HTTPStatus.BAD_REQUEST
         return decorated_function
-    return decorator
-
-def setup_cors(response):
-    """
-    Set up CORS headers for response.
-    
-    Args:
-        response: Flask response object
-        
-    Returns:
-        Response with CORS headers
-    """
-    # Get allowed origins from config
-    allowed_origins = current_app.config.get(
-        "CORS_ALLOWED_ORIGINS",
-        ["http://localhost:5000"]
-    )
-    
-    # Get request origin
-    origin = request.headers.get("Origin")
-    
-    # Set CORS headers if origin is allowed
-    if origin in allowed_origins:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Max-Age"] = "3600"
-    
-    return response 
+    return decorator 

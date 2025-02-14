@@ -13,7 +13,6 @@ from desktop_manager.core.guacamole import (
     ensure_admins_group,
     add_user_to_group
 )
-from desktop_manager.api.middleware.security import setup_cors
 from desktop_manager.api.middleware.validation import (
     RequestValidationConfig,
     sanitize_headers,
@@ -45,15 +44,20 @@ def create_app() -> Flask:
         MAX_CONTENT_LENGTH=security_settings.MAX_CONTENT_LENGTH
     )
     
-    # Configure CORS
+    # Configure CORS with stricter security
     CORS(
         app,
-        resources={r"/api/*": {"origins": list(security_settings.CORS_ALLOWED_ORIGINS)}},
-        supports_credentials=security_settings.CORS_SUPPORTS_CREDENTIALS,
-        methods=list(security_settings.CORS_ALLOWED_METHODS),
-        allow_headers=list(security_settings.CORS_ALLOWED_HEADERS),
-        expose_headers=list(security_settings.CORS_EXPOSE_HEADERS),
-        max_age=security_settings.CORS_MAX_AGE
+        resources={
+            r"/*": {
+                "origins": ["http://localhost:8000"] + list(security_settings.CORS_ALLOWED_ORIGINS),
+                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+                "expose_headers": ["Content-Length", "Content-Range"],
+                "supports_credentials": True,
+                "max_age": 3600,
+                "send_wildcard": False
+            }
+        }
     )
     
     # Initialize database
@@ -94,9 +98,7 @@ def create_app() -> Flask:
         # Add security headers
         for header, value in security_settings.SECURITY_HEADERS.items():
             response.headers[header] = value
-            
-        # Add CORS headers
-        return setup_cors(response)
+        return response
 
     # Error handlers
     @app.errorhandler(HTTPStatus.NOT_FOUND)

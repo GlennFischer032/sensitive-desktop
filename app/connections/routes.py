@@ -1,7 +1,7 @@
 from flask import render_template, request, redirect, url_for, session, flash, current_app, jsonify
 import requests
 from . import connections_bp
-from utils.decorators import login_required, admin_required
+from utils.decorators import login_required
 from middleware.security import rate_limit
 
 @connections_bp.route('/')
@@ -43,7 +43,6 @@ def view_connections():
 
 @connections_bp.route('/add', methods=['GET', 'POST'])
 @login_required
-@admin_required
 @rate_limit(requests_per_minute=10)  # Stricter limit for adding connections
 def add_connection():
     if request.method == 'POST':
@@ -91,7 +90,6 @@ def add_connection():
 
 @connections_bp.route('/delete/<connection_name>', methods=['POST'])
 @login_required
-@admin_required
 @rate_limit(requests_per_minute=10)  # Stricter limit for deleting connections
 def delete_connection(connection_name):
     try:

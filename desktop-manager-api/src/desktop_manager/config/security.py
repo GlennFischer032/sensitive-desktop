@@ -2,6 +2,7 @@ from typing import Dict, Any, Set
 from datetime import timedelta
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
+import os
 
 class SecuritySettings(BaseSettings):
     """Security configuration settings."""
@@ -12,38 +13,49 @@ class SecuritySettings(BaseSettings):
     PASSWORD_HASH_ROUNDS: int = 12
     
     # Token settings
-    JWT_SECRET_KEY: str = "your-secret-key"  # Should be overridden in production
-    JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    JWT_SECRET_KEY: str = os.environ.get("SECRET_KEY", "")
+    JWT_ALGORITHM: str = "HS512"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # Session settings
-    SESSION_COOKIE_NAME: str = "session"
+    SESSION_COOKIE_NAME: str = "__Secure-session"
     SESSION_COOKIE_SECURE: bool = True
     SESSION_COOKIE_HTTPONLY: bool = True
-    SESSION_COOKIE_SAMESITE: str = "Lax"
-    SESSION_LIFETIME: timedelta = timedelta(hours=1)
+    SESSION_COOKIE_SAMESITE: str = "Strict"
+    SESSION_LIFETIME: timedelta = timedelta(minutes=30)
     
     # CORS settings
-    CORS_ALLOWED_ORIGINS: Set[str] = {"http://localhost:5000", "http://localhost:5001"}
+    CORS_ALLOWED_ORIGINS: Set[str] = set(
+        os.environ.get(
+            "CORS_ALLOWED_ORIGINS",
+            "http://localhost:5000,http://localhost:5001"
+        ).split(",")
+    )
     CORS_ALLOWED_METHODS: Set[str] = {"GET", "POST", "PUT", "DELETE", "OPTIONS"}
     CORS_ALLOWED_HEADERS: Set[str] = {
         "Content-Type",
         "Authorization",
         "X-Requested-With",
-        "Accept"
+        "Accept",
+        "Origin",
+        "X-CSRF-Token"
     }
-    CORS_EXPOSE_HEADERS: Set[str] = {"Content-Length", "Content-Range"}
+    CORS_EXPOSE_HEADERS: Set[str] = {
+        "Content-Length",
+        "Content-Range",
+        "X-Total-Count"
+    }
     CORS_SUPPORTS_CREDENTIALS: bool = True
     CORS_MAX_AGE: int = 3600
     
     # Rate limiting settings
-    RATE_LIMIT_DEFAULT_REQUESTS_PER_SECOND: int = 10
-    RATE_LIMIT_DEFAULT_REQUESTS_PER_MINUTE: int = 100
-    RATE_LIMIT_DEFAULT_REQUESTS_PER_HOUR: int = 1000
+    RATE_LIMIT_DEFAULT_REQUESTS_PER_SECOND: int = 5
+    RATE_LIMIT_DEFAULT_REQUESTS_PER_MINUTE: int = 30
+    RATE_LIMIT_DEFAULT_REQUESTS_PER_HOUR: int = 500
     
     # Content security settings
-    MAX_CONTENT_LENGTH: int = 10 * 1024 * 1024  # 10MB
+    MAX_CONTENT_LENGTH: int = 5 * 1024 * 1024
     ALLOWED_CONTENT_TYPES: Set[str] = {
         "application/json",
         "multipart/form-data",
@@ -55,14 +67,19 @@ class SecuritySettings(BaseSettings):
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
         "X-XSS-Protection": "1; mode=block",
-        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
         "Content-Security-Policy": (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "  # Allow inline scripts and eval for dynamic UI
+            "style-src 'self' 'unsafe-inline'; "   # Allow inline styles for UI components
             "img-src 'self' data:; "
-            "font-src 'self'; "
-            "connect-src 'self'"
+            "font-src 'self' data:; "  # Allow data URIs for fonts
+            "connect-src 'self' http://localhost:* http://127.0.0.1:*; "  # Allow local development connections
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'; "
+            "object-src 'none'; "  # Disable object/plugin content
+            "upgrade-insecure-requests"
         ),
         "Referrer-Policy": "strict-origin-when-cross-origin",
         "Permissions-Policy": (
@@ -73,9 +90,36 @@ class SecuritySettings(BaseSettings):
             "magnetometer=(), "
             "microphone=(), "
             "payment=(), "
-            "usb=()"
-        )
+            "usb=(), "
+            "interest-cohort=(), "
+            "ambient-light-sensor=(), "
+            "autoplay=(), "
+            "battery=(), "
+            "display-capture=(), "
+            "document-domain=(), "
+            "encrypted-media=(), "
+            "execution-while-not-rendered=(), "
+            "execution-while-out-of-viewport=(), "
+            "fullscreen=(), "
+            "publickey-credentials-get=(), "
+            "screen-wake-lock=(), "
+            "web-share=(), "
+            "xr-spatial-tracking=()"
+        ),
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "require-corp",
+        "Cross-Origin-Resource-Policy": "same-origin",
+        "Cache-Control": "no-store, max-age=0",
+        "Clear-Site-Data": '"cache", "cookies", "storage"'
     }
+
+    # Added CSRF protection settings
+    CSRF_ENABLED: bool = True
+    CSRF_TOKEN_EXPIRE_MINUTES: int = 60
+    CSRF_COOKIE_NAME: str = "__Secure-csrf-token"
+    CSRF_COOKIE_SECURE: bool = True
+    CSRF_COOKIE_HTTPONLY: bool = True
+    CSRF_COOKIE_SAMESITE: str = "Strict"
     
     class Config:
         env_prefix = "SECURITY_"

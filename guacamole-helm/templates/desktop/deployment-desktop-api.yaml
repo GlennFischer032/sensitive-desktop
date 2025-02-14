@@ -16,30 +16,65 @@ spec:
         {{- include "desktop-api.selectorLabels" . | nindent 8 }}
     spec:
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
       initContainers:
       - name: wait-for-mysql
         image: mysql:8.0
-        command: ['sh', '-c', 'until mysqladmin ping -h mysql-{{ .Release.Name }} -u root -p{{ .Values.mysql.rootPassword }}; do echo waiting for mysql; sleep 2; done;']
+        command: ['sh', '-c', 'until mysqladmin ping -h {{ .Values.common.database.host }} -u root -p{{ .Values.common.database.password }}; do echo waiting for mysql; sleep 2; done;']
         securityContext:
-          runAsNonRoot: true
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
           runAsUser: 1000
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
+      - name: wait-for-guacamole
+        image: curlimages/curl:latest
+        command: ['sh', '-c', 'until curl -s -f -o /dev/null http://guacamole-{{ .Release.Name }}:{{ .Values.common.ports.guacamole }}/guacamole/; do echo waiting for guacamole; sleep 2; done;']
+        securityContext:
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 1000
       containers:
       - name: desktop-api
         image: {{ .Values.desktopApi.image }}
         imagePullPolicy: IfNotPresent
         securityContext:
-          {{- toYaml .Values.desktopApi.securityContext | nindent 12 }}
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 1000
+          runAsGroup: 1000
         env:
-        {{- range $key, $value := .Values.desktopApi.env }}
-          - name: {{ $key }}
-            value: {{ $value | quote }}
-        {{- end }}
-          # Special handling for Rancher token from secret
+          - name: MYSQL_HOST
+            value: {{ .Values.common.database.host | quote }}
+          - name: MYSQL_PORT
+            value: {{ .Values.common.database.port | quote }}
+          - name: MYSQL_DATABASE
+            value: {{ .Values.common.database.desktopDb | quote }}
+          - name: MYSQL_USER
+            value: {{ .Values.common.database.user | quote }}
+          - name: MYSQL_PASSWORD
+            value: {{ .Values.common.database.password | quote }}
+          - name: GUACAMOLE_API_URL
+            value: "http://guacamole-{{ .Release.Name }}/guacamole/api"
+          - name: GUACAMOLE_USERNAME
+            value: {{ .Values.common.credentials.guacamoleAdmin.username | quote }}
+          - name: GUACAMOLE_PASSWORD
+            value: {{ .Values.common.credentials.guacamoleAdmin.password | quote }}
+          - name: SECRET_KEY
+            value: {{ .Values.common.credentials.secretKey | quote }}
+          - name: ADMIN_USERNAME
+            value: {{ .Values.common.credentials.desktopAdmin.username | quote }}
+          - name: ADMIN_PASSWORD
+            value: {{ .Values.common.credentials.desktopAdmin.password | quote }}
+          - name: RANCHER_API_URL
+            value: {{ .Values.common.rancher.apiUrl | quote }}
+          - name: RANCHER_CLUSTER_ID
+            value: {{ .Values.common.rancher.clusterId | quote }}
+          - name: RANCHER_REPO_NAME
+            value: {{ .Values.common.rancher.repoName | quote }}
+          - name: NAMESPACE
+            value: {{ .Release.Namespace | quote }}
+          - name: FLASK_APP
+            value: "app.py"
+          - name: FLASK_ENV
+            value: "production"
+          - name: PYTHONUNBUFFERED
+            value: "1"
           - name: RANCHER_API_TOKEN
             valueFrom:
               secretKeyRef:

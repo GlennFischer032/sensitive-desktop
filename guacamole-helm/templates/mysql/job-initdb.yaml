@@ -1,48 +1,53 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: guacamole-initdb-{{ .Release.Name }}
+  name: mysql-initdb-{{ .Release.Name }}
   labels:
-    app: guacamole
-    component: initdb
+    {{- include "guacamole.labels" . | nindent 4 }}
+    component: mysql-init
   annotations:
     "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   template:
     metadata:
       labels:
-        app: guacamole
-        component: initdb
+        {{- include "guacamole.selectorLabels" . | nindent 8 }}
+        component: mysql-init
     spec:
-      restartPolicy: Never
+      restartPolicy: OnFailure
       securityContext:
-{{- if .Values.podSecurityContext }}
-{{ toYaml .Values.podSecurityContext | indent 8 }}
-{{- end }}
+        {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
       initContainers:
       - name: wait-for-mysql
         image: mysql:8.0
-        imagePullPolicy: IfNotPresent
+        command: ['sh', '-c', 'until mysqladmin ping -h {{ .Values.common.database.host }} -u root -p{{ .Values.common.database.password }}; do echo waiting for mysql; sleep 2; done;']
         securityContext:
-          runAsNonRoot: true
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
           runAsUser: 1000
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
-        command: ['sh', '-c', 'until mysqladmin ping -h mysql-{{ .Release.Name }} -u root -p{{ .Values.mysql.rootPassword }}; do echo waiting for mysql; sleep 2; done;']
       containers:
-      - name: guacamole-init
-        image: "{{ .Values.mysql.initdbImage }}"
+      - name: init-mysql
+        image: {{ .Values.mysql.initdbImage }}
         imagePullPolicy: IfNotPresent
         securityContext:
-          runAsNonRoot: true
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
           runAsUser: 1000
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
+        env:
+          - name: MYSQL_HOST
+            value: {{ .Values.common.database.host }}
+          - name: MYSQL_PORT
+            value: {{ .Values.common.ports.mysql | quote }}
+          - name: MYSQL_DATABASE
+            value: {{ .Values.common.database.guacamoleDb }}
+          - name: MYSQL_USER
+            value: {{ .Values.common.database.user }}
+          - name: MYSQL_PASSWORD
+            value: {{ .Values.common.database.password }}
+          - name: MYSQL_ROOT_PASSWORD
+            value: {{ .Values.common.database.password }}
+          - name: DESKTOP_DB
+            value: {{ .Values.common.database.desktopDb }}
         command: ["/bin/sh"]
         args:
           - "-c"
@@ -51,35 +56,35 @@ spec:
             
             # Create and initialize Guacamole database
             echo "Creating Guacamole schema..."
-            mysql -h mysql-{{ .Release.Name }} \
-                  -u root -p"{{ .Values.mysql.rootPassword }}" \
-                  -e "CREATE DATABASE IF NOT EXISTS {{ .Values.mysql.database }};"
+            mysql -h {{ .Values.common.database.host }} \
+                  -u root -p{{ .Values.common.database.password }} \
+                  -e "CREATE DATABASE IF NOT EXISTS {{ .Values.common.database.guacamoleDb }};"
             
             echo "Initializing Guacamole schema..."
-            mysql -h mysql-{{ .Release.Name }} \
-                  -u root -p"{{ .Values.mysql.rootPassword }}" \
-                  {{ .Values.mysql.database }} < /docker-entrypoint-initdb.d/01-guacamole-init.sql
+            mysql -h {{ .Values.common.database.host }} \
+                  -u root -p{{ .Values.common.database.password }} \
+                  {{ .Values.common.database.guacamoleDb }} < /docker-entrypoint-initdb.d/01-guacamole-init.sql
             
             echo "Initializing Guacamole users..."
-            mysql -h mysql-{{ .Release.Name }} \
-                  -u root -p"{{ .Values.mysql.rootPassword }}" \
-                  {{ .Values.mysql.database }} < /docker-entrypoint-initdb.d/02-guacamole-init-users.sql
+            mysql -h {{ .Values.common.database.host }} \
+                  -u root -p{{ .Values.common.database.password }} \
+                  {{ .Values.common.database.guacamoleDb }} < /docker-entrypoint-initdb.d/02-guacamole-init-users.sql
             
             # Create and initialize Desktop Manager database
             echo "Creating Desktop Manager database..."
-            mysql -h mysql-{{ .Release.Name }} \
-                  -u root -p"{{ .Values.mysql.rootPassword }}" \
-                  -e "CREATE DATABASE IF NOT EXISTS desktop_manager;"
+            mysql -h {{ .Values.common.database.host }} \
+                  -u root -p{{ .Values.common.database.password }} \
+                  -e "CREATE DATABASE IF NOT EXISTS {{ .Values.common.database.desktopDb }};"
             
             echo "Granting privileges to guacamole user..."
-            mysql -h mysql-{{ .Release.Name }} \
-                  -u root -p"{{ .Values.mysql.rootPassword }}" \
-                  -e "GRANT ALL PRIVILEGES ON desktop_manager.* TO '{{ .Values.mysql.user }}'@'%';"
+            mysql -h {{ .Values.common.database.host }} \
+                  -u root -p{{ .Values.common.database.password }} \
+                  -e "GRANT ALL PRIVILEGES ON {{ .Values.common.database.desktopDb }}.* TO '{{ .Values.common.database.user }}'@'%';"
             
             echo "Initializing Desktop Manager schema..."
-            mysql -h mysql-{{ .Release.Name }} \
-                  -u root -p"{{ .Values.mysql.rootPassword }}" \
-                  desktop_manager < /docker-entrypoint-initdb.d/03-init.sql
+            mysql -h {{ .Values.common.database.host }} \
+                  -u root -p{{ .Values.common.database.password }} \
+                  {{ .Values.common.database.desktopDb }} < /docker-entrypoint-initdb.d/03-init.sql
             
             echo "Database initialization completed successfully!"
         volumeMounts:
@@ -88,4 +93,4 @@ spec:
       volumes:
       - name: init-scripts
         configMap:
-          name: db-init-scripts-{{ .Release.Name }}
+          name: mysql-init-scripts-{{ .Release.Name }}

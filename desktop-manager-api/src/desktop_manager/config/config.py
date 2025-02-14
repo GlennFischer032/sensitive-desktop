@@ -3,7 +3,7 @@
 import os
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'your_secret_key')
+    SECRET_KEY = os.environ.get('SECRET_KEY', '')
     
     # MySQL Database settings
     MYSQL_HOST = os.environ.get('MYSQL_HOST', 'localhost')
@@ -19,23 +19,23 @@ class Config:
 
     # Guacamole API settings
     GUACAMOLE_API_URL = os.environ.get('GUACAMOLE_API_URL', 'http://localhost:8080/guacamole/api')
-    GUACAMOLE_USERNAME = os.environ.get('GUACAMOLE_USERNAME', 'newadmin')  # Replace with your Guacamole admin username
-    GUACAMOLE_PASSWORD = os.environ.get('GUACAMOLE_PASSWORD', 'test')      # Replace with your Guacamole admin password
+    GUACAMOLE_USERNAME = os.environ.get('GUACAMOLE_USERNAME', '')
+    GUACAMOLE_PASSWORD = os.environ.get('GUACAMOLE_PASSWORD', '')
 
     # Other settings
-    NAMESPACE = os.environ.get('NAMESPACE', 'fischer-ns')
+    NAMESPACE = os.environ.get('NAMESPACE', '')
     VALUES_FILE_PATH = os.environ.get('VALUES_FILE_PATH', './desktop/values.yaml')
     TEMP_VALUES_FILE_PATH = os.environ.get('TEMP_VALUES_FILE_PATH', './temp_values.yaml')
 
     # Admin user credentials
-    ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
-    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+    ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', '')
+    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')
 
     # Rancher API settings
-    RANCHER_API_TOKEN = os.environ.get('RANCHER_API_TOKEN', 'token-z5fcl:bctltsf8v4vchr5qln4rsbbqtg6sv2fq5vfg2h8tplbbzw6h74xwvx')
-    RANCHER_API_URL = os.environ.get('RANCHER_API_URL', 'https://rancher.cloud.e-infra.cz')
-    RANCHER_CLUSTER_ID = os.environ.get('RANCHER_CLUSTER_ID', 'c-m-qvndqhf6')
-    RANCHER_REPO_NAME = os.environ.get('RANCHER_REPO_NAME', 'cerit-sc')
+    RANCHER_API_TOKEN = os.environ.get('RANCHER_API_TOKEN', '')
+    RANCHER_API_URL = os.environ.get('RANCHER_API_URL', '')
+    RANCHER_CLUSTER_ID = os.environ.get('RANCHER_CLUSTER_ID', '')
+    RANCHER_REPO_NAME = os.environ.get('RANCHER_REPO_NAME', '')
 
     # Desktop image settings
     DESKTOP_IMAGE = os.environ.get('DESKTOP_IMAGE', 'cerit.io/desktops/ubuntu-xfce:22.04-user')

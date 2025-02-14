@@ -10,8 +10,8 @@ spec:
   type: ClusterIP
   ports:
   - name: guacd
-    port: {{ .Values.guacd.servicePort }}
-    targetPort: {{ .Values.guacd.servicePort }}
+    port: {{ .Values.common.ports.guacd }}
+    targetPort: {{ .Values.common.ports.guacd }}
   selector:
     app: guacamole
     component: guacd

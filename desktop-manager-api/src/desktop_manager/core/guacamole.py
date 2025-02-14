@@ -35,6 +35,27 @@ class GuacamoleConnectionParameters(TypedDict):
     port: str
     password: str
     enable_audio: str
+    read_only: NotRequired[str]
+    swap_red_blue: NotRequired[str]
+    cursor: NotRequired[str]
+    color_depth: NotRequired[str]
+    force_lossless: NotRequired[str]
+    clipboard_encoding: NotRequired[str]
+    disable_copy: NotRequired[str]
+    disable_paste: NotRequired[str]
+    dest_port: NotRequired[str]
+    recording_exclude_output: NotRequired[str]
+    recording_exclude_mouse: NotRequired[str]
+    recording_include_keys: NotRequired[str]
+    create_recording_path: NotRequired[str]
+    enable_sftp: NotRequired[str]
+    sftp_port: NotRequired[str]
+    sftp_server_alive_interval: NotRequired[str]
+    sftp_disable_download: NotRequired[str]
+    sftp_disable_upload: NotRequired[str]
+    wol_send_packet: NotRequired[str]
+    wol_udp_port: NotRequired[str]
+    wol_wait_time: NotRequired[str]
 
 class GuacamoleConnectionAttributes(TypedDict, total=False):
     """Type definition for Guacamole connection attributes."""
@@ -49,10 +70,13 @@ class GuacamoleConnectionAttributes(TypedDict, total=False):
 class GuacamoleConnection(TypedDict):
     """Type definition for Guacamole connection."""
     name: str
+    identifier: str
     parentIdentifier: str
     protocol: Literal["vnc"]
-    parameters: GuacamoleConnectionParameters
     attributes: GuacamoleConnectionAttributes
+    activeConnections: int
+    lastActive: int
+    parameters: GuacamoleConnectionParameters
 
 class GuacamolePatchOperation(TypedDict):
     """Type definition for Guacamole PATCH operation."""
@@ -487,20 +511,43 @@ def create_guacamole_connection(
             "name": connection_name,
             "parentIdentifier": "ROOT",
             "protocol": "vnc",
+            "activeConnections": 0,
             "parameters": {
                 "hostname": ip_address,
-                "port": "5900",
                 "password": password,
-                "enable_audio": "true"
+                "enable_audio": "true",
+                "port": "5900",
+                "read-only": "",
+                "swap-red-blue": "",
+                "cursor": "",
+                "color-depth": "",
+                "force-lossless": "",
+                "clipboard-encoding": "",
+                "disable-copy": "true",
+                "disable-paste": "",
+                "dest-port": "",
+                "recording-exclude-output": "true",
+                "recording-exclude-mouse": "true",
+                "recording-include-keys": "true",
+                "create-recording-path": "",
+                "enable-sftp": "",
+                "sftp-port": "",
+                "sftp-server-alive-interval": "",
+                "sftp-disable-download": "true",
+                "sftp-disable-upload": "true",
+                "enable-audio": "",
+                "wol-send-packet": "",
+                "wol-udp-port": "",
+                "wol-wait-time": ""
             },
             "attributes": {
-                "max_connections": "",
-                "max_connections_per_user": "",
+                "guacd-encryption": "",
+                "failover-only": "",
                 "weight": "",
-                "failover_only": "",
-                "guacd_hostname": "",
-                "guacd_port": "",
-                "guacd_encryption": ""
+                "max-connections": "",
+                "guacd-hostname": None,
+                "guacd-port": "",
+                "max-connections-per-user": ""
             }
         }
         

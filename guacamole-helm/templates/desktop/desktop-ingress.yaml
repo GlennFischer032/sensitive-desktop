@@ -10,6 +10,7 @@ metadata:
     kubernetes.io/tls-acme: "true"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
+  ingressClassName: nginx
   tls:
     - hosts:
         - {{ include "desktop-manager.hostname" . }}
@@ -18,13 +19,6 @@ spec:
   - host: {{ include "desktop-manager.hostname" . }}
     http:
       paths:
-      - path: "/api"
-        pathType: Prefix
-        backend:
-          service:
-            name: desktop-api-{{ .Release.Name }}
-            port:
-              number: 80
       - path: "/"
         pathType: Prefix
         backend:

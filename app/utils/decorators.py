@@ -31,6 +31,6 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         if not session.get('is_admin'):
             flash('Admin access required.')
-            return redirect(url_for('view_connections'))
+            return redirect(url_for('connections.view_connections'))
         return f(*args, **kwargs)
     return decorated_function

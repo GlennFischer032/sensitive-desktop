@@ -1,45 +1,64 @@
-# Default values for the chart.
+# Common configuration values
+common:
+  # Security contexts applied at the Pod level
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    fsGroupChangePolicy: OnRootMismatch
+    fsGroup: 1000
+  
+  # Common container security settings
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  
+  # Common service ports
+  ports:
+    api: 80
+    frontend: 80
+    guacamole: 80
+    guacd: 4822
+    mysql: 3306
+  
+  # Database configuration
+  database:
+    host: mysql-guacamole
+    port: "3306"
+    user: "" # Set the database user
+    password: "" # Set the database password
+    guacamoleDb: guacamole_db
+    desktopDb: desktop_manager
+  
+  # Credentials and secrets
+  credentials:
+    secretKey: "" # Set a secure secret key for the application
+    guacamoleAdmin:
+      username: "" # Set the Guacamole admin username
+      password: "" # Set the Guacamole admin password
+    desktopAdmin:
+      username: "" # Set the Desktop Manager admin username
+      password: "" # Set the Desktop Manager admin password
+  
+  # Rancher configuration
+  rancher:
+    apiUrl: "" # Set your Rancher API URL
+    clusterId: "" # Set your Rancher cluster ID
+    repoName: "" # Set your repository name
+    token: "" # Set your Rancher API token
 
+# Component-specific configurations
 replicaCount: 1
-
-# Security contexts applied at the Pod level.
-podSecurityContext:
-  runAsNonRoot: true
-  seccompProfile:
-    type: RuntimeDefault
-  fsGroupChangePolicy: OnRootMismatch
-  fsGroup: 1000
-
-containerSecurityContext:
-  guacdUid: 1000
-  guacamoleUid: 1000
-  mysqlUid: 999
-  allowPrivilegeEscalation: false
-  dropCapabilities: ["ALL"]
-  capabilities:
-    drop:
-      - ALL
 
 #####################################################
 # Desktop Manager API values
 #####################################################
 desktopApi:
   replicaCount: 1
-  image: "glennfischer032/desktop-manager-api:latest"
-  # Rancher API token configuration
-  # Option 1: Use an existing token (recommended for production)
-  existingRancherToken: ""
-  # Option 2: Direct token (not recommended for production)
-  rancherToken: ""  # Set via helm install or values.local.yaml
-  securityContext:
-    runAsUser: 1000
-    runAsGroup: 1000
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
+  image: "glennfischer032/desktop-manager-api:latest" # Update with specific version if needed
   containerPort: 5000
-  servicePort: 80
   healthcheck:
     enabled: true
     path: /api/health
@@ -47,41 +66,14 @@ desktopApi:
     periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 3
-  env:
-    SECRET_KEY: ""  # Set via helm install or values.local.yaml
-    MYSQL_HOST: mysql-guacamole
-    MYSQL_PORT: "{{ .Values.mysql.servicePort }}"
-    MYSQL_DATABASE: "{{ .Values.mysql.desktopDatabase }}"
-    MYSQL_USER: "{{ .Values.mysql.user }}"
-    MYSQL_PASSWORD: "{{ .Values.mysql.userPassword }}"
-    GUACAMOLE_API_URL: "http://guacamole-{{ .Release.Name }}/guacamole/api"
-    GUACAMOLE_USERNAME: "{{ .Values.guacamole.adminUser }}"
-    GUACAMOLE_PASSWORD: "{{ .Values.guacamole.adminPassword }}"
-    ADMIN_USERNAME: "admin"
-    ADMIN_PASSWORD: ""  # Set via helm install or values.local.yaml
-    RANCHER_API_URL: "https://rancher.cloud.e-infra.cz"
-    RANCHER_CLUSTER_ID: "c-m-qvndqhf6"
-    RANCHER_REPO_NAME: "cerit-sc"
-    NAMESPACE: "{{ .Release.Namespace }}"
-    FLASK_APP: "app.py"
-    FLASK_ENV: "production"
-    PYTHONUNBUFFERED: "1"
 
 #####################################################
 # Desktop Manager Frontend values
 #####################################################
 desktopFrontend:
   replicaCount: 1
-  image: "glennfischer032/desktop-manager-frontend:latest"
-  securityContext:
-    runAsUser: 1000
-    runAsGroup: 1000
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
+  image: "glennfischer032/desktop-manager-frontend:latest" # Update with specific version if needed
   containerPort: 5000
-  servicePort: 80
   healthcheck:
     enabled: true
     path: /
@@ -89,13 +81,6 @@ desktopFrontend:
     periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 3
-  env:
-    SECRET_KEY: ""  # Set via helm install or values.local.yaml
-    API_URL: http://desktop-api-guacamole:80
-    GUACAMOLE_URL: ""  # Set via helm install or values.local.yaml
-    FLASK_APP: "app.py"
-    FLASK_ENV: "production"
-    PYTHONUNBUFFERED: "1"
 
 #####################################################
 # MySQL values
@@ -103,20 +88,14 @@ desktopFrontend:
 mysql:
   image: "mysql:8.0"
   initdbImage: "glennfischer032/guacamole-init-db:latest"
-  rootPassword: ""  # Set via helm install or values.local.yaml
-  database: "guacamole_db"
-  desktopDatabase: "desktop_manager"
-  user: "guacamole_user"
-  userPassword: ""  # Set via helm install or values.local.yaml
-  servicePort: 3306
-  args:
-    - "--default-authentication-plugin=mysql_native_password"
-    - "--bind-address=0.0.0.0"
   persistence:
     enabled: true
     storageClass: "nfs-csi"
     accessMode: ReadWriteOnce
     size: 1Gi
+  args:
+    - "--default-authentication-plugin=mysql_native_password"
+    - "--bind-address=0.0.0.0"
   healthcheck:
     enabled: true
     command: ["mysql", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}", "-e", "SELECT 1"]
@@ -130,7 +109,6 @@ mysql:
 #####################################################
 guacd:
   image: "guacamole/guacd"
-  servicePort: 4822
   logLevel: "info"
 
 #####################################################
@@ -138,13 +116,4 @@ guacd:
 #####################################################
 guacamole:
   image: "glennfischer032/guac-no-root:latest"
-  containerPort: 8080
-  servicePort: 80
-  adminUser: ""  # Set via helm install or values.local.yaml
-  adminPassword: ""  # Set via helm install or values.local.yaml
-  env:
-    MYSQL_HOSTNAME: "mysql-{{ .Release.Name }}"
-    MYSQL_DATABASE: "{{ .Values.mysql.database }}"
-    MYSQL_USER: "{{ .Values.mysql.user }}"
-    MYSQL_PASSWORD: "{{ .Values.mysql.userPassword }}"
-    GUACD_HOSTNAME: "guacd-{{ .Release.Name }}" 
+  containerPort: 8080 

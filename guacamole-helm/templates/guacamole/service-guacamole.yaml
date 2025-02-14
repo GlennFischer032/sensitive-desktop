@@ -10,7 +10,7 @@ spec:
   type: ClusterIP
   ports:
   - name: http
-    port: {{ .Values.guacamole.servicePort }}
+    port: {{ .Values.common.ports.guacamole }}
     targetPort: {{ .Values.guacamole.containerPort }}
   selector:
     app: guacamole

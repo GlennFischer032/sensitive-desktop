@@ -3,9 +3,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: mysql-data-{{ .Release.Name }}
   labels:
-    app: guacamole
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
+    {{- include "guacamole.labels" . | nindent 4 }}
     component: mysql
 spec:
   accessModes:

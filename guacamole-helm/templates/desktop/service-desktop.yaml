@@ -8,8 +8,8 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-  - port: 80
-    targetPort: 5000
+  - port: {{ .Values.common.ports.frontend }}
+    targetPort: {{ .Values.desktopFrontend.containerPort }}
     protocol: TCP
     name: http
   selector:

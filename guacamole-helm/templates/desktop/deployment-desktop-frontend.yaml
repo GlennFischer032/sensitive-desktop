@@ -16,18 +16,35 @@ spec:
         {{- include "desktop-frontend.selectorLabels" . | nindent 8 }}
     spec:
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
+      initContainers:
+      - name: wait-for-api
+        image: curlimages/curl:8.00.1
+        command: ['sh', '-c', 'until curl -s http://desktop-api-{{ .Release.Name }}/api/health > /dev/null 2>&1; do echo waiting for api; sleep 2; done;']
+        securityContext:
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 1000
       containers:
       - name: desktop-frontend
         image: {{ .Values.desktopFrontend.image }}
         imagePullPolicy: IfNotPresent
         securityContext:
-          {{- toYaml .Values.desktopFrontend.securityContext | nindent 12 }}
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 1000
+          runAsGroup: 1000
         env:
-        {{- range $key, $value := .Values.desktopFrontend.env }}
-          - name: {{ $key }}
-            value: {{ $value | quote }}
-        {{- end }}
+          - name: SECRET_KEY
+            value: {{ .Values.common.credentials.secretKey | quote }}
+          - name: API_URL
+            value: "http://desktop-api-{{ .Release.Name }}"
+          - name: GUACAMOLE_URL
+            value: {{ printf "https://%s" (include "guacamole.hostname" .) | quote }}
+          - name: FLASK_APP
+            value: "app.py"
+          - name: FLASK_ENV
+            value: "production"
+          - name: PYTHONUNBUFFERED
+            value: "1"
         ports:
         - containerPort: {{ .Values.desktopFrontend.containerPort }}
           name: http

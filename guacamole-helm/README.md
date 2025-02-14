@@ -53,12 +53,26 @@ To set up your local environment:
    cp values.yaml values.local.yaml
    ```
 
-2. Update `values.local.yaml` with your sensitive data:
-   - Rancher API token
-   - Database passwords
-   - Admin credentials
-   - Secret keys
-   - API URLs and endpoints
+2. Update `values.local.yaml` with your sensitive data in the `common` section:
+   ```yaml
+   common:
+     database:
+       user: "your-db-user"
+       password: "your-db-password"
+     credentials:
+       secretKey: "your-secret-key"
+       guacamoleAdmin:
+         username: "your-guac-admin"
+         password: "your-guac-password"
+       desktopAdmin:
+         username: "your-desktop-admin"
+         password: "your-desktop-password"
+     rancher:
+       apiUrl: "your-rancher-url"
+       clusterId: "your-cluster-id"
+       repoName: "your-repo-name"
+       token: "your-rancher-token"
+   ```
 
 3. Add `values.local.yaml` to your `.gitignore`:
    ```bash
@@ -67,24 +81,6 @@ To set up your local environment:
 
 ## Installation
 
-### Secure Installation (Recommended for Production)
-
-1. Create a Kubernetes secret with your Rancher API token:
-```bash
-kubectl create secret generic rancher-token-secret \
-  --from-literal=token=your-rancher-token \
-  --namespace your-namespace
-```
-
-2. Install the chart using your local values:
-```bash
-helm install guacamole ./guacamole-helm \
-  --namespace your-namespace \
-  -f values.local.yaml \
-  --set desktopApi.existingRancherToken=$(kubectl get secret rancher-token-secret -n your-namespace -o jsonpath='{.data.token}')
-```
-
-### Quick Installation (Development Only)
 
 ```bash
 helm install guacamole ./guacamole-helm \
@@ -92,73 +88,132 @@ helm install guacamole ./guacamole-helm \
   -f values.local.yaml
 ```
 
-## Configuration
+## Configuration Reference
 
-### Important Parameters
+### Common Configuration
+
+The chart uses a centralized `common` section in the values file for shared configurations:
+
+```yaml
+common:
+  # Security contexts applied at the Pod level
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+    fsGroupChangePolicy: OnRootMismatch
+    fsGroup: 1000
+  
+  # Common container security settings
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  
+  # Common service ports
+  ports:
+    api: 80          # Desktop Manager API port
+    frontend: 80     # Desktop Manager Frontend port
+    guacamole: 80    # Guacamole web interface port
+    guacd: 4822      # Guacamole proxy daemon port
+    mysql: 3306      # MySQL database port
+  
+  # Database configuration
+  database:
+    host: mysql-guacamole
+    port: "3306"
+    user: ""         # Set the database user
+    password: ""     # Set the database password
+    guacamoleDb: guacamole_db
+    desktopDb: desktop_manager
+  
+  # Credentials and secrets
+  credentials:
+    secretKey: ""    # Set a secure secret key
+    guacamoleAdmin:
+      username: ""   # Set Guacamole admin username
+      password: ""   # Set Guacamole admin password
+    desktopAdmin:
+      username: ""   # Set Desktop Manager admin username
+      password: ""   # Set Desktop Manager admin password
+  
+  # Rancher configuration
+  rancher:
+    apiUrl: ""       # Set Rancher API URL
+    clusterId: ""    # Set Rancher cluster ID
+    repoName: ""     # Set repository name
+    token: ""        # Set Rancher API token
+```
+
+### Component-Specific Configuration
 
 #### Desktop Manager API
-- `desktopApi.image`: API service image
-- `desktopApi.existingRancherToken`: Base64 encoded Rancher API token from an existing secret (recommended)
-- `desktopApi.rancherToken`: Direct Rancher API token (not recommended for production)
-- `desktopApi.env.*`: Environment variables for API configuration
-
-### Rancher Token Configuration
-
-The Rancher API token is managed through a Kubernetes secret created by the chart. You can configure it in two ways:
-
-1. **Using an Existing Token (Recommended for Production)**
-   ```bash
-   # First, create a Kubernetes secret with your token
-   kubectl create secret generic rancher-token-secret \
-     --from-literal=token=your-rancher-token \
-     --namespace your-namespace
-
-   # Then install the chart using the existing token
-   helm install guacamole ./guacamole-helm \
-     --namespace your-namespace \
-     -f values.local.yaml \
-     --set desktopApi.existingRancherToken=$(kubectl get secret rancher-token-secret -n your-namespace -o jsonpath='{.data.token}')
-   ```
-
-2. **Direct Token (Development Only)**
-   ```bash
-   # Set the token directly in values.local.yaml
-   desktopApi:
-     rancherToken: "your-rancher-token"
-   ```
-   Or via command line:
-   ```bash
-   helm install guacamole ./guacamole-helm \
-     --namespace your-namespace \
-     -f values.local.yaml \
-     --set desktopApi.rancherToken=your-rancher-token
-   ```
-
-The token is managed by `templates/desktop/secret-desktop-api.yaml`, which creates a secret named `desktop-api-<release-name>`. This secret is then mounted as the environment variable `RANCHER_API_TOKEN` in the desktop-api container.
-
-**Note**: Never commit the actual token to version control. Always use `values.local.yaml` or command-line parameters to set the token.
+```yaml
+desktopApi:
+  replicaCount: 1
+  image: "glennfischer032/desktop-manager-api:latest"
+  containerPort: 5000
+  healthcheck:
+    enabled: true
+    path: /api/health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+```
 
 #### Desktop Manager Frontend
-- `desktopFrontend.image`: Frontend service image
-- `desktopFrontend.env.*`: Environment variables for frontend configuration
+```yaml
+desktopFrontend:
+  replicaCount: 1
+  image: "glennfischer032/desktop-manager-frontend:latest"
+  containerPort: 5000
+  healthcheck:
+    enabled: true
+    path: /
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+```
 
 #### MySQL
-- `mysql.rootPassword`: Root password (set in values.local.yaml)
-- `mysql.userPassword`: User password (set in values.local.yaml)
-- `mysql.persistence.*`: Persistence configuration
+```yaml
+mysql:
+  image: "mysql:8.0"
+  initdbImage: "glennfischer032/guacamole-init-db:latest"
+  persistence:
+    enabled: true
+    storageClass: "nfs-csi"
+    accessMode: ReadWriteOnce
+    size: 1Gi
+  args:
+    - "--default-authentication-plugin=mysql_native_password"
+    - "--bind-address=0.0.0.0"
+  healthcheck:
+    enabled: true
+```
 
-#### Guacamole
-- `guacamole.adminUser`: Admin username (set in values.local.yaml)
-- `guacamole.adminPassword`: Admin password (set in values.local.yaml)
+#### Guacamole and guacd
+```yaml
+guacd:
+  image: "guacamole/guacd"
+  logLevel: "info"
 
-See `values.yaml` for complete configuration options and `values.local.yaml` for your local sensitive values.
+guacamole:
+  image: "glennfischer032/guac-no-root:latest"
+  containerPort: 8080
+```
 
 ## Security
 
+The chart implements several security best practices:
 - All components run as non-root users
-- Security contexts are properly configured
-- Capabilities are dropped where possible
-- Secrets are properly managed
+- Security contexts are properly configured at both pod and container level
+- Container capabilities are dropped
+- Sensitive data is managed through the `common.credentials` section
+- All services use health checks for reliability
 
 ## Maintenance
 
@@ -172,5 +227,4 @@ SQL scripts in `sql/` directory:
 1. `01-guacamole-init.sql`: Core Guacamole schema
 2. `02-guacamole-init-users.sql`: User initialization
 3. `03-init.sql`: Additional initialization
-4. `04-desktop-manager-schema.sql`: Desktop Manager schema
 

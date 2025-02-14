@@ -3,60 +3,73 @@ kind: Deployment
 metadata:
   name: guacamole-{{ .Release.Name }}
   labels:
-    app: guacamole
+    {{- include "guacamole.labels" . | nindent 4 }}
     component: guacamole
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: guacamole
-      component: guacamole
-      release: "{{ .Release.Name }}"
+      {{- include "guacamole.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        app: guacamole
+        {{- include "guacamole.selectorLabels" . | nindent 8 }}
         component: guacamole
-        release: "{{ .Release.Name }}"
     spec:
       securityContext:
-{{- if .Values.podSecurityContext }}
-{{ toYaml .Values.podSecurityContext | indent 8 }}
-{{- end }}
-
+        {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
+      initContainers:
+      - name: wait-for-mysql
+        image: mysql:8.0
+        command: ['sh', '-c', 'until mysqladmin ping -h {{ .Values.common.database.host }} -u root -p{{ .Values.common.database.password }}; do echo waiting for mysql; sleep 2; done;']
+        securityContext:
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 1000
+      - name: wait-for-guacd
+        image: busybox:1.36
+        command: ['sh', '-c', 'until nc -z -w2 guacd-{{ .Release.Name }} {{ .Values.common.ports.guacd }}; do echo waiting for guacd; sleep 2; done;']
+        securityContext:
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 1000
       containers:
       - name: guacamole
-        image: "{{ .Values.guacamole.image }}"
+        image: {{ .Values.guacamole.image }}
         imagePullPolicy: IfNotPresent
         securityContext:
-          runAsUser: {{ .Values.containerSecurityContext.guacamoleUid }}
-          allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
-          capabilities:
-            drop:
-{{ toYaml .Values.containerSecurityContext.dropCapabilities | indent 14 }}
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 1000
+          runAsGroup: 1000
         env:
-        {{- range $key, $value := .Values.guacamole.env }}
-          - name: {{ $key }}
-            value: {{ $value | quote }}
-        {{- end }}
-          - name: GUACD_HOSTNAME
-            value: "guacd-{{ .Release.Name }}"
-          - name: GUACD_PORT
-            value: "{{ .Values.guacd.servicePort }}"
-          - name: MYSQL_HOSTNAME
-            value: "mysql-{{ .Release.Name }}"
-          - name: MYSQL_PORT
-            value: "{{ .Values.mysql.servicePort }}"
-          - name: MYSQL_DATABASE
-            value: "{{ .Values.mysql.database }}"
-          - name: MYSQL_USER
-            value: "{{ .Values.mysql.user }}"
-          - name: MYSQL_PASSWORD
-            value: "{{ .Values.mysql.userPassword }}"
-          - name: HOME
-            value: "/home/guac"
-          - name: GUACAMOLE_HOME
-            value: "/opt/guac-data"
+        - name: MYSQL_HOSTNAME
+          value: {{ .Values.common.database.host | quote }}
+        - name: MYSQL_PORT
+          value: {{ .Values.common.ports.mysql | quote }}
+        - name: MYSQL_DATABASE
+          value: {{ .Values.common.database.guacamoleDb | quote }}
+        - name: MYSQL_USER
+          value: {{ .Values.common.database.user | quote }}
+        - name: MYSQL_PASSWORD
+          value: {{ .Values.common.database.password | quote }}
+        - name: GUACD_HOSTNAME
+          value: {{ printf "guacd-%s" .Release.Name | quote }}
+        - name: GUACD_PORT
+          value: {{ .Values.common.ports.guacd | quote }}
         ports:
-        - name: http
-          containerPort: {{ .Values.guacamole.containerPort }}
+        - containerPort: {{ .Values.guacamole.containerPort }}
+          name: http
+        livenessProbe:
+          httpGet:
+            path: /guacamole/
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /guacamole/
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3

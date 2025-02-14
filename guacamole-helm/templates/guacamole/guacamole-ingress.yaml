@@ -3,10 +3,11 @@ kind: Ingress
 metadata:
   name: web
   annotations:
-    kubernetes.io/ingress.class: nginx
+    # removed deprecated ingress class
     kubernetes.io/tls-acme: "true"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
+  ingressClassName: nginx
   tls:
     - hosts:
         - {{ include "guacamole.hostname" . }}
