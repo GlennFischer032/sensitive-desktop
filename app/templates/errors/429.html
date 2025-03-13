@@ -26,11 +26,11 @@
     const countdownElement = document.getElementById('countdown');
     if (countdownElement) {
         let timeLeft = parseInt(countdownElement.textContent) + 1;
-        
+
         const countdown = setInterval(() => {
             timeLeft--;
             countdownElement.textContent = timeLeft;
-            
+
             if (timeLeft <= 0) {
                 clearInterval(countdown);
                 window.location.href = '/auth/login';
@@ -38,4 +38,4 @@
         }, 1000);
     }
 </script>
-{% endblock %} 
+{% endblock %}

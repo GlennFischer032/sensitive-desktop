@@ -53,39 +53,39 @@ spec:
           - "-c"
           - |
             echo "Initializing databases..."
-            
+
             # Create and initialize Guacamole database
             echo "Creating Guacamole schema..."
             mysql -h {{ .Values.common.database.host }} \
                   -u root -p{{ .Values.common.database.password }} \
                   -e "CREATE DATABASE IF NOT EXISTS {{ .Values.common.database.guacamoleDb }};"
-            
+
             echo "Initializing Guacamole schema..."
             mysql -h {{ .Values.common.database.host }} \
                   -u root -p{{ .Values.common.database.password }} \
                   {{ .Values.common.database.guacamoleDb }} < /docker-entrypoint-initdb.d/01-guacamole-init.sql
-            
+
             echo "Initializing Guacamole users..."
             mysql -h {{ .Values.common.database.host }} \
                   -u root -p{{ .Values.common.database.password }} \
                   {{ .Values.common.database.guacamoleDb }} < /docker-entrypoint-initdb.d/02-guacamole-init-users.sql
-            
+
             # Create and initialize Desktop Manager database
             echo "Creating Desktop Manager database..."
             mysql -h {{ .Values.common.database.host }} \
                   -u root -p{{ .Values.common.database.password }} \
                   -e "CREATE DATABASE IF NOT EXISTS {{ .Values.common.database.desktopDb }};"
-            
+
             echo "Granting privileges to guacamole user..."
             mysql -h {{ .Values.common.database.host }} \
                   -u root -p{{ .Values.common.database.password }} \
                   -e "GRANT ALL PRIVILEGES ON {{ .Values.common.database.desktopDb }}.* TO '{{ .Values.common.database.user }}'@'%';"
-            
+
             echo "Initializing Desktop Manager schema..."
             mysql -h {{ .Values.common.database.host }} \
                   -u root -p{{ .Values.common.database.password }} \
                   {{ .Values.common.database.desktopDb }} < /docker-entrypoint-initdb.d/03-init.sql
-            
+
             echo "Database initialization completed successfully!"
         volumeMounts:
         - name: init-scripts

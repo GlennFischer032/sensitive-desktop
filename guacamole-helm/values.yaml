@@ -7,14 +7,14 @@ common:
       type: RuntimeDefault
     fsGroupChangePolicy: OnRootMismatch
     fsGroup: 1000
-  
+
   # Common container security settings
   containerSecurityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
         - ALL
-  
+
   # Common service ports
   ports:
     api: 80
@@ -22,7 +22,7 @@ common:
     guacamole: 80
     guacd: 4822
     mysql: 3306
-  
+
   # Database configuration
   database:
     host: mysql-guacamole
@@ -31,7 +31,7 @@ common:
     password: "" # Set the database password
     guacamoleDb: guacamole_db
     desktopDb: desktop_manager
-  
+
   # Credentials and secrets
   credentials:
     secretKey: "" # Set a secure secret key for the application
@@ -41,7 +41,7 @@ common:
     desktopAdmin:
       username: "" # Set the Desktop Manager admin username
       password: "" # Set the Desktop Manager admin password
-  
+
   # Rancher configuration
   rancher:
     apiUrl: "" # Set your Rancher API URL
@@ -116,4 +116,4 @@ guacd:
 #####################################################
 guacamole:
   image: "glennfischer032/guac-no-root:latest"
-  containerPort: 8080 
+  containerPort: 8080

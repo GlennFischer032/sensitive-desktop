@@ -1,36 +1,90 @@
+from datetime import datetime
 from functools import wraps
-from flask import session, redirect, url_for, flash, current_app
+
 import jwt
+from flask import (
+    Response,
+    abort,
+    current_app,
+    flash,
+    redirect,
+    request,
+    session,
+    url_for,
+)
+
 
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        token = session.get('token')
+        token = session.get("token")
+        current_app.logger.debug(
+            f"Checking token: {token[:10]}..." if isinstance(token, str) else token
+        )
+
         if not token:
             current_app.logger.info("No token found in session, redirecting to login")
-            return redirect(url_for('auth.login'))
+            session.clear()
+            return redirect(url_for("auth.login", next=request.url))
+
         try:
-            current_app.logger.info(f"Attempting to decode token with secret key: {current_app.config['SECRET_KEY'][:5]}...")
-            decoded = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
-            current_app.logger.info(f"Successfully decoded token: {decoded}")
-            return f(*args, **kwargs)
-        except jwt.ExpiredSignatureError:
-            current_app.logger.info("Token expired, redirecting to login")
+            if not isinstance(token, str):
+                current_app.logger.info("Invalid token type, redirecting to login")
+                session.clear()
+                return redirect(url_for("auth.login", next=request.url))
+
+            try:
+                # Verify the token signature and decode
+                current_app.logger.debug("Verifying token...")
+                decoded = jwt.decode(
+                    token,
+                    current_app.config["SECRET_KEY"],
+                    algorithms=["HS256"],
+                    options={"verify_exp": False},
+                )
+                current_app.logger.debug(f"Token decoded successfully: {decoded}")
+
+                exp = decoded.get("exp")
+                current_time = datetime.utcnow().timestamp()
+                current_app.logger.debug(f"Checking expiry: exp={exp}, current={current_time}")
+
+                if exp is None:
+                    current_app.logger.info("Token has no expiry")
+                    session.clear()
+                    return redirect(url_for("auth.login", next=request.url))
+
+                if current_time >= float(exp):
+                    current_app.logger.info(f"Token expired (exp: {exp}, current: {current_time})")
+                    session.clear()
+                    return redirect(url_for("auth.login", next=request.url))
+
+                current_app.logger.debug("Token is valid and not expired")
+                return f(*args, **kwargs)
+
+            except jwt.InvalidSignatureError as e:
+                current_app.logger.info(f"Invalid token signature: {str(e)}")
+                session.clear()
+                return redirect(url_for("auth.login", next=request.url))
+
+            except jwt.InvalidTokenError as e:
+                current_app.logger.info(f"Invalid token format: {str(e)}")
+                session.clear()
+                return redirect(url_for("auth.login", next=request.url))
+
+        except Exception as e:
+            current_app.logger.error(f"Unexpected error in login_required: {str(e)}")
             session.clear()
-            flash('Session expired. Please log in again.')
-            return redirect(url_for('auth.login'))
-        except jwt.InvalidTokenError:
-            current_app.logger.info("Invalid token, redirecting to login")
-            session.clear()
-            flash('Invalid token. Please log in again.')
-            return redirect(url_for('auth.login'))
+            return redirect(url_for("auth.login", next=request.url))
+
     return decorated_function
+
 
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not session.get('is_admin'):
-            flash('Admin access required.')
-            return redirect(url_for('connections.view_connections'))
+        if not session.get("is_admin"):
+            flash("Admin access required.")
+            return abort(403)
         return f(*args, **kwargs)
+
     return decorated_function

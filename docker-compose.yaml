@@ -1,24 +1,22 @@
 services:
-  mysql:
-    image: mysql:8.0
+  postgres:
+    image: postgres:16-alpine
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      POSTGRES_PASSWORD: ${MYSQL_PASSWORD}
+      POSTGRES_USER: ${MYSQL_USER}
+      POSTGRES_DB: ${MYSQL_DATABASE}
     ports:
-      - "3306:3306"  # Using standard MySQL port
+      - "5432:5432"  # Using standard PostgreSQL port
     volumes:
-      - ./desktop-manager-api/guacamole-init.sql:/docker-entrypoint-initdb.d/01-guacamole-init.sql
-      - ./desktop-manager-api/guacamole-init-users.sql:/docker-entrypoint-initdb.d/02-guacamole-init-users.sql
-      - ./desktop-manager-api/init.sql:/docker-entrypoint-initdb.d/03-init.sql
+      - ./desktop-manager-api/guacamole-init-postgres.sql:/docker-entrypoint-initdb.d/01-guacamole-init.sql
+      - ./desktop-manager-api/guacamole-init-users-postgres.sql:/docker-entrypoint-initdb.d/02-guacamole-init-users.sql
+      - ./desktop-manager-api/init-postgres.sql:/docker-entrypoint-initdb.d/03-init.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD-SHELL", "pg_isready -U ${MYSQL_USER} -d ${MYSQL_DATABASE}"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
-    command: --default-authentication-plugin=mysql_native_password --bind-address=0.0.0.0
     networks:
       - desktop-network
 
@@ -30,13 +28,19 @@ services:
   guacamole:
     image: guacamole/guacamole
     environment:
-      MYSQL_HOSTNAME: mysql
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      POSTGRESQL_HOSTNAME: postgres
+      POSTGRESQL_DATABASE: ${MYSQL_DATABASE}
+      POSTGRESQL_USER: ${MYSQL_USER}
+      POSTGRESQL_PASSWORD: ${MYSQL_PASSWORD}
       GUACD_HOSTNAME: guacd
+      # JSON Authentication configuration via environment variables
+      GUACAMOLE_EXTENSION_PRIORITY: postgresql,json
+      GUACAMOLE_JSON_SECRET_KEY: ${GUACAMOLE_JSON_SECRET_KEY}
+      # Direct property mapping for Docker container
+      JSON_SECRET_KEY: ${GUACAMOLE_JSON_SECRET_KEY}
+      EXTENSION_PRIORITY: postgresql,json
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
     ports:
       - "8080:8080"  # Using standard Guacamole port
@@ -55,14 +59,16 @@ services:
       - ./desktop-manager-api/src:/app/src
     environment:
       - SECRET_KEY=${SECRET_KEY}
-      - MYSQL_HOST=mysql
-      - MYSQL_PORT=3306
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DATABASE=${MYSQL_DATABASE}
+      - POSTGRES_USER=${MYSQL_USER}
+      - POSTGRES_PASSWORD=${MYSQL_PASSWORD}
       - GUACAMOLE_API_URL=${GUACAMOLE_API_URL}
       - GUACAMOLE_USERNAME=${GUACAMOLE_USERNAME}
       - GUACAMOLE_PASSWORD=${GUACAMOLE_PASSWORD}
+      - GUACAMOLE_JSON_SECRET_KEY=${GUACAMOLE_JSON_SECRET_KEY}
+      - EXTERNAL_GUACAMOLE_URL=${EXTERNAL_GUACAMOLE_URL}
       - ADMIN_USERNAME=${ADMIN_USERNAME}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - RANCHER_API_TOKEN=${RANCHER_API_TOKEN}
@@ -72,9 +78,16 @@ services:
       - NAMESPACE=${NAMESPACE}
       - FLASK_ENV=development
       - PYTHONUNBUFFERED=1
-      - CORS_ALLOWED_ORIGINS=http://desktop-frontend:80
+      # Social Auth Configuration
+      - SOCIAL_AUTH_OIDC_PROVIDER_URL=${SOCIAL_AUTH_OIDC_PROVIDER_URL}
+      - SOCIAL_AUTH_OIDC_CLIENT_ID=${SOCIAL_AUTH_OIDC_CLIENT_ID}
+      - SOCIAL_AUTH_OIDC_CLIENT_SECRET=${SOCIAL_AUTH_OIDC_CLIENT_SECRET}
+      - SOCIAL_AUTH_LOGIN_REDIRECT_URL=${SOCIAL_AUTH_LOGIN_REDIRECT_URL}
+      - SOCIAL_AUTH_LOGIN_ERROR_URL=${SOCIAL_AUTH_LOGIN_ERROR_URL}
+      - SOCIAL_AUTH_OIDC_CALLBACK_URL=${SOCIAL_AUTH_OIDC_CALLBACK_URL}
+      - CORS_ALLOWED_ORIGINS=http://localhost:5001,http://desktop-frontend:5000
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
       guacamole:
         condition: service_started
@@ -100,8 +113,8 @@ services:
       - "5001:5000"
     volumes:
       - ./app:/app
-      - /app/.venv/
       - /app/desktop_frontend.egg-info/
+      - /app/**/__pycache__
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - API_URL=http://desktop-api:5000
@@ -109,15 +122,36 @@ services:
       - EXTERNAL_GUACAMOLE_URL=http://localhost:8080/guacamole
       - FLASK_ENV=development
       - PYTHONUNBUFFERED=1
+      - REDIS_URL=redis://redis:6379/0
+      # OIDC Configuration
+      - OIDC_CLIENT_ID=${OIDC_CLIENT_ID}
+      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
+      - OIDC_PROVIDER_URL=https://login.e-infra.cz/oidc
+      - OIDC_REDIRECT_URI=http://localhost:5001/auth/oidc/callback
     depends_on:
       desktop-api:
         condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - desktop-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 10s
       timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - desktop-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
       retries: 3
       start_period: 10s
 

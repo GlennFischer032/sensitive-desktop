@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy pyproject.toml to leverage Docker cache
-COPY pyproject.toml ./
+# Copy all application code first
+COPY . .
 
 # Install uv
 RUN pip install --no-cache-dir uv
@@ -20,9 +20,6 @@ RUN pip install --no-cache-dir uv
 # Install Python dependencies using uv and pyproject.toml
 RUN uv pip install --system .
 RUN uv pip install --system gunicorn
-
-# Copy application code
-COPY . .
 
 # Set ownership to non-root user
 RUN chown -R 1000:1000 /app

@@ -9,7 +9,7 @@
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
-        <div class="alert alert-{{ category }}" style="padding: 1rem; margin-bottom: 1rem; border-radius: 4px; 
+        <div class="alert alert-{{ category }}" style="padding: 1rem; margin-bottom: 1rem; border-radius: 4px;
             {% if category == 'error' %}background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2;{% endif %}
             {% if category == 'success' %}background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;{% endif %}
             {% if category == 'warning' %}background-color: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2;{% endif %}">
@@ -23,10 +23,14 @@
         <h4 style="margin-top: 0; color: #1976d2;">Requirements:</h4>
         <ul style="margin-bottom: 0; color: #2196f3;">
             <li>Username must be at least 3 characters long</li>
-            <li>Password must be at least 8 characters long</li>
-            <li>Password must contain at least one uppercase letter</li>
-            <li>Password must contain at least one lowercase letter</li>
-            <li>Password must contain at least one number</li>
+            <li>Email is required</li>
+            <li>If password is provided:</li>
+            <ul>
+                <li>Must be at least 8 characters long</li>
+                <li>Must contain at least one uppercase letter</li>
+                <li>Must contain at least one lowercase letter</li>
+                <li>Must contain at least one number</li>
+            </ul>
         </ul>
     </div>
 
@@ -38,14 +42,33 @@
         </div>
 
         <div class="form-group">
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required minlength="8">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+            <small class="error-message" id="email-error" style="color: #c62828; display: none;"></small>
+        </div>
+
+        <div class="form-group">
+            <label for="organization">Organization:</label>
+            <input type="text" id="organization" name="organization">
+            <small class="error-message" id="organization-error" style="color: #c62828; display: none;"></small>
+        </div>
+
+        <div class="form-group">
+            <label for="sub">OIDC Subject Identifier (sub):</label>
+            <input type="text" id="sub" name="sub">
+            <small class="help-text" style="color: #757575; display: block; margin-top: 0.25rem;">Optional. Only needed for OIDC users. This is the unique identifier from the OIDC provider.</small>
+            <small class="error-message" id="sub-error" style="color: #c62828; display: none;"></small>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password: (optional)</label>
+            <input type="password" id="password" name="password" minlength="8">
             <small class="error-message" id="password-error" style="color: #c62828; display: none;"></small>
         </div>
 
         <div class="form-group">
             <label for="confirm_password">Confirm Password:</label>
-            <input type="password" id="confirm_password" name="confirm_password" required minlength="8">
+            <input type="password" id="confirm_password" name="confirm_password" minlength="8">
             <small class="error-message" id="confirm-password-error" style="color: #c62828; display: none;"></small>
         </div>
 
@@ -76,9 +99,10 @@
 {% block scripts %}
 <script>
 document.getElementById('user-form').addEventListener('submit', function(e) {
+    const username = document.getElementById('username').value;
+    const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirm_password').value;
-    const username = document.getElementById('username').value;
 
     // Clear previous error messages
     document.querySelectorAll('.error-message').forEach(el => {
@@ -97,40 +121,60 @@ document.getElementById('user-form').addEventListener('submit', function(e) {
         hasError = true;
     }
 
-    // Password validation
-    if (password.length < 8) {
+    // Email validation
+    if (!email) {
         e.preventDefault();
-        const passwordError = document.getElementById('password-error');
-        passwordError.textContent = 'Password must be at least 8 characters long';
-        passwordError.style.display = 'block';
-        hasError = true;
-    } else if (!/[A-Z]/.test(password)) {
-        e.preventDefault();
-        const passwordError = document.getElementById('password-error');
-        passwordError.textContent = 'Password must contain at least one uppercase letter';
-        passwordError.style.display = 'block';
-        hasError = true;
-    } else if (!/[a-z]/.test(password)) {
-        e.preventDefault();
-        const passwordError = document.getElementById('password-error');
-        passwordError.textContent = 'Password must contain at least one lowercase letter';
-        passwordError.style.display = 'block';
-        hasError = true;
-    } else if (!/[0-9]/.test(password)) {
-        e.preventDefault();
-        const passwordError = document.getElementById('password-error');
-        passwordError.textContent = 'Password must contain at least one number';
-        passwordError.style.display = 'block';
+        const emailError = document.getElementById('email-error');
+        emailError.textContent = 'Email is required';
+        emailError.style.display = 'block';
         hasError = true;
     }
 
-    // Confirm password validation
-    if (password !== confirmPassword) {
-        e.preventDefault();
-        const confirmPasswordError = document.getElementById('confirm-password-error');
-        confirmPasswordError.textContent = 'Passwords do not match';
-        confirmPasswordError.style.display = 'block';
-        hasError = true;
+    // Password validation (only if password is provided)
+    if (password) {
+        if (password.length < 8) {
+            e.preventDefault();
+            const passwordError = document.getElementById('password-error');
+            passwordError.textContent = 'Password must be at least 8 characters long';
+            passwordError.style.display = 'block';
+            hasError = true;
+        } else if (!/[A-Z]/.test(password)) {
+            e.preventDefault();
+            const passwordError = document.getElementById('password-error');
+            passwordError.textContent = 'Password must contain at least one uppercase letter';
+            passwordError.style.display = 'block';
+            hasError = true;
+        } else if (!/[a-z]/.test(password)) {
+            e.preventDefault();
+            const passwordError = document.getElementById('password-error');
+            passwordError.textContent = 'Password must contain at least one lowercase letter';
+            passwordError.style.display = 'block';
+            hasError = true;
+        } else if (!/[0-9]/.test(password)) {
+            e.preventDefault();
+            const passwordError = document.getElementById('password-error');
+            passwordError.textContent = 'Password must contain at least one number';
+            passwordError.style.display = 'block';
+            hasError = true;
+        }
+
+        // Confirm password validation (only if password is provided)
+        if (password !== confirmPassword) {
+            e.preventDefault();
+            const confirmPasswordError = document.getElementById('confirm-password-error');
+            confirmPasswordError.textContent = 'Passwords do not match';
+            confirmPasswordError.style.display = 'block';
+            hasError = true;
+        }
+    } else {
+        // If no password is provided, confirm password should also be empty
+        if (confirmPassword) {
+            e.preventDefault();
+            const confirmPasswordError = document.getElementById('confirm-password-error');
+            confirmPasswordError.textContent = 'Please leave confirm password empty if no password is provided';
+            confirmPasswordError.style.display = 'block';
+            hasError = true;
+        }
     }
 
     if (!hasError) {

@@ -26,8 +26,8 @@
                 <td>{{ conn.created_at }}</td>
                 <td>{{ conn.created_by }}</td>
                 <td class="action-buttons">
-                    <a href="{{ external_guacamole_url }}/#/client/{{ conn.guacamole_connection_id }}" target="_blank" class="action-button connect-button">Connect</a>
-                    <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post" 
+                    <a href="{{ conn.auth_url }}" target="_blank" class="action-button connect-button">Connect</a>
+                    <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post"
                           onsubmit="handleDelete(event, '{{ conn.name }}')">
                         <button type="submit" class="action-button delete-button">Delete</button>
                     </form>
@@ -47,7 +47,7 @@
 
 async function handleDelete(event, connectionName) {
     event.preventDefault();
-    
+
     if (!confirm('Are you sure you want to delete this connection?')) {
         return;
     }
@@ -55,7 +55,7 @@ async function handleDelete(event, connectionName) {
     const form = event.target;
     const row = document.getElementById(`connection-${connectionName}`);
     const actionButtons = row.querySelector('.action-buttons');
-    
+
     // Replace buttons with loading animation
     actionButtons.innerHTML = `
         <span class="deleting-text">Deleting</span>
@@ -65,7 +65,7 @@ async function handleDelete(event, connectionName) {
             <div class="loading-dot"></div>
         </div>
     `;
-    
+
     row.classList.add('deleting-row');
 
     try {
