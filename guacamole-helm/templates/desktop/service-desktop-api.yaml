@@ -13,4 +13,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    {{- include "desktop-api.selectorLabels" . | nindent 4 }} 
+    {{- include "desktop-api.selectorLabels" . | nindent 4 }}

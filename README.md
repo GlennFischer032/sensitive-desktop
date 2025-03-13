@@ -127,3 +127,129 @@ For detailed documentation of individual components, please refer to their respe
 - [Desktop Manager Frontend](app/README.md)
 - [Desktop Manager API](desktop-manager-api/README.md)
 - [Guacamole Helm Chart](guacamole-helm/README.md)
+
+## Testing
+
+The project includes comprehensive test suites for both the API and web application components.
+
+### Test Script
+
+The repository includes a Python script `run_tests.py` that can be used to run tests for both components.
+
+#### Basic Usage
+
+Run all tests for both components:
+
+```bash
+./run_tests.py
+```
+
+Run tests for just the API component:
+
+```bash
+./run_tests.py --component api
+```
+
+Run tests for just the web application component:
+
+```bash
+./run_tests.py --component app
+```
+
+#### Options
+
+The test script supports several options:
+
+- `--component {api,app,all}`: Specify which component to test (default: all)
+- `--verbose, -v`: Enable verbose output
+- `--failfast, -f`: Stop on first test failure
+- `--junit-xml FILENAME`: Generate JUnit XML report with the specified base filename
+- `--test-path PATH`: Run a specific test (e.g., tests/unit/test_users.py::test_dashboard_success)
+- `--coverage, -c`: Run tests with coverage reporting
+- `--debug, -d`: Run tests with debug logging enabled
+
+#### Examples
+
+Run all tests with verbose output:
+
+```bash
+./run_tests.py -v
+```
+
+Run API tests and stop on first failure:
+
+```bash
+./run_tests.py --component api -f
+```
+
+Run a specific test in the app component:
+
+```bash
+./run_tests.py --component app --test-path tests/unit/test_connections.py::test_list_connections
+```
+
+Generate JUnit XML reports:
+
+```bash
+./run_tests.py --junit-xml test_report
+```
+
+Run tests with coverage reporting:
+
+```bash
+./run_tests.py --coverage
+```
+
+Run tests with debug logging:
+
+```bash
+./run_tests.py --debug
+```
+
+### Handling Authentication in Tests
+
+The app component tests require authentication. The test framework automatically mocks JWT token validation to ensure that authentication works correctly during testing. This includes:
+
+1. Setting up proper session data for the test client
+2. Mocking JWT token validation with expiration dates
+3. Handling both regular user and admin authentication scenarios
+
+If you're experiencing authentication issues in tests, make sure:
+- The test client has a proper session setup
+- The JWT mock is correctly patched
+- Admin-required routes have the admin flag set in the session
+
+### Manual Testing
+
+You can also run the tests directly using pytest:
+
+For the API component:
+
+```bash
+cd desktop-manager-api
+python -m pytest
+```
+
+For the App component:
+
+```bash
+cd app
+python -m pytest
+```
+
+## Code Formatting and Quality
+
+This project uses automated code formatting and quality tools like Black, Ruff, and isort to maintain consistent code quality. Pre-commit hooks are set up to automatically check and format code when committing changes.
+
+For detailed information about code formatting, linting, and pre-commit hooks, see:
+- [Code Formatting Documentation](CODE_FORMATTING.md)
+
+To quickly set up pre-commit hooks for the entire project:
+```bash
+./install_pre_commit.sh
+```
+
+To manually format all code in the project:
+```bash
+./format_all.sh
+```

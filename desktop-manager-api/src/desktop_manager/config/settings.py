@@ -1,10 +1,19 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 import os
-from typing import Optional
+import tempfile
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     # Database settings
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
+    POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5432"))
+    POSTGRES_DATABASE: str = os.getenv("POSTGRES_DATABASE", "guacamole_db")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "guacamole_user")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
+
+    # For backwards compatibility during transition
     MYSQL_HOST: str = os.getenv("MYSQL_HOST", "localhost")
     MYSQL_PORT: int = int(os.getenv("MYSQL_PORT", "3306"))
     MYSQL_DATABASE: str = os.getenv("MYSQL_DATABASE", "guacamole_db")
@@ -20,25 +29,47 @@ class Settings(BaseSettings):
     GUACAMOLE_API_URL: str = os.getenv("GUACAMOLE_API_URL", "http://guacamole:8080/guacamole")
     GUACAMOLE_USERNAME: str = os.getenv("GUACAMOLE_USERNAME", "guacadmin")
     GUACAMOLE_PASSWORD: str = os.getenv("GUACAMOLE_PASSWORD", "")
+    GUACAMOLE_JSON_SECRET_KEY: str = os.getenv("GUACAMOLE_JSON_SECRET_KEY", "")
+    EXTERNAL_GUACAMOLE_URL: str = os.getenv(
+        "EXTERNAL_GUACAMOLE_URL", "http://localhost:8080/guacamole"
+    )
 
     # Rancher settings
     RANCHER_API_TOKEN: str = os.getenv("RANCHER_API_TOKEN", "")
     RANCHER_API_URL: str = os.getenv("RANCHER_API_URL", "")
     RANCHER_CLUSTER_ID: str = os.getenv("RANCHER_CLUSTER_ID", "")
+    RANCHER_CLUSTER_NAME: str = os.getenv("RANCHER_CLUSTER_NAME", "")
+    RANCHER_PROJECT_ID: str = os.getenv("RANCHER_PROJECT_ID", "")
     RANCHER_REPO_NAME: str = os.getenv("RANCHER_REPO_NAME", "")
     NAMESPACE: str = os.getenv("NAMESPACE", "default")
 
     # Desktop settings
     DESKTOP_IMAGE: str = os.getenv("DESKTOP_IMAGE", "cerit.io/desktops/ubuntu-xfce:22.04-user")
-    TEMP_VALUES_FILE_PATH: str = os.getenv("TEMP_VALUES_FILE_PATH", "/tmp/values.yaml")
+    TEMP_VALUES_FILE_PATH: str = os.getenv(
+        "TEMP_VALUES_FILE_PATH",
+        os.path.join(tempfile.gettempdir(), f"desktop_manager_values_{os.getpid()}.yaml"),
+    )
+
+    # OIDC settings
+    OIDC_PROVIDER_URL: str = os.getenv(
+        "SOCIAL_AUTH_OIDC_PROVIDER_URL", "https://login.e-infra.cz/oidc"
+    )
+    OIDC_CLIENT_ID: str = os.getenv("SOCIAL_AUTH_OIDC_CLIENT_ID", "")
+    OIDC_CLIENT_SECRET: str = os.getenv("SOCIAL_AUTH_OIDC_CLIENT_SECRET", "")
+    OIDC_BACKEND_REDIRECT_URI: str = os.getenv(
+        "SOCIAL_AUTH_OIDC_CALLBACK_URL", "http://localhost:5000/api/auth/oidc/callback"
+    )
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5001")
+    CORS_ALLOWED_ORIGINS: str = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5001")
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
-@lru_cache()
+
+@lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance.
-    
+
     Returns:
         Settings: The application settings instance
     """
-    return Settings() 
+    return Settings()

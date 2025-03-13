@@ -42,14 +42,14 @@
 <script>
 function handleSubmit(event) {
     event.preventDefault();
-    
+
     const form = document.getElementById('connection-form');
     const loadingContainer = document.getElementById('loading-container');
-    
+
     // Hide form and show loading animation
     form.style.display = 'none';
     loadingContainer.style.display = 'block';
-    
+
     // Submit the form
     form.submit();
 }

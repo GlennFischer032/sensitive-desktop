@@ -7,6 +7,12 @@ A Flask-based REST API service that manages remote desktop connections through A
 ```
 desktop-manager-api/
 ├── src/                  # Source code directory
+│   └── desktop_manager/  # Main package
+│       ├── api/          # API endpoints
+│       ├── clients/      # Client classes for external services
+│       ├── config/       # Configuration management
+│       ├── models/       # Database models
+│       └── utils/        # Utility functions
 ├── Dockerfile           # Container configuration
 ├── pyproject.toml       # Project dependencies and metadata
 ├── uv.lock             # Dependency lock file
@@ -104,6 +110,43 @@ docker run -p 5000:5000 \
 - Integration with Rancher for container orchestration
 - Database migrations and schema management
 - Health check endpoints
+
+## Client Architecture
+
+The application uses a client architecture to interact with external services:
+
+### Client Structure
+
+- **BaseClient**: Provides common functionality for all clients, including HTTP request methods, error handling, and logging.
+- **GuacamoleClient**: Interacts with Apache Guacamole for user and connection management.
+- **RancherClient**: Manages Rancher deployments for containerized applications.
+- **DatabaseClient**: Performs database operations using SQLAlchemy.
+- **ClientFactory**: Provides a convenient way to get client instances.
+
+### Using Clients
+
+```python
+from desktop_manager.clients import client_factory
+
+# Get client instances
+guacamole_client = client_factory.get_guacamole_client()
+rancher_client = client_factory.get_rancher_client()
+database_client = client_factory.get_database_client()
+
+# Example: Create a connection in Guacamole
+guacamole_client.login()
+connection_params = {
+    "name": "my-connection",
+    "protocol": "rdp",
+    "parameters": {
+        "hostname": "example.com",
+        "port": "3389",
+    }
+}
+guacamole_client.create_connection(connection_params)
+```
+
+For more details, see the [clients README](src/desktop_manager/clients/README.md).
 
 ## Configuration
 

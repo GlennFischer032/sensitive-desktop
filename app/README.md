@@ -100,3 +100,58 @@ Configuration is managed through environment variables and the config module:
 - Input validation and sanitization
 - XSS protection
 - Secure headers middleware
+
+## API Client
+
+The application uses a structured API client to interact with the backend API. The client is organized as follows:
+
+### Client Structure
+
+- `BaseClient`: Base class that handles common functionality like making HTTP requests, error handling, etc.
+- `AuthClient`: Handles authentication-related API requests (login, logout, token validation)
+- `ConnectionsClient`: Handles connection-related API requests (listing, adding, deleting connections)
+- `UsersClient`: Handles user-related API requests (listing, adding, deleting users)
+- `ClientFactory`: Factory class to easily access all clients
+
+### Using the Client
+
+To use the client in your code:
+
+```python
+from clients.factory import client_factory
+
+# Authentication
+auth_client = client_factory.get_auth_client()
+data, status_code = auth_client.login(username, password)
+
+# Connections
+connections_client = client_factory.get_connections_client()
+connections = connections_client.list_connections()
+connections_client.add_connection("new-connection")
+connections_client.delete_connection("connection-name")
+
+# Users
+users_client = client_factory.get_users_client()
+users = users_client.list_users()
+users_client.add_user(username, password, is_admin=False)
+users_client.delete_user(username)
+```
+
+### Error Handling
+
+The client uses a custom `APIError` exception class for error handling:
+
+```python
+from clients.base import APIError
+
+try:
+    connections = connections_client.list_connections()
+except APIError as e:
+    # Access error details
+    print(f"Error: {e.message}, Status: {e.status_code}")
+    if e.details:
+        print(f"Details: {e.details}")
+except Exception as e:
+    # Handle other exceptions
+    print(f"Unexpected error: {str(e)}")
+```

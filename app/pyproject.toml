@@ -11,26 +11,45 @@ requires-python = ">=3.11"
 dependencies = [
     "flask",
     "flask-cors",
-    "gunicorn",
+    "flask-session",
+    "redis",
     "requests",
+    "gunicorn",
     "pydantic",
     "pydantic-settings",
+    "python-jose[cryptography]",
     "werkzeug",
     "PyJWT",
     # Security dependencies
+    "argon2-cffi",
+    "bleach",
+    "flask-limiter",
     "flask-talisman",
     "flask-seasurf",
-    "flask-limiter",
-    "bleach",
-    "email-validator",
-    "itsdangerous",
-    "pyOpenSSL"
+    "email-validator"
 ]
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["*"]
-exclude = ["tests*"]
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "pytest-flask>=1.2.0",
+    "fakeredis>=2.0.0",
+    "responses>=0.23.0",
+    "freezegun>=1.2.0"
+]
+
+[tool.setuptools]
+packages = [
+    "auth",
+    "clients",
+    "config",
+    "connections",
+    "middleware",
+    "users",
+    "utils"
+]
 
 [tool.black]
 line-length = 100
@@ -39,3 +58,127 @@ target-version = ['py311']
 [tool.isort]
 profile = "black"
 multi_line_output = 3
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov --cov-report=term-missing"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning",
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "**/tests/*",
+    "**/__init__.py",
+    ".venv/*",
+    "setup.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "pass",
+]
+
+# Ruff configuration
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+
+[tool.ruff.lint]
+# Linting rules configuration
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "C90", # mccabe
+    "I",   # isort
+    "N",   # pep8-naming
+    "B",   # flake8-bugbear
+    "A",   # flake8-builtins
+    "C4",  # flake8-comprehensions
+    "PT",  # flake8-pytest-style
+    "SIM", # flake8-simplify
+    "TID", # flake8-tidy-imports
+    "ARG", # flake8-unused-arguments
+    "PL",  # pylint
+    "UP",  # pyupgrade
+    "S",   # flake8-bandit
+]
+
+ignore = [
+    "PLR2004",  # Magic value used in comparison
+    "PLW0603",  # Using the global statement to update variables is discouraged
+    "PLR0913",  # Too many arguments to function call
+    "F403",     # 'from module import *' used; unable to detect undefined names
+    "F405",     # name may be undefined, or defined from star imports: module
+    "C901",     # Function is too complex
+    "PLR0911",  # Too many return statements
+    "PLR0912",  # Too many branches
+    "PLR0915",  # Too many statements
+    "S113",     # Probable use of requests call without timeout
+    "E501",     # Line too long
+    "E402",     # Module level import not at top of file
+    "F401",     # Module imported but unused
+    "B904",     # Within an except clause, raise exceptions with raise ... from err
+    "SIM102",   # Use a single if statement instead of nested if statements
+    "E722",     # Do not use bare except
+]
+unfixable = ["F401"]  # Don't auto-remove unused imports
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use assert and more complex function calls
+"tests/**/*" = [
+    "S101", "ARG002", "B011", "PLR2004",
+    "S105", "S106", "S108", "PT011", "ARG001",
+    "E501", "C901", "PLR0911", "PLR0915", "SIM117", "D"
+]
+"**/test_*.py" = [
+    "S101", "ARG002", "B011", "PLR2004",
+    "S105", "S106", "S108", "PT011", "ARG001",
+    "E501", "C901", "PLR0911", "PLR0915", "SIM117", "D"
+]
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+known-third-party = ["flask", "redis", "pydantic", "requests", "werkzeug", "pytest"]
+
+[tool.ruff.lint.mccabe]
+# Flag overly complex functions with complexity > 10
+max-complexity = 10
+
+[tool.ruff.lint.flake8-bugbear]
+# Allow default arguments like `dict()` or `list()`
+extend-immutable-calls = ["marshmallow.fields.Field"]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 100
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-bandit]
+check-typed-exception = true

@@ -30,4 +30,4 @@
 *.log
 *.test
 test/
-tests/ 
+tests/
