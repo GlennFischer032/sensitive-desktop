@@ -32,6 +32,8 @@ def create_db_engine(db_url: Optional[str] = None, retries: int = 5, delay: int 
     if db_url is None:
         db_url = get_database_url()
 
+    logger.info("Database URL: %s", db_url)
+
     for attempt in range(retries):
         try:
             logger.info(

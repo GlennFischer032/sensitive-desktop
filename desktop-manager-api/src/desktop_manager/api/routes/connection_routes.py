@@ -563,8 +563,10 @@ def get_connection_auth(connection_id: str) -> Tuple[Dict[str, Any], int]:
                 )
 
             # Prepare the JSON auth utility
-            guacamole_json_auth = GuacamoleJsonAuth()
             settings = get_settings()
+            guacamole_json_auth = GuacamoleJsonAuth(
+                secret_key=settings.GUACAMOLE_JSON_SECRET_KEY, guacamole_url=settings.GUACAMOLE_URL
+            )
 
             # Format connection parameters for JSON auth
             connection_info = {
@@ -754,8 +756,7 @@ def get_connection_auth_url(connection_id: str):
             # Generate auth URL
             settings = get_settings()
             guacamole_json_auth = GuacamoleJsonAuth(
-                secret_key=settings.GUACAMOLE_SECRET_KEY,
-                guacamole_url=settings.GUACAMOLE_URL,
+                secret_key=settings.GUACAMOLE_SECRET_KEY, guacamole_url=settings.GUACAMOLE_URL
             )
             auth_data = guacamole_json_auth.generate_auth_data(
                 username=current_user.username,

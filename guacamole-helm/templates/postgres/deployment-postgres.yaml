@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-guacamole
+  labels:
+    app: postgres-guacamole
+    {{- include "guacamole.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-guacamole
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: postgres-guacamole
+    spec:
+      securityContext:
+        {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
+      containers:
+      - name: postgres
+        securityContext:
+          {{- toYaml .Values.common.containerSecurityContext | nindent 12 }}
+        image: {{ .Values.postgres.image }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{ .Values.common.ports.postgres }}
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          value: {{ .Values.common.database.user }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.common.database.password }}
+        - name: POSTGRES_DB
+          value: {{ .Values.common.database.database }}
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        {{- if .Values.postgres.healthcheck.enabled }}
+        livenessProbe:
+          exec:
+            command: {{ .Values.postgres.healthcheck.command }}
+          initialDelaySeconds: {{ .Values.postgres.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.postgres.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.postgres.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.postgres.healthcheck.failureThreshold }}
+        readinessProbe:
+          exec:
+            command: {{ .Values.postgres.healthcheck.command }}
+          initialDelaySeconds: {{ .Values.postgres.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.postgres.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.postgres.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.postgres.healthcheck.failureThreshold }}
+        {{- end }}
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+      volumes:
+      - name: postgres-data
+        {{- if .Values.postgres.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: postgres-guacamole-pvc
+        {{- else }}
+        emptyDir: {}
+        {{- end }}

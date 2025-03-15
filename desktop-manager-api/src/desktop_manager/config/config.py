@@ -4,40 +4,41 @@ import os
 
 
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "")
+    def __init__(self):
+        self.SECRET_KEY = os.environ.get("SECRET_KEY", "")
 
-    # MySQL Database settings
-    MYSQL_HOST = os.environ.get("MYSQL_HOST", "localhost")
-    MYSQL_PORT = os.environ.get("MYSQL_PORT", "3306")
-    MYSQL_DATABASE = os.environ.get("MYSQL_DATABASE", "desktop_manager")
-    MYSQL_USER = os.environ.get("MYSQL_USER", "guacamole_user")
-    MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", "")
+        # PostgreSQL Database settings
+        self.POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "localhost")
+        self.POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
+        self.POSTGRES_DB = os.environ.get("POSTGRES_DB", "desktop_manager")
+        self.POSTGRES_USER = os.environ.get("POSTGRES_USER", "guacamole_user")
+        self.POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "")
 
-    # SQLAlchemy URL construction for MySQL
-    DATABASE_URL = os.environ.get(
-        "DATABASE_URL",
-        f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}",
-    )
+        # SQLAlchemy URL construction for PostgreSQL
+        self.DATABASE_URL = os.environ.get(
+            "DATABASE_URL",
+            f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}",
+        )
 
-    # Guacamole API settings
-    GUACAMOLE_API_URL = os.environ.get("GUACAMOLE_API_URL", "http://localhost:8080/guacamole/api")
-    GUACAMOLE_USERNAME = os.environ.get("GUACAMOLE_USERNAME", "")
-    GUACAMOLE_PASSWORD = os.environ.get("GUACAMOLE_PASSWORD", "")
+        # Guacamole API settings
+        self.GUACAMOLE_URL = os.environ.get("GUACAMOLE_URL", "http://localhost:8080/guacamole")
+        self.GUACAMOLE_USERNAME = os.environ.get("GUACAMOLE_USERNAME", "")
+        self.GUACAMOLE_PASSWORD = os.environ.get("GUACAMOLE_PASSWORD", "")
 
-    # Other settings
-    NAMESPACE = os.environ.get("NAMESPACE", "")
-    VALUES_FILE_PATH = os.environ.get("VALUES_FILE_PATH", "./desktop/values.yaml")
-    TEMP_VALUES_FILE_PATH = os.environ.get("TEMP_VALUES_FILE_PATH", "./temp_values.yaml")
+        # Other settings
+        self.NAMESPACE = os.environ.get("NAMESPACE", "")
 
-    # Admin user credentials
-    ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "")
-    ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+        # Admin user credentials
+        self.ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "")
+        self.ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 
-    # Rancher API settings
-    RANCHER_API_TOKEN = os.environ.get("RANCHER_API_TOKEN", "")
-    RANCHER_API_URL = os.environ.get("RANCHER_API_URL", "")
-    RANCHER_CLUSTER_ID = os.environ.get("RANCHER_CLUSTER_ID", "")
-    RANCHER_REPO_NAME = os.environ.get("RANCHER_REPO_NAME", "")
+        # Rancher API settings
+        self.RANCHER_API_TOKEN = os.environ.get("RANCHER_API_TOKEN", "")
+        self.RANCHER_API_URL = os.environ.get("RANCHER_API_URL", "")
+        self.RANCHER_CLUSTER_ID = os.environ.get("RANCHER_CLUSTER_ID", "")
+        self.RANCHER_REPO_NAME = os.environ.get("RANCHER_REPO_NAME", "")
 
-    # Desktop image settings
-    DESKTOP_IMAGE = os.environ.get("DESKTOP_IMAGE", "cerit.io/desktops/ubuntu-xfce:22.04-user")
+        # Desktop image settings
+        self.DESKTOP_IMAGE = os.environ.get(
+            "DESKTOP_IMAGE", "cerit.io/desktops/ubuntu-xfce:22.04-user"
+        )

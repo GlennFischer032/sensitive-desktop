@@ -13,23 +13,17 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "guacamole_user")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
 
-    # For backwards compatibility during transition
-    MYSQL_HOST: str = os.getenv("MYSQL_HOST", "localhost")
-    MYSQL_PORT: int = int(os.getenv("MYSQL_PORT", "3306"))
-    MYSQL_DATABASE: str = os.getenv("MYSQL_DATABASE", "guacamole_db")
-    MYSQL_USER: str = os.getenv("MYSQL_USER", "guacamole_user")
-    MYSQL_PASSWORD: str = os.getenv("MYSQL_PASSWORD", "")
-
     # Application settings
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your_secret_key")
     ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "admin")
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
 
     # Guacamole settings
-    GUACAMOLE_API_URL: str = os.getenv("GUACAMOLE_API_URL", "http://guacamole:8080/guacamole")
+    GUACAMOLE_URL: str = os.getenv("GUACAMOLE_URL", "http://guacamole:8080/guacamole")
     GUACAMOLE_USERNAME: str = os.getenv("GUACAMOLE_USERNAME", "guacadmin")
     GUACAMOLE_PASSWORD: str = os.getenv("GUACAMOLE_PASSWORD", "")
     GUACAMOLE_JSON_SECRET_KEY: str = os.getenv("GUACAMOLE_JSON_SECRET_KEY", "")
+    GUACAMOLE_SECRET_KEY: str = os.getenv("GUACAMOLE_SECRET_KEY", "")
     EXTERNAL_GUACAMOLE_URL: str = os.getenv(
         "EXTERNAL_GUACAMOLE_URL", "http://localhost:8080/guacamole"
     )
@@ -45,10 +39,6 @@ class Settings(BaseSettings):
 
     # Desktop settings
     DESKTOP_IMAGE: str = os.getenv("DESKTOP_IMAGE", "cerit.io/desktops/ubuntu-xfce:22.04-user")
-    TEMP_VALUES_FILE_PATH: str = os.getenv(
-        "TEMP_VALUES_FILE_PATH",
-        os.path.join(tempfile.gettempdir(), f"desktop_manager_values_{os.getpid()}.yaml"),
-    )
 
     # OIDC settings
     OIDC_PROVIDER_URL: str = os.getenv(

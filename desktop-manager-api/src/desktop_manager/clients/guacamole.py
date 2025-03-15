@@ -33,7 +33,7 @@ class GuacamoleClient(BaseClient):
 
     def __init__(
         self,
-        api_url: Optional[str] = None,
+        guacamole_url: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[str] = None,
         data_source: str = "postgresql",
@@ -41,17 +41,19 @@ class GuacamoleClient(BaseClient):
         """Initialize GuacamoleClient.
 
         Args:
-            api_url: Guacamole API URL
+            guacamole_url: Guacamole base URL
             username: Guacamole admin username
             password: Guacamole admin password
             data_source: Guacamole data source
         """
         settings = get_settings()
-        self.api_url = api_url or settings.GUACAMOLE_API_URL
+        self.guacamole_url = guacamole_url or settings.GUACAMOLE_URL
         self.username = username or settings.GUACAMOLE_USERNAME
         self.password = password or settings.GUACAMOLE_PASSWORD
         self.data_source = data_source
-        super().__init__(base_url=self.api_url)
+        # Ensure the base URL doesn't end with a slash
+        base_url = self.guacamole_url.rstrip("/")
+        super().__init__(base_url=base_url)
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def login(self) -> str:
@@ -64,18 +66,34 @@ class GuacamoleClient(BaseClient):
             APIError: If login fails
         """
         try:
-            response = requests.post(
-                f"{self.api_url}/api/tokens",
-                data={
-                    "username": self.username,
-                    "password": self.password,
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("authToken")
+            # Debug logging
+            self.logger.info("Guacamole URL: %s", self.guacamole_url)
+            self.logger.info("Guacamole username: %s", self.username)
+
+            # Construct the tokens URL
+            tokens_url = f"{self.guacamole_url}/api/tokens"
+            self.logger.info("Tokens URL: %s", tokens_url)
+
+            headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+            try:
+                response = requests.post(
+                    url=tokens_url,
+                    data={
+                        "username": self.username,
+                        "password": self.password,
+                    },
+                    headers=headers,
+                    timeout=self.timeout,
+                )
+                self.logger.info("Login response status: %s", response.status_code)
+                response.raise_for_status()
+                data = response.json()
+                self.logger.info("Successfully logged in to Guacamole")
+                return data.get("authToken")
+            except requests.exceptions.RequestException as e:
+                self.logger.error("Request error during login: %s", str(e))
+                raise APIError(f"Failed to login to Guacamole: {e!s}", status_code=401)
         except Exception as e:
             self.logger.error("Failed to login to Guacamole: %s", str(e))
             raise APIError(f"Failed to login to Guacamole: {e!s}", status_code=401)
@@ -453,14 +471,24 @@ class GuacamoleClient(BaseClient):
             APIError: If user creation fails
         """
         try:
-            # Check if user exists
+            # First try to get all users and check if the user exists
             try:
-                endpoint = f"/api/session/data/{self.data_source}/users/{username}?token={token}"
-                self.get(endpoint=endpoint)
-                self.logger.info("User %s already exists in Guacamole", username)
+                users_endpoint = f"/api/session/data/{self.data_source}/users?token={token}"
+                users_data, _ = self.get(endpoint=users_endpoint)
+
+                # Check if the user exists in the list of users
+                if username in users_data:
+                    self.logger.info("User %s already exists in Guacamole", username)
+                    return
+
+                # If we get here, the user doesn't exist, so create them
+                self.create_user(token, username, password, attributes)
             except APIError as e:
+                # If we can't get the list of users, try to create the user directly
                 if e.status_code == 404:
-                    # User doesn't exist, create them
+                    self.logger.warning(
+                        "Could not check if user exists, attempting to create: %s", str(e)
+                    )
                     self.create_user(token, username, password, attributes)
                 else:
                     raise

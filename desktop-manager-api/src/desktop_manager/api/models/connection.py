@@ -40,8 +40,6 @@ class Connection(Base):
     # Relationship to user who created the connection
     creator = relationship("User", back_populates="connections")
 
-    __table_args__ = {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"}
-
     def __repr__(self) -> str:
         """Return string representation of the Connection."""
         return f"<Connection(name={self.name}, created_by={self.created_by})>"

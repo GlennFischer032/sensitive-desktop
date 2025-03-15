@@ -15,15 +15,15 @@ from sqlalchemy.sql import text
 def get_test_settings() -> Settings:
     """Get test settings with SQLite configuration."""
     return Settings(
-        MYSQL_HOST=os.getenv("MYSQL_HOST", "localhost"),
-        MYSQL_PORT=int(os.getenv("MYSQL_PORT", "3306")),
-        MYSQL_DATABASE=os.getenv("MYSQL_DATABASE", "test_db"),
-        MYSQL_USER=os.getenv("MYSQL_USER", "test_user"),
-        MYSQL_PASSWORD=os.getenv("MYSQL_PASSWORD", "test_pass"),
+        POSTGRES_HOST=os.getenv("POSTGRES_HOST", "localhost"),
+        POSTGRES_PORT=int(os.getenv("POSTGRES_PORT", "5432")),
+        POSTGRES_DB=os.getenv("POSTGRES_DB", "test_db"),
+        POSTGRES_USER=os.getenv("POSTGRES_USER", "test_user"),
+        POSTGRES_PASSWORD=os.getenv("POSTGRES_PASSWORD", "test_pass"),
         SECRET_KEY="test_secret_key",
         ADMIN_USERNAME="test_admin",
         ADMIN_PASSWORD="test_admin_pass",
-        GUACAMOLE_API_URL="http://test-guacamole:8080",
+        GUACAMOLE_URL="http://test-guacamole:8080/guacamole",
         GUACAMOLE_USERNAME="test_guac",
         GUACAMOLE_PASSWORD="test_guac_pass",
         OIDC_PROVIDER_URL="http://test-oidc",
@@ -35,19 +35,19 @@ def get_test_settings() -> Settings:
 def pytest_addoption(parser):
     """Add custom pytest command line options."""
     parser.addoption(
-        "--use-mysql",
+        "--use-postgres",
         action="store_true",
         default=False,
-        help="Run tests against MySQL container instead of SQLite",
+        help="Run tests against PostgreSQL container instead of SQLite",
     )
 
 
 @pytest.fixture(scope="session")
 def database_url(request):
     """Get database URL based on test configuration."""
-    if request.config.getoption("--use-mysql"):
+    if request.config.getoption("--use-postgres"):
         settings = get_test_settings()
-        return f"mysql://{settings.MYSQL_USER}:{settings.MYSQL_PASSWORD}@{settings.MYSQL_HOST}:{settings.MYSQL_PORT}/{settings.MYSQL_DATABASE}"
+        return f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
     return "sqlite:///:memory:"
 
 
@@ -115,10 +115,10 @@ def convert_mysql_to_sqlite(sql: str) -> str:
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db(database_url):
     """Configure the database for testing."""
-    is_mysql = "mysql" in database_url
+    is_postgres = "postgresql" in database_url
 
-    if is_mysql:
-        # Create test database if using MySQL
+    if is_postgres:
+        # Create test database if using PostgreSQL
         engine = create_engine(database_url.rsplit("/", 1)[0])
         database_name = database_url.rsplit("/", 1)[1]
 
@@ -141,7 +141,7 @@ def setup_test_db(database_url):
         configure_db_for_tests(database_url)
         engine = get_engine()
 
-        if not is_mysql:
+        if not is_postgres:
             # SQLite specific configuration
             event.listen(engine, "connect", sqlite_on_connect)
 
@@ -250,7 +250,7 @@ def setup_test_db(database_url):
     yield database_url
 
     # Clean up after tests
-    if is_mysql:
+    if is_postgres:
         engine = create_engine(database_url.rsplit("/", 1)[0])
         with engine.connect() as conn:
             conn.execute(text(f"DROP DATABASE IF EXISTS {database_name}"))

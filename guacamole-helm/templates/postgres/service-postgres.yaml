@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-guacamole
+  labels:
+    app: postgres-guacamole
+    {{- include "guacamole.labels" . | nindent 4 }}
+spec:
+  ports:
+  - port: {{ .Values.common.ports.postgres }}
+    targetPort: postgres
+    protocol: TCP
+    name: postgres
+  selector:
+    app: postgres-guacamole

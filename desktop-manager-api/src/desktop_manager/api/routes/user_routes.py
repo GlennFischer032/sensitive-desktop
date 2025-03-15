@@ -257,7 +257,7 @@ def list_users() -> Tuple[Dict[str, Any], int]:
         token = guacamole_login()
 
         # Get users from Guacamole
-        users_url = f"{settings.GUACAMOLE_API_URL}/session/data/postgresql/users?token={token}"
+        users_url = f"{settings.GUACAMOLE_URL}/api/session/data/postgresql/users?token={token}"
         response = requests.get(users_url, timeout=10)
         response.raise_for_status()
         guacamole_users = response.json()

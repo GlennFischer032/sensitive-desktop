@@ -18,12 +18,19 @@ spec:
       securityContext:
         {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
       initContainers:
-      - name: wait-for-mysql
-        image: mysql:8.0
-        command: ['sh', '-c', 'until mysqladmin ping -h {{ .Values.common.database.host }} -u root -p{{ .Values.common.database.password }}; do echo waiting for mysql; sleep 2; done;']
+      - name: wait-for-postgres
+        image: postgres:16-alpine
+        command: ['sh', '-c', 'until PGPASSWORD=$POSTGRES_PASSWORD pg_isready -h {{ .Values.common.database.host }} -U $POSTGRES_USER -d $POSTGRES_DB; do echo waiting for postgres; sleep 2; done;']
         securityContext:
           {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
           runAsUser: 1000
+        env:
+          - name: POSTGRES_USER
+            value: {{ .Values.common.database.user | quote }}
+          - name: POSTGRES_PASSWORD
+            value: {{ .Values.common.database.password | quote }}
+          - name: POSTGRES_DB
+            value: {{ .Values.common.database.database | quote }}
       - name: wait-for-guacamole
         image: curlimages/curl:latest
         command: ['sh', '-c', 'until curl -s -f -o /dev/null http://guacamole-{{ .Release.Name }}:{{ .Values.common.ports.guacamole }}/guacamole/; do echo waiting for guacamole; sleep 2; done;']
@@ -39,22 +46,26 @@ spec:
           runAsUser: 1000
           runAsGroup: 1000
         env:
-          - name: MYSQL_HOST
+          - name: POSTGRES_HOST
             value: {{ .Values.common.database.host | quote }}
-          - name: MYSQL_PORT
+          - name: POSTGRES_PORT
             value: {{ .Values.common.database.port | quote }}
-          - name: MYSQL_DATABASE
-            value: {{ .Values.common.database.desktopDb | quote }}
-          - name: MYSQL_USER
+          - name: POSTGRES_DATABASE
+            value: {{ .Values.common.database.database | quote }}
+          - name: POSTGRES_USER
             value: {{ .Values.common.database.user | quote }}
-          - name: MYSQL_PASSWORD
+          - name: POSTGRES_PASSWORD
             value: {{ .Values.common.database.password | quote }}
-          - name: GUACAMOLE_API_URL
-            value: "http://guacamole-{{ .Release.Name }}/guacamole/api"
+          - name: GUACAMOLE_URL
+            value: "http://guacamole-{{ .Release.Name }}:{{ .Values.common.ports.guacamole }}/guacamole"
           - name: GUACAMOLE_USERNAME
             value: {{ .Values.common.credentials.guacamoleAdmin.username | quote }}
           - name: GUACAMOLE_PASSWORD
             value: {{ .Values.common.credentials.guacamoleAdmin.password | quote }}
+          - name: GUACAMOLE_JSON_SECRET_KEY
+            value: {{ .Values.common.credentials.guacamoleJsonSecretKey | quote }}
+          - name: EXTERNAL_GUACAMOLE_URL
+            value: "http://guacamole-{{ .Release.Name }}/guacamole"
           - name: SECRET_KEY
             value: {{ .Values.common.credentials.secretKey | quote }}
           - name: ADMIN_USERNAME
@@ -68,13 +79,26 @@ spec:
           - name: RANCHER_REPO_NAME
             value: {{ .Values.common.rancher.repoName | quote }}
           - name: NAMESPACE
-            value: {{ .Release.Namespace | quote }}
+            value: {{ .Values.common.rancher.namespace | quote }}
           - name: FLASK_APP
             value: "app.py"
           - name: FLASK_ENV
             value: "production"
           - name: PYTHONUNBUFFERED
             value: "1"
+          # Social Auth Configuration
+          - name: SOCIAL_AUTH_OIDC_PROVIDER_URL
+            value: {{ .Values.common.socialAuth.oidcProviderUrl | quote }}
+          - name: SOCIAL_AUTH_OIDC_CLIENT_ID
+            value: {{ .Values.common.oidc.clientId | quote }}
+          - name: SOCIAL_AUTH_OIDC_CLIENT_SECRET
+            value: {{ .Values.common.oidc.clientSecret | quote }}
+          - name: SOCIAL_AUTH_LOGIN_REDIRECT_URL
+            value: {{ .Values.common.socialAuth.loginRedirectUrl | quote }}
+          - name: SOCIAL_AUTH_LOGIN_ERROR_URL
+            value: {{ .Values.common.socialAuth.loginErrorUrl | quote }}
+          - name: SOCIAL_AUTH_OIDC_CALLBACK_URL
+            value: {{ .Values.common.socialAuth.oidcCallbackUrl | quote }}
           - name: RANCHER_API_TOKEN
             valueFrom:
               secretKeyRef:

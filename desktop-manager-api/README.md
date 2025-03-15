@@ -28,7 +28,7 @@ desktop-manager-api/
 - Python 3.11+
 - uv (Python package installer)
 - Docker (for containerized deployment)
-- MySQL database
+- PostgreSQL database
 - Apache Guacamole server
 - Rancher API access
 
@@ -52,12 +52,12 @@ desktop-manager-api/
    export FLASK_APP=desktop_manager.main
    export FLASK_ENV=development
    export SECRET_KEY=your-secret-key
-   export MYSQL_HOST=localhost
-   export MYSQL_PORT=3306
-   export MYSQL_DATABASE=desktop_manager
-   export MYSQL_USER=your-user
-   export MYSQL_PASSWORD=your-password
-   export GUACAMOLE_API_URL=http://guacamole:8080/guacamole/api
+   export POSTGRES_HOST=localhost
+   export POSTGRES_PORT=5432
+   export POSTGRES_DB=desktop_manager
+   export POSTGRES_USER=your-user
+   export POSTGRES_PASSWORD=your-password
+   export GUACAMOLE_URL=http://guacamole:8080/guacamole
    export GUACAMOLE_USERNAME=guacadmin
    export GUACAMOLE_PASSWORD=your-password
    export RANCHER_API_URL=https://rancher.example.com
@@ -87,12 +87,12 @@ Run the container:
 ```bash
 docker run -p 5000:5000 \
   -e SECRET_KEY=your-secret-key \
-  -e MYSQL_HOST=mysql \
-  -e MYSQL_PORT=3306 \
-  -e MYSQL_DATABASE=desktop_manager \
-  -e MYSQL_USER=your-user \
-  -e MYSQL_PASSWORD=your-password \
-  -e GUACAMOLE_API_URL=http://guacamole:8080/guacamole/api \
+  -e POSTGRES_HOST=postgres \
+  -e POSTGRES_PORT=5432 \
+  -e POSTGRES_DB=desktop_manager \
+  -e POSTGRES_USER=your-user \
+  -e POSTGRES_PASSWORD=your-password \
+  -e GUACAMOLE_URL=http://guacamole:8080/guacamole \
   -e GUACAMOLE_USERNAME=guacadmin \
   -e GUACAMOLE_PASSWORD=your-password \
   -e RANCHER_API_URL=https://rancher.example.com \
@@ -153,14 +153,14 @@ For more details, see the [clients README](src/desktop_manager/clients/README.md
 Configuration is managed through environment variables:
 
 ### Database Configuration
-- `MYSQL_HOST`: Database host
-- `MYSQL_PORT`: Database port
-- `MYSQL_DATABASE`: Database name
-- `MYSQL_USER`: Database user
-- `MYSQL_PASSWORD`: Database password
+- `POSTGRES_HOST`: Database host
+- `POSTGRES_PORT`: Database port
+- `POSTGRES_DB`: Database name
+- `POSTGRES_USER`: Database user
+- `POSTGRES_PASSWORD`: Database password
 
 ### Guacamole Configuration
-- `GUACAMOLE_API_URL`: Guacamole API endpoint
+- `GUACAMOLE_URL`: Guacamole endpoint
 - `GUACAMOLE_USERNAME`: Guacamole admin username
 - `GUACAMOLE_PASSWORD`: Guacamole admin password
 
@@ -177,7 +177,7 @@ Configuration is managed through environment variables:
 
 ## Database Management
 
-The application uses MySQL for data storage. Database schema and migrations are managed through:
+The application uses PostgreSQL for data storage. Database schema and migrations are managed through:
 - `migrate.py`: Database migration script
 - `init.sql`: Initial schema setup
 - `guacamole-init.sql`: Guacamole schema initialization

@@ -24,6 +24,12 @@ spec:
         securityContext:
           {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
           runAsUser: 1000
+      - name: wait-for-redis
+        image: redis:7-alpine
+        command: ['sh', '-c', 'until redis-cli -h redis-{{ .Release.Name }} ping; do echo waiting for redis; sleep 2; done;']
+        securityContext:
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 1000
       containers:
       - name: desktop-frontend
         image: {{ .Values.desktopFrontend.image }}
@@ -39,12 +45,25 @@ spec:
             value: "http://desktop-api-{{ .Release.Name }}"
           - name: GUACAMOLE_URL
             value: {{ printf "https://%s" (include "guacamole.hostname" .) | quote }}
+          - name: EXTERNAL_GUACAMOLE_URL
+            value: {{ printf "https://%s/guacamole" (include "guacamole.hostname" .) | quote }}
           - name: FLASK_APP
             value: "app.py"
           - name: FLASK_ENV
             value: "production"
           - name: PYTHONUNBUFFERED
             value: "1"
+          - name: REDIS_URL
+            value: "redis://redis-{{ .Release.Name }}:{{ .Values.common.ports.redis }}/0"
+          # OIDC Configuration
+          - name: OIDC_CLIENT_ID
+            value: {{ .Values.common.oidc.clientId | quote }}
+          - name: OIDC_CLIENT_SECRET
+            value: {{ .Values.common.oidc.clientSecret | quote }}
+          - name: OIDC_PROVIDER_URL
+            value: {{ .Values.common.oidc.providerUrl | quote }}
+          - name: OIDC_REDIRECT_URI
+            value: {{ .Values.common.oidc.redirectUri | quote }}
         ports:
         - containerPort: {{ .Values.desktopFrontend.containerPort }}
           name: http

@@ -51,7 +51,7 @@ class ClientFactory:
         if not self._guacamole_client:
             self.logger.info("Creating new GuacamoleClient instance")
             self._guacamole_client = GuacamoleClient(
-                api_url=self.settings.GUACAMOLE_API_URL,
+                guacamole_url=self.settings.GUACAMOLE_URL,
                 username=self.settings.GUACAMOLE_USERNAME,
                 password=self.settings.GUACAMOLE_PASSWORD,
             )

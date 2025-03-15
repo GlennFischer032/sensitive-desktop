@@ -21,15 +21,19 @@ from desktop_manager.config.settings import get_settings
 class GuacamoleJsonAuth:
     """Utility class for generating Guacamole JSON authentication tokens."""
 
-    def __init__(self, secret_key: Optional[str] = None):
+    def __init__(self, secret_key: Optional[str] = None, guacamole_url: Optional[str] = None):
         """Initialize the GuacamoleJsonAuth utility.
 
         Args:
             secret_key: The secret key to use for signing and encrypting the JSON.
                         If not provided, it will be retrieved from settings.
+            guacamole_url: The base URL of the Guacamole server.
+                          If not provided, it will be retrieved from settings.
         """
         self.settings = get_settings()
         self.secret_key = secret_key or self.settings.GUACAMOLE_JSON_SECRET_KEY
+        self.guacamole_url = guacamole_url or self.settings.GUACAMOLE_URL
+
         if not self.secret_key:
             raise ValueError("No JSON secret key provided or found in settings")
 
