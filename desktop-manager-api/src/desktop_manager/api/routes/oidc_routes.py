@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import hashlib
 from http import HTTPStatus
 import logging
+import os
 import secrets
 from typing import Any, Dict, Tuple
 from urllib.parse import urlencode
@@ -21,10 +22,13 @@ from desktop_manager.api.models.base import get_db
 from desktop_manager.api.models.user import PKCEState, SocialAuthAssociation, User
 from desktop_manager.clients.guacamole import (
     add_user_to_group,
+    copy_user_permissions,
     create_guacamole_user,
     ensure_all_users_group,
+    guacamole_login,
     update_guacamole_user,
 )
+from desktop_manager.config.settings import get_settings
 
 
 logger = logging.getLogger(__name__)
@@ -92,15 +96,22 @@ def oidc_login() -> Tuple[Dict[str, Any], int]:
         finally:
             db_session.close()
 
-        # Get the frontend callback URL
-        frontend_callback = (
-            f"{current_app.config['SOCIAL_AUTH_LOGIN_REDIRECT_URL']}/auth/oidc/callback"
-        )
+        # Get settings
+        settings = get_settings()
+
+        # Get the frontend callback URL from settings
+        frontend_callback = settings.OIDC_REDIRECT_URI
+
+        # If we're in production and the URL contains localhost, use the frontendUrl from settings
+        if "localhost" in frontend_callback and os.environ.get("FLASK_ENV") == "production":
+            frontend_callback = f"{settings.FRONTEND_URL}/auth/oidc/callback"
+
+        logger.info("Using frontend callback URL: %s", frontend_callback)
 
         # Build authorization URL with frontend callback
         params = {
             "response_type": "code",
-            "client_id": current_app.config["SOCIAL_AUTH_OIDC_CLIENT_ID"],
+            "client_id": settings.OIDC_CLIENT_ID,
             "redirect_uri": frontend_callback,
             "scope": "openid email profile organization",
             "state": state,
@@ -108,9 +119,7 @@ def oidc_login() -> Tuple[Dict[str, Any], int]:
             "code_challenge_method": "S256",
         }
 
-        auth_url = (
-            f"{current_app.config['SOCIAL_AUTH_OIDC_PROVIDER_URL']}/authorize?{urlencode(params)}"
-        )
+        auth_url = f"{settings.OIDC_PROVIDER_URL}/authorize?{urlencode(params)}"
 
         return (
             jsonify(
@@ -163,15 +172,21 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
                     HTTPStatus.BAD_REQUEST,
                 )
 
+            # Get settings
+            settings = get_settings()
+
+            # Log the redirect URI being used
+            logger.info("Using redirect URI for token exchange: %s", redirect_uri)
+
             # Exchange code for tokens using the same redirect URI as authorization
             token_response = requests.post(
-                f"{current_app.config['SOCIAL_AUTH_OIDC_PROVIDER_URL']}/token",
+                f"{settings.OIDC_PROVIDER_URL}/token",
                 data={
                     "grant_type": "authorization_code",
                     "code": code,
                     "redirect_uri": redirect_uri,  # Use the same redirect URI as authorization
-                    "client_id": current_app.config["SOCIAL_AUTH_OIDC_CLIENT_ID"],
-                    "client_secret": current_app.config["SOCIAL_AUTH_OIDC_CLIENT_SECRET"],
+                    "client_id": settings.OIDC_CLIENT_ID,
+                    "client_secret": settings.OIDC_CLIENT_SECRET,
                     "code_verifier": code_verifier,
                 },
                 timeout=10,
@@ -188,7 +203,7 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
 
             # Get user info
             userinfo_response = requests.get(
-                f"{current_app.config['SOCIAL_AUTH_OIDC_PROVIDER_URL']}/userinfo",
+                f"{settings.OIDC_PROVIDER_URL}/userinfo",
                 headers={"Authorization": f"Bearer {tokens['access_token']}"},
                 timeout=10,
             )
@@ -199,6 +214,10 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
             user = db_session.query(User).filter(User.sub == userinfo["sub"]).first()
 
             if user:
+                # Check if username has changed
+                old_username = user.username
+                username_changed = False
+
                 # Update existing user in desktop manager
                 user.email = userinfo["email"]  # Update email in case it changed
                 user.given_name = userinfo.get("given_name")
@@ -209,7 +228,10 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
 
                 # Update username and organization if provided
                 if userinfo.get("preferred_username"):
-                    user.username = userinfo.get("preferred_username")
+                    if user.username != userinfo.get("preferred_username"):
+                        username_changed = True
+                        old_username = user.username
+                        user.username = userinfo.get("preferred_username")
                 if userinfo.get("organization"):
                     user.organization = userinfo.get("organization")
 
@@ -223,13 +245,88 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
                         "guac-organization": user.organization or "",
                     }
 
-                    # Update user in Guacamole
-                    update_guacamole_user(
-                        tokens["access_token"], user.username, guacamole_attributes
-                    )
-                    current_app.logger.info("Updated user %s in Guacamole", user.username)
+                    # If username has changed, we need to handle this special case
+                    if username_changed:
+                        logger.info("Username changed from %s to %s", old_username, user.username)
+
+                        # Get a Guacamole admin token instead of using the OIDC token
+                        try:
+                            guac_token = guacamole_login()
+                            logger.info("Obtained Guacamole admin token for user operations")
+                        except Exception as login_error:
+                            logger.error("Failed to login to Guacamole: %s", str(login_error))
+                            guac_token = None
+
+                        # Only proceed if we got a valid Guacamole token
+                        if guac_token:
+                            try:
+                                # Try to create a new user with the new username
+                                create_guacamole_user(
+                                    guac_token, user.username, "", guacamole_attributes
+                                )
+                                logger.info(
+                                    "Created new Guacamole user with updated username: %s",
+                                    user.username,
+                                )
+
+                                # Copy permissions from old user to new user
+                                try:
+                                    # Copy all permissions from old user to new user
+                                    copy_user_permissions(guac_token, old_username, user.username)
+                                    logger.info(
+                                        "Successfully copied permissions from %s to %s",
+                                        old_username,
+                                        user.username,
+                                    )
+                                except Exception as perm_error:
+                                    logger.error(
+                                        "Failed to copy permissions from %s to %s: %s",
+                                        old_username,
+                                        user.username,
+                                        str(perm_error),
+                                    )
+                                    logger.warning(
+                                        "Username changed from %s to %s. Permissions may need to be manually transferred.",
+                                        old_username,
+                                        user.username,
+                                    )
+
+                                # Add the new user to the all_users group
+                                ensure_all_users_group(guac_token)
+                                add_user_to_group(guac_token, user.username, "all_users")
+                                logger.info("Added user %s to all_users group", user.username)
+
+                            except Exception as create_error:
+                                logger.error(
+                                    "Failed to create new Guacamole user: %s", str(create_error)
+                                )
+                                # If we can't create a new user, just update the existing one
+                                try:
+                                    guac_token = guacamole_login()
+                                    logger.info("Obtained Guacamole admin token for user update")
+                                    update_guacamole_user(
+                                        guac_token, old_username, guacamole_attributes
+                                    )
+                                    logger.info("Updated existing Guacamole user: %s", old_username)
+                                except Exception as e:
+                                    logger.error(
+                                        "Failed to update existing user in Guacamole: %s", str(e)
+                                    )
+                        else:
+                            logger.error(
+                                "Could not perform Guacamole user operations: No valid admin token"
+                            )
+                    else:
+                        # Just update the existing user
+                        try:
+                            guac_token = guacamole_login()
+                            logger.info("Obtained Guacamole admin token for user update")
+                            update_guacamole_user(guac_token, user.username, guacamole_attributes)
+                            logger.info("Updated user %s in Guacamole", user.username)
+                        except Exception as e:
+                            logger.error("Failed to update user in Guacamole: %s", str(e))
                 except Exception as e:
-                    current_app.logger.error("Failed to update user in Guacamole: %s", str(e))
+                    logger.error("Failed to update user in Guacamole: %s", str(e))
                     # Continue with authentication even if Guacamole update fails
             else:
                 # Create new user
@@ -254,22 +351,35 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
 
                 # Create user in Guacamole with attributes
                 try:
-                    # Prepare Guacamole attributes
-                    guacamole_attributes = {
-                        "guac-full-name": f"{userinfo.get('given_name', '')} {userinfo.get('family_name', '')}".strip()
-                        or preferred_username,
-                        "guac-email-address": userinfo["email"],
-                        "guac-organization": userinfo.get("organization", ""),
-                        "disabled": "",  # Not disabled
-                        "expired": "",  # Not expired
-                    }
+                    # Get a Guacamole admin token instead of using the OIDC token
+                    try:
+                        guac_token = guacamole_login()
+                        logger.info("Obtained Guacamole admin token for user creation")
+                    except Exception as login_error:
+                        logger.error("Failed to login to Guacamole: %s", str(login_error))
+                        guac_token = None
 
-                    # Create user in Guacamole with empty password (will use OIDC)
-                    create_guacamole_user(
-                        tokens["access_token"], preferred_username, "", guacamole_attributes
-                    )
-                    add_user_to_group(tokens["access_token"], preferred_username, "all_users")
-                    current_app.logger.info("Created user %s in Guacamole", preferred_username)
+                    if guac_token:
+                        # Prepare Guacamole attributes
+                        guacamole_attributes = {
+                            "guac-full-name": f"{userinfo.get('given_name', '')} {userinfo.get('family_name', '')}".strip()
+                            or preferred_username,
+                            "guac-email-address": userinfo["email"],
+                            "guac-organization": userinfo.get("organization", ""),
+                            "disabled": "",  # Not disabled
+                            "expired": "",  # Not expired
+                        }
+
+                        # Create user in Guacamole with empty password (will use OIDC)
+                        create_guacamole_user(
+                            guac_token, preferred_username, "", guacamole_attributes
+                        )
+                        add_user_to_group(guac_token, preferred_username, "all_users")
+                        current_app.logger.info("Created user %s in Guacamole", preferred_username)
+                    else:
+                        current_app.logger.error(
+                            "Could not create Guacamole user: No valid admin token"
+                        )
                 except Exception as e:
                     current_app.logger.error("Failed to create user in Guacamole: %s", str(e))
                     # Continue with authentication even if Guacamole creation fails
@@ -306,7 +416,7 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
                 "is_admin": user.is_admin,
                 "exp": datetime.utcnow() + timedelta(hours=1),
             }
-            jwt_token = jwt.encode(token_data, current_app.config["SECRET_KEY"], algorithm="HS256")
+            jwt_token = jwt.encode(token_data, settings.SECRET_KEY, algorithm="HS256")
 
             return (
                 jsonify(

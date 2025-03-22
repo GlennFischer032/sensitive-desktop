@@ -20,12 +20,27 @@ spec:
       restartPolicy: OnFailure
       initContainers:
       - name: wait-for-postgres
-        image: busybox:1.28
-        command: ['sh', '-c', 'until nc -z postgres-guacamole {{ .Values.common.ports.postgres }}; do echo waiting for postgres; sleep 2; done;']
+        image: postgres:16-alpine
+        command: ['sh', '-c', 'until pg_isready -h postgres-guacamole -p {{ .Values.common.ports.postgres }} -U {{ .Values.common.database.user }}; do echo waiting for postgres; sleep 2; done;']
+        securityContext:
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        env:
+        - name: PGPASSWORD
+          value: {{ .Values.common.database.password }}
       containers:
       - name: init-postgres
         securityContext:
-          {{- toYaml .Values.common.containerSecurityContext | nindent 12 }}
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         image: {{ .Values.postgres.initdbImage }}
         imagePullPolicy: Always
         command: ["/bin/bash", "-c"]
@@ -43,9 +58,10 @@ spec:
           echo "PostgreSQL is up - executing initialization scripts"
 
           # Execute initialization scripts
-          PGPASSWORD=${POSTGRES_PASSWORD} psql -h postgres-guacamole -U ${POSTGRES_USER} -d ${POSTGRES_DB} -f /sql/01-guacamole-init.sql
-          PGPASSWORD=${POSTGRES_PASSWORD} psql -h postgres-guacamole -U ${POSTGRES_USER} -d ${POSTGRES_DB} -f /sql/02-guacamole-init-users.sql
-          PGPASSWORD=${POSTGRES_PASSWORD} psql -h postgres-guacamole -U ${POSTGRES_USER} -d ${POSTGRES_DB} -f /sql/03-init.sql
+          for f in /docker-entrypoint-initdb.d/*.sql; do
+            echo "Running $f"
+            PGPASSWORD=${POSTGRES_PASSWORD} psql -h postgres-guacamole -U ${POSTGRES_USER} -d ${POSTGRES_DB} -f "$f"
+          done
 
           echo "Database initialization completed successfully"
         env:
@@ -55,10 +71,3 @@ spec:
           value: {{ .Values.common.database.password }}
         - name: POSTGRES_DB
           value: {{ .Values.common.database.database }}
-        volumeMounts:
-        - name: init-scripts
-          mountPath: /sql
-      volumes:
-      - name: init-scripts
-        configMap:
-          name: postgres-init-scripts

@@ -65,7 +65,7 @@ spec:
           - name: GUACAMOLE_JSON_SECRET_KEY
             value: {{ .Values.common.credentials.guacamoleJsonSecretKey | quote }}
           - name: EXTERNAL_GUACAMOLE_URL
-            value: "http://guacamole-{{ .Release.Name }}/guacamole"
+            value: {{ printf "https://%s/guacamole" (include "guacamole.hostname" .) | quote }}
           - name: SECRET_KEY
             value: {{ .Values.common.credentials.secretKey | quote }}
           - name: ADMIN_USERNAME
@@ -99,6 +99,8 @@ spec:
             value: {{ .Values.common.socialAuth.loginErrorUrl | quote }}
           - name: SOCIAL_AUTH_OIDC_CALLBACK_URL
             value: {{ .Values.common.socialAuth.oidcCallbackUrl | quote }}
+          - name: FRONTEND_URL
+            value: {{ .Values.common.oidc.frontendUrl | quote }}
           - name: RANCHER_API_TOKEN
             valueFrom:
               secretKeyRef:

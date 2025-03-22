@@ -89,3 +89,29 @@ def delete_connection(connection_name):
         return jsonify({"status": "success"}), 200
 
     return redirect(url_for("connections.view_connections"))
+
+
+@connections_bp.route("/direct-connect/<connection_id>")
+@login_required
+@rate_limit(requests_per_minute=10)  # Rate limit direct connections
+def direct_connect(connection_id):
+    """Redirect to the API direct-connect endpoint for seamless connection experience.
+
+    This endpoint redirects to the API's direct-connect endpoint which handles
+    authentication and connection directly to Guacamole with the right desktop.
+    """
+    try:
+        token = session.get("token")
+        if not token:
+            flash("Authentication required")
+            return redirect(url_for("auth.login"))
+
+        # Construct the API URL for direct connection
+        api_url = f"{current_app.config['API_URL']}/api/connections/direct-connect/{connection_id}"
+
+        # Redirect to the API endpoint which will handle the connection
+        return redirect(api_url)
+    except Exception as e:
+        current_app.logger.error(f"Error connecting to desktop: {str(e)}")
+        flash(f"Error connecting to desktop: {str(e)}")
+        return redirect(url_for("connections.view_connections"))

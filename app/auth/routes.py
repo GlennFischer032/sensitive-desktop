@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import secrets
 
 import requests
@@ -102,8 +103,10 @@ def oidc_callback():
 
     # Forward the callback to backend using POST
     try:
-        # Get the current callback URL
-        callback_url = request.base_url  # This gets the full URL of the current route
+        # Use the configured OIDC redirect URI instead of the request's base URL
+        # This ensures we use the external URL even when the request comes to localhost
+        callback_url = os.environ.get("OIDC_REDIRECT_URI", request.base_url)
+        logger.info(f"Using callback URL: {callback_url}")
 
         # TODO: Add OIDC callback method to auth client
         response = requests.post(

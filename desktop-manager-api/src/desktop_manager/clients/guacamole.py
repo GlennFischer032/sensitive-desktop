@@ -435,22 +435,100 @@ class GuacamoleClient(BaseClient):
             APIError: If user update fails
         """
         try:
-            # Get current user data
             endpoint = f"/api/session/data/{self.data_source}/users/{username}?token={token}"
-            user_data, _ = self.get(endpoint=endpoint)
-
-            # Update attributes
-            if "attributes" not in user_data:
-                user_data["attributes"] = {}
-
-            user_data["attributes"].update(attributes)
-
-            # Send update request
-            self.put(endpoint=endpoint, data=user_data)
+            patch_data = [
+                {
+                    "op": "add",
+                    "path": "/attributes",
+                    "value": attributes,
+                }
+            ]
+            self.patch(endpoint=endpoint, data=patch_data)
             self.logger.info("Updated user %s in Guacamole", username)
         except APIError as e:
             self.logger.error("Failed to update user in Guacamole: %s", str(e))
             raise APIError(f"Failed to update user in Guacamole: {e!s}", status_code=e.status_code)
+
+    def get_user_permissions(
+        self,
+        token: str,
+        username: str,
+    ) -> Dict[str, Any]:
+        """Get a user's permissions in Guacamole.
+
+        Args:
+            token: Authentication token
+            username: Username
+
+        Returns:
+            Dict[str, Any]: Dictionary of user permissions
+
+        Raises:
+            APIError: If getting permissions fails
+        """
+        try:
+            endpoint = (
+                f"/api/session/data/{self.data_source}/users/{username}/permissions?token={token}"
+            )
+            data, _ = self.get(endpoint=endpoint)
+            self.logger.info("Retrieved permissions for user %s from Guacamole", username)
+            return data
+        except APIError as e:
+            self.logger.error("Failed to get user permissions from Guacamole: %s", str(e))
+            raise APIError(
+                f"Failed to get user permissions from Guacamole: {e!s}", status_code=e.status_code
+            )
+
+    def copy_user_permissions(
+        self,
+        token: str,
+        source_username: str,
+        target_username: str,
+    ) -> None:
+        """Copy permissions from one user to another in Guacamole.
+
+        Args:
+            token: Authentication token
+            source_username: Username to copy permissions from
+            target_username: Username to copy permissions to
+
+        Raises:
+            APIError: If copying permissions fails
+        """
+        try:
+            # Get source user's permissions
+            permissions = self.get_user_permissions(token, source_username)
+
+            # Extract connection permissions
+            connection_permissions = permissions.get("connectionPermissions", {})
+
+            # Apply each connection permission to the target user
+            for connection_id, permission in connection_permissions.items():
+                try:
+                    self.grant_permission(token, target_username, connection_id, permission)
+                    self.logger.info(
+                        "Copied %s permission for connection %s from user %s to user %s",
+                        permission,
+                        connection_id,
+                        source_username,
+                        target_username,
+                    )
+                except APIError as e:
+                    self.logger.error(
+                        "Failed to copy permission for connection %s: %s", connection_id, str(e)
+                    )
+
+            # Log completion
+            self.logger.info(
+                "Copied all available permissions from user %s to user %s",
+                source_username,
+                target_username,
+            )
+        except APIError as e:
+            self.logger.error("Failed to copy user permissions in Guacamole: %s", str(e))
+            raise APIError(
+                f"Failed to copy user permissions in Guacamole: {e!s}", status_code=e.status_code
+            )
 
     def create_user_if_not_exists(
         self,
@@ -597,3 +675,21 @@ def create_guacamole_connection(
     """Backward compatibility function for creating a connection."""
     client = GuacamoleClient(data_source=data_source)
     return client.create_connection(token, connection_name, ip_address, password)
+
+
+def copy_user_permissions(
+    token: str,
+    source_username: str,
+    target_username: str,
+    data_source: str = "postgresql",
+) -> None:
+    """Backward compatibility function for copying user permissions.
+
+    Args:
+        token: Authentication token
+        source_username: Username to copy permissions from
+        target_username: Username to copy permissions to
+        data_source: Guacamole data source
+    """
+    client = GuacamoleClient(data_source=data_source)
+    client.copy_user_permissions(token, source_username, target_username)

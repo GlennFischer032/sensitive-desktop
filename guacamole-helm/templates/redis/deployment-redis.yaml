@@ -20,7 +20,12 @@ spec:
       containers:
       - name: redis
         securityContext:
-          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         image: {{ .Values.redis.image }}
         imagePullPolicy: IfNotPresent
         ports:
@@ -29,14 +34,14 @@ spec:
         {{- if .Values.redis.healthcheck.enabled }}
         livenessProbe:
           exec:
-            command: {{ .Values.redis.healthcheck.command }}
+            command: ["/bin/sh", "-c", "/usr/local/bin/redis-cli ping"]
           initialDelaySeconds: {{ .Values.redis.healthcheck.initialDelaySeconds }}
           periodSeconds: {{ .Values.redis.healthcheck.periodSeconds }}
           timeoutSeconds: {{ .Values.redis.healthcheck.timeoutSeconds }}
           failureThreshold: {{ .Values.redis.healthcheck.failureThreshold }}
         readinessProbe:
           exec:
-            command: {{ .Values.redis.healthcheck.command }}
+            command: ["/bin/sh", "-c", "/usr/local/bin/redis-cli ping"]
           initialDelaySeconds: {{ .Values.redis.healthcheck.initialDelaySeconds }}
           periodSeconds: {{ .Values.redis.healthcheck.periodSeconds }}
           timeoutSeconds: {{ .Values.redis.healthcheck.timeoutSeconds }}

@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     OIDC_BACKEND_REDIRECT_URI: str = os.getenv(
         "SOCIAL_AUTH_OIDC_CALLBACK_URL", "http://localhost:5000/api/auth/oidc/callback"
     )
+    OIDC_REDIRECT_URI: str = os.getenv(
+        "SOCIAL_AUTH_OIDC_FRONTEND_REDIRECT_URI", "http://localhost:5001/auth/oidc/callback"
+    )
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5001")
     CORS_ALLOWED_ORIGINS: str = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5001")
 

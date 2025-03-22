@@ -18,15 +18,15 @@ spec:
       securityContext:
         {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
       initContainers:
-      - name: wait-for-api
-        image: curlimages/curl:8.00.1
-        command: ['sh', '-c', 'until curl -s http://desktop-api-{{ .Release.Name }}/api/health > /dev/null 2>&1; do echo waiting for api; sleep 2; done;']
-        securityContext:
-          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
-          runAsUser: 1000
       - name: wait-for-redis
         image: redis:7-alpine
         command: ['sh', '-c', 'until redis-cli -h redis-{{ .Release.Name }} ping; do echo waiting for redis; sleep 2; done;']
+        securityContext:
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 1000
+      - name: wait-for-api
+        image: curlimages/curl:8.00.1
+        command: ['sh', '-c', 'until curl -s http://desktop-api-{{ .Release.Name }}/api/health > /dev/null 2>&1; do echo waiting for api; sleep 2; done;']
         securityContext:
           {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
           runAsUser: 1000

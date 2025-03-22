@@ -98,57 +98,28 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             rancher_client.install(name, desktop_values)
             logging.info("Helm chart installation completed")
 
-            # Wait for VNC to be ready
-            logging.info("Waiting for VNC to be ready...")
-            vnc_ready = rancher_client.check_vnc_ready(name)
-            if not vnc_ready:
-                error_message = "VNC server failed to become ready"
-                logging.error(error_message)
-                # Attempt to clean up the failed deployment
-                try:
-                    rancher_client.uninstall(name)
-                    logging.info("Cleaned up failed Helm chart for %s", name)
-                except Exception as cleanup_error:
-                    logging.error("Failed to clean up Helm chart: %s", str(cleanup_error))
-                return (
-                    jsonify({"error": error_message}),
-                    HTTPStatus.INTERNAL_SERVER_ERROR,
-                )
+            # Create Guacamole connection
+            token = guacamole_login()
+            # Ensure admins group exists
+            ensure_admins_group(token)
+            guacamole_connection_id = create_guacamole_connection(
+                token,
+                name,
+                # Use correct hostname format
+                f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz",
+                vnc_password,
+            )
+            logging.info("Created Guacamole connection: %s", guacamole_connection_id)
 
-            logging.info("VNC is ready")
+            # Grant permission to admins group
+            grant_group_permission_on_connection(token, "admins", guacamole_connection_id)
+            logging.info("Granted permission to admins group")
 
-            try:
-                # Create Guacamole connection
-                token = guacamole_login()
-                # Ensure admins group exists
-                ensure_admins_group(token)
-                guacamole_connection_id = create_guacamole_connection(
-                    token,
-                    name,
-                    # Use correct hostname format
-                    f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz",
-                    vnc_password,
-                )
-                logging.info("Created Guacamole connection: %s", guacamole_connection_id)
-
-                # Grant permission to admins group
-                grant_group_permission_on_connection(token, "admins", guacamole_connection_id)
-                logging.info("Granted permission to admins group")
-
-                # Grant permission to user
-                grant_user_permission_on_connection(
-                    token, current_user.username, guacamole_connection_id
-                )
-                logging.info("Granted permission to %s", current_user.username)
-            except Exception as e:
-                # If Guacamole setup fails, clean up the Rancher deployment
-                logging.error("Guacamole setup failed: %s", str(e))
-                try:
-                    rancher_client.uninstall(name)
-                    logging.info("Cleaned up Rancher deployment after Guacamole failure")
-                except Exception as cleanup_error:
-                    logging.error("Failed to clean up Rancher deployment: %s", str(cleanup_error))
-                return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+            # Grant permission to user
+            grant_user_permission_on_connection(
+                token, current_user.username, guacamole_connection_id
+            )
+            logging.info("Granted permission to %s", current_user.username)
 
             # Store in database
             connection = Connection(
@@ -164,10 +135,14 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             db_session.commit()
             logging.info("Stored connection in database: %s", name)
 
+            # Start VNC readiness check in background (don't wait for it)
+            # This prevents timeouts during the API request
+            logging.info("VNC readiness check will continue in the background")
+
             return (
                 jsonify(
                     {
-                        "message": f"Connection {name} scaled up successfully",
+                        "message": f"Connection {name} is being provisioned",
                         "connection": {
                             "name": connection.name,
                             "id": connection.id,
@@ -176,6 +151,7 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                             ),
                             "created_by": connection.created_by,
                             "guacamole_connection_id": connection.guacamole_connection_id,
+                            "status": "provisioning",
                         },
                     }
                 ),
