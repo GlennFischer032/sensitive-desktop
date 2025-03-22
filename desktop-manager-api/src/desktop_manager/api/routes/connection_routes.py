@@ -4,20 +4,11 @@ from typing import Any, Dict, Tuple
 
 from flask import Blueprint, jsonify, redirect, request
 
-from desktop_manager.api.models.base import get_db
 from desktop_manager.api.models.connection import Connection
 from desktop_manager.clients.factory import client_factory
-from desktop_manager.clients.guacamole import (
-    create_guacamole_connection,
-    delete_guacamole_connection,
-    ensure_admins_group,
-    grant_group_permission_on_connection,
-    grant_user_permission_on_connection,
-    guacamole_login,
-)
+from desktop_manager.clients.rancher import DesktopValues
 from desktop_manager.config.settings import get_settings
 from desktop_manager.core.auth import token_required
-from desktop_manager.core.rancher import DesktopValues
 from desktop_manager.utils.guacamole_json_auth import GuacamoleJsonAuth
 from desktop_manager.utils.utils import (
     generate_random_string,
@@ -51,7 +42,9 @@ def scale_up() -> tuple[Dict[str, Any], int]:
     logging.info("Request headers: %s", request.headers)
 
     try:
-        db_session = next(get_db())
+        # Get database client
+        db_client = client_factory.get_database_client()
+
         try:
             # Validate input data
             data = request.get_json()
@@ -64,7 +57,11 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             # Sanitize and generate unique name
             base_name = sanitize_name(data["name"])
             logging.info("Sanitized base name: %s", base_name)
-            name = generate_unique_connection_name(base_name, db_session)
+
+            # Check if name already exists
+            query = "SELECT name FROM connections WHERE name LIKE :name_pattern"
+            existing_names, _ = db_client.execute_query(query, {"name_pattern": f"{base_name}%"})
+            name = generate_unique_connection_name(base_name, existing_names)
             logging.info("Generated unique name: %s", name)
 
             # Get the current user
@@ -98,41 +95,64 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             rancher_client.install(name, desktop_values)
             logging.info("Helm chart installation completed")
 
-            # Create Guacamole connection
-            token = guacamole_login()
-            # Ensure admins group exists
-            ensure_admins_group(token)
-            guacamole_connection_id = create_guacamole_connection(
-                token,
-                name,
-                # Use correct hostname format
-                f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz",
-                vnc_password,
-            )
-            logging.info("Created Guacamole connection: %s", guacamole_connection_id)
+            # Get Guacamole client from factory
+            guacamole_client = client_factory.get_guacamole_client()
 
-            # Grant permission to admins group
-            grant_group_permission_on_connection(token, "admins", guacamole_connection_id)
-            logging.info("Granted permission to admins group")
+            try:
+                # Create Guacamole connection
+                # First get a Guacamole token
+                token = guacamole_client.login()
+                # Ensure admins group exists
+                guacamole_client.ensure_group(token, "admins")
+                guacamole_connection_id = guacamole_client.create_connection(
+                    token,
+                    name,
+                    # Use correct hostname format
+                    f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz",
+                    vnc_password,
+                )
+                logging.info("Created Guacamole connection: %s", guacamole_connection_id)
 
-            # Grant permission to user
-            grant_user_permission_on_connection(
-                token, current_user.username, guacamole_connection_id
-            )
-            logging.info("Granted permission to %s", current_user.username)
+                # Grant permission to admins group
+                guacamole_client.grant_group_permission(token, "admins", guacamole_connection_id)
+                logging.info("Granted permission to admins group")
+
+                # Grant permission to user
+                guacamole_client.grant_permission(
+                    token, current_user.username, guacamole_connection_id
+                )
+                logging.info("Granted permission to %s", current_user.username)
+            except Exception as guac_error:
+                # If Guacamole operations fail, clean up the Rancher deployment
+                logging.error("Guacamole operation failed: %s", str(guac_error))
+                try:
+                    rancher_client.uninstall(name)
+                    logging.info("Cleaned up Rancher deployment after Guacamole error")
+                except Exception as cleanup_error:
+                    logging.error("Failed to clean up Rancher deployment: %s", str(cleanup_error))
+                # Re-raise the original error
+                raise guac_error
 
             # Store in database
-            connection = Connection(
-                name=name,
-                created_by=current_user.username,
-                guacamole_connection_id=guacamole_connection_id,
-                target_host=f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz",
-                target_port=5900,
-                password=vnc_password,
-                protocol="vnc",
-            )
-            db_session.add(connection)
-            db_session.commit()
+            target_host = f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz"
+            insert_query = """
+            INSERT INTO connections (name, created_by, guacamole_connection_id, target_host, target_port, password, protocol)
+            VALUES (:name, :created_by, :guacamole_connection_id, :target_host, :target_port, :password, :protocol)
+            RETURNING id, name, created_at, created_by, guacamole_connection_id
+            """
+
+            connection_data = {
+                "name": name,
+                "created_by": current_user.username,
+                "guacamole_connection_id": guacamole_connection_id,
+                "target_host": target_host,
+                "target_port": 5900,
+                "password": vnc_password,
+                "protocol": "vnc",
+            }
+
+            result, _ = db_client.execute_query(insert_query, connection_data)
+            connection = result[0]
             logging.info("Stored connection in database: %s", name)
 
             # Start VNC readiness check in background (don't wait for it)
@@ -142,15 +162,17 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             return (
                 jsonify(
                     {
-                        "message": f"Connection {name} is being provisioned",
+                        "message": f"Connection {name} scaled up successfully",
                         "connection": {
-                            "name": connection.name,
-                            "id": connection.id,
+                            "name": connection["name"],
+                            "id": connection["id"],
                             "created_at": (
-                                connection.created_at.isoformat() if connection.created_at else None
+                                connection["created_at"].isoformat()
+                                if connection["created_at"]
+                                else None
                             ),
-                            "created_by": connection.created_by,
-                            "guacamole_connection_id": connection.guacamole_connection_id,
+                            "created_by": connection["created_by"],
+                            "guacamole_connection_id": connection["guacamole_connection_id"],
                             "status": "provisioning",
                         },
                     }
@@ -159,11 +181,8 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             )
 
         except Exception as e:
-            db_session.rollback()
             logging.error("Database error: %s", str(e))
             raise
-        finally:
-            db_session.close()
 
     except Exception as e:
         logging.error("Error in scale_up: %s", str(e))
@@ -207,26 +226,34 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
 
         logging.info("Current user: %s", current_user.username)
 
-        # Get database session
-        db_session = next(get_db())
+        # Get database client
+        db_client = client_factory.get_database_client()
+
         try:
             # Get connection from database
-            connection = db_session.query(Connection).filter_by(name=connection_name).first()
-            if not connection:
+            query = """
+            SELECT * FROM connections
+            WHERE name = :connection_name
+            """
+            result, count = db_client.execute_query(query, {"connection_name": connection_name})
+
+            if count == 0:
                 return (
                     jsonify({"error": f"Connection {connection_name} not found"}),
                     HTTPStatus.NOT_FOUND,
                 )
 
+            connection = result[0]
+
             # Check if user has permission to delete this connection
-            if not current_user.is_admin and connection.created_by != current_user.username:
+            if not current_user.is_admin and connection["created_by"] != current_user.username:
                 return (
                     jsonify({"error": "You do not have permission to delete this connection"}),
                     HTTPStatus.FORBIDDEN,
                 )
 
             # Get Guacamole connection ID
-            guacamole_connection_id = connection.guacamole_connection_id
+            guacamole_connection_id = connection["guacamole_connection_id"]
 
             get_settings()
 
@@ -237,8 +264,8 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
                 logging.info("Created Rancher client for uninstallation")
 
                 # Uninstall the Helm chart
-                rancher_client.uninstall(connection.name)
-                logging.info("Uninstalled Helm chart for %s", connection.name)
+                rancher_client.uninstall(connection["name"])
+                logging.info("Uninstalled Helm chart for %s", connection["name"])
                 rancher_uninstall_success = True
             except Exception as e:
                 rancher_uninstall_success = False
@@ -246,9 +273,10 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
                 # Continue to delete Guacamole connection and database entry
 
             # Delete Guacamole connection
-            token = guacamole_login()
             try:
-                delete_guacamole_connection(token, guacamole_connection_id)
+                guacamole_client = client_factory.get_guacamole_client()
+                token = guacamole_client.login()
+                guacamole_client.delete_connection(token, guacamole_connection_id)
                 logging.info(
                     "Deleted Guacamole connection: %s",
                     guacamole_connection_id,
@@ -274,8 +302,11 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
                 )
             elif not rancher_uninstall_success:
                 # Only delete the database entry if one of the operations succeeded
-                db_session.delete(connection)
-                db_session.commit()
+                delete_query = """
+                DELETE FROM connections
+                WHERE name = :connection_name
+                """
+                db_client.execute_query(delete_query, {"connection_name": connection_name})
                 logging.info("Deleted database entry for connection: %s", connection_name)
                 return (
                     jsonify(
@@ -290,8 +321,11 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
                 )
             elif not guacamole_delete_success:
                 # Only delete the database entry if one of the operations succeeded
-                db_session.delete(connection)
-                db_session.commit()
+                delete_query = """
+                DELETE FROM connections
+                WHERE name = :connection_name
+                """
+                db_client.execute_query(delete_query, {"connection_name": connection_name})
                 logging.info("Deleted database entry for connection: %s", connection_name)
                 return (
                     jsonify(
@@ -306,8 +340,11 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
                 )
             else:
                 # Delete database entry if all operations succeeded
-                db_session.delete(connection)
-                db_session.commit()
+                delete_query = """
+                DELETE FROM connections
+                WHERE name = :connection_name
+                """
+                db_client.execute_query(delete_query, {"connection_name": connection_name})
                 logging.info("Deleted database entry for connection: %s", connection_name)
                 return (
                     jsonify({"message": f"Connection {connection_name} scaled down successfully"}),
@@ -315,11 +352,8 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
                 )
 
         except Exception as e:
-            db_session.rollback()
             logging.error("Database error in scale_down: %s", str(e))
             raise
-        finally:
-            db_session.close()
 
     except Exception as e:
         logging.error("Error in scale_down: %s", str(e))
@@ -346,8 +380,8 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
         # Get authenticated user
         current_user = request.current_user
 
-        # Get database session
-        db_session = next(get_db())
+        # Get database client
+        db_client = client_factory.get_database_client()
 
         try:
             # Prepare the JSON auth utility
@@ -356,13 +390,16 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
 
             # Get connections from database - filter by user if not admin
             if current_user.is_admin:
-                connections = db_session.query(Connection).all()
+                query = """
+                SELECT * FROM connections
+                """
+                connections, _ = db_client.execute_query(query)
             else:
-                connections = (
-                    db_session.query(Connection)
-                    .filter(Connection.created_by == current_user.username)
-                    .all()
-                )
+                query = """
+                SELECT * FROM connections
+                WHERE created_by = :username
+                """
+                connections, _ = db_client.execute_query(query, {"username": current_user.username})
 
             result = []
 
@@ -371,9 +408,9 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
                 connection_info = {
                     "protocol": "vnc",
                     "parameters": {
-                        "hostname": connection.target_host,
-                        "port": str(connection.target_port),
-                        "password": connection.password,
+                        "hostname": connection["target_host"],
+                        "port": str(connection["target_port"]),
+                        "password": connection["password"],
                         "enable-audio": "true",
                         "color-depth": "24",
                         "cursor": "local",
@@ -385,7 +422,7 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
                 # Generate auth token for this specific connection
                 token = guacamole_json_auth.generate_auth_data(
                     username=current_user.username,
-                    connections={connection.name: connection_info},
+                    connections={connection["name"]: connection_info},
                     expires_in_ms=1800000,  # 30 minutes
                 )
 
@@ -399,23 +436,26 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
                 # Add to result
                 result.append(
                     {
-                        "id": connection.id,
-                        "name": connection.name,
-                        "target_host": connection.target_host,
-                        "target_port": connection.target_port,
+                        "id": connection["id"],
+                        "name": connection["name"],
+                        "target_host": connection["target_host"],
+                        "target_port": connection["target_port"],
                         "created_at": (
-                            connection.created_at.isoformat() if connection.created_at else None
+                            connection["created_at"].isoformat()
+                            if connection["created_at"]
+                            else None
                         ),
-                        "created_by": connection.created_by,
-                        "guacamole_connection_id": connection.guacamole_connection_id,
+                        "created_by": connection["created_by"],
+                        "guacamole_connection_id": connection["guacamole_connection_id"],
                         "auth_url": auth_url,
                     }
                 )
 
             return jsonify({"connections": result}), HTTPStatus.OK
 
-        finally:
-            db_session.close()
+        except Exception as e:
+            logging.error("Database error: %s", str(e))
+            raise
 
     except Exception as e:
         logging.error("Error listing connections: %s", str(e))
@@ -464,24 +504,35 @@ def get_connection(connection_name):
     # Get authenticated user
     current_user = request.current_user
 
-    db_session = next(get_db())
+    # Get database client
+    db_client = client_factory.get_database_client()
+
     try:
-        connection = db_session.query(Connection).filter_by(name=connection_name).first()
-        if not connection:
+        query = """
+        SELECT * FROM connections
+        WHERE name = :connection_name
+        """
+        result, count = db_client.execute_query(query, {"connection_name": connection_name})
+
+        if count == 0:
             return jsonify({"error": "Connection not found"}), 404
 
+        connection = result[0]
+
         # Check if user has permission to access this connection
-        if not current_user.is_admin and connection.created_by != current_user.username:
+        if not current_user.is_admin and connection["created_by"] != current_user.username:
             return jsonify({"error": "You do not have permission to access this connection"}), 403
 
         return (
             jsonify(
                 {
                     "connection": {
-                        "name": connection.name,
-                        "created_at": connection.created_at.isoformat(),
-                        "created_by": connection.created_by,
-                        "guacamole_connection_id": connection.guacamole_connection_id,
+                        "name": connection["name"],
+                        "created_at": connection["created_at"].isoformat()
+                        if connection["created_at"]
+                        else None,
+                        "created_by": connection["created_by"],
+                        "guacamole_connection_id": connection["guacamole_connection_id"],
                     }
                 }
             ),
@@ -489,8 +540,6 @@ def get_connection(connection_name):
         )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
 
 
 @connections_bp.route("/auth/<connection_id>", methods=["GET"])
@@ -514,25 +563,27 @@ def get_connection_auth(connection_id: str) -> Tuple[Dict[str, Any], int]:
         # Get authenticated user
         current_user = request.current_user
 
-        # Get database session
-        db_session = next(get_db())
+        # Get database client
+        db_client = client_factory.get_database_client()
 
         try:
             # Get connection from database
-            connection = (
-                db_session.query(Connection)
-                .filter(Connection.guacamole_connection_id == connection_id)
-                .first()
-            )
+            query = """
+            SELECT * FROM connections
+            WHERE guacamole_connection_id = :connection_id
+            """
+            result, count = db_client.execute_query(query, {"connection_id": connection_id})
 
-            if not connection:
+            if count == 0:
                 return (
                     jsonify({"error": f"Connection with ID {connection_id} not found"}),
                     HTTPStatus.NOT_FOUND,
                 )
 
+            connection = result[0]
+
             # Check if user has permission to access this connection
-            if not current_user.is_admin and connection.created_by != current_user.username:
+            if not current_user.is_admin and connection["created_by"] != current_user.username:
                 return (
                     jsonify({"error": "You do not have permission to access this connection"}),
                     HTTPStatus.FORBIDDEN,
@@ -548,9 +599,9 @@ def get_connection_auth(connection_id: str) -> Tuple[Dict[str, Any], int]:
             connection_info = {
                 "protocol": "vnc",
                 "parameters": {
-                    "hostname": connection.target_host,
-                    "port": str(connection.target_port),
-                    "password": connection.password,
+                    "hostname": connection["target_host"],
+                    "port": str(connection["target_port"]),
+                    "password": connection["password"],
                     "enable-audio": "true",
                     "color-depth": "24",
                     "cursor": "local",
@@ -560,7 +611,7 @@ def get_connection_auth(connection_id: str) -> Tuple[Dict[str, Any], int]:
             }
 
             # Format for Guacamole JSON auth
-            connections = {connection.name: connection_info}
+            connections = {connection["name"]: connection_info}
 
             # Generate auth token
             token = guacamole_json_auth.generate_auth_data(
@@ -585,15 +636,16 @@ def get_connection_auth(connection_id: str) -> Tuple[Dict[str, Any], int]:
                 jsonify(
                     {
                         "connection_id": connection_id,
-                        "connection_name": connection.name,
+                        "connection_name": connection["name"],
                         "auth_url": auth_url,
                     }
                 ),
                 HTTPStatus.OK,
             )
 
-        finally:
-            db_session.close()
+        except Exception as e:
+            logging.error("Database error: %s", str(e))
+            raise
 
     except Exception as e:
         logging.error("Error generating connection auth: %s", str(e))
@@ -623,14 +675,21 @@ def direct_connect(connection_id: str):
         # Get authenticated user
         current_user = request.current_user
 
-        # Get database session
-        db_session = next(get_db())
+        # Get database client
+        db_client = client_factory.get_database_client()
 
         try:
             # Get connection details
-            connection = db_session.query(Connection).filter(Connection.id == connection_id).first()
-            if not connection:
+            query = """
+            SELECT * FROM connections
+            WHERE id = :connection_id
+            """
+            result, count = db_client.execute_query(query, {"connection_id": connection_id})
+
+            if count == 0:
                 return jsonify({"error": "Connection not found"}), HTTPStatus.NOT_FOUND
+
+            connection = result[0]
 
             # Initialize the JSON auth utility
             guacamole_json_auth = GuacamoleJsonAuth()
@@ -639,9 +698,9 @@ def direct_connect(connection_id: str):
             connection_info = {
                 "protocol": "vnc",
                 "parameters": {
-                    "hostname": connection.target_host,
-                    "port": str(connection.target_port),
-                    "password": connection.password,
+                    "hostname": connection["target_host"],
+                    "port": str(connection["target_port"]),
+                    "password": connection["password"],
                     "enable-audio": "true",
                     "color-depth": "24",
                     "cursor": "local",
@@ -651,7 +710,7 @@ def direct_connect(connection_id: str):
             }
 
             # Format for Guacamole JSON auth
-            connections = {connection.name: connection_info}
+            connections = {connection["name"]: connection_info}
 
             # Generate auth token
             token = guacamole_json_auth.generate_auth_data(
@@ -676,8 +735,9 @@ def direct_connect(connection_id: str):
             # Redirect to the connection URL
             return redirect(auth_url)
 
-        finally:
-            db_session.close()
+        except Exception as e:
+            logging.error("Database error: %s", str(e))
+            raise
 
     except Exception as e:
         logging.error("Error redirecting to connection: %s", str(e))
@@ -707,27 +767,34 @@ def get_connection_auth_url(connection_id: str):
         # Get authenticated user
         current_user = request.current_user
 
-        # Get database session
-        db_session = next(get_db())
+        # Get database client
+        db_client = client_factory.get_database_client()
 
         try:
             # Get connection from database
-            connection = db_session.query(Connection).filter_by(id=connection_id).first()
-            if not connection:
+            query = """
+            SELECT * FROM connections
+            WHERE id = :connection_id
+            """
+            result, count = db_client.execute_query(query, {"connection_id": connection_id})
+
+            if count == 0:
                 return (
                     jsonify({"error": f"Connection with ID {connection_id} not found"}),
                     HTTPStatus.NOT_FOUND,
                 )
 
+            connection = result[0]
+
             # Check if user has permission to access this connection
-            if not current_user.is_admin and connection.created_by != current_user.username:
+            if not current_user.is_admin and connection["created_by"] != current_user.username:
                 return (
                     jsonify({"error": "You do not have permission to access this connection"}),
                     HTTPStatus.FORBIDDEN,
                 )
 
             # Get Guacamole connection ID
-            guacamole_connection_id = connection.guacamole_connection_id
+            guacamole_connection_id = connection["guacamole_connection_id"]
 
             # Generate auth URL
             settings = get_settings()
@@ -743,7 +810,7 @@ def get_connection_auth_url(connection_id: str):
                 jsonify(
                     {
                         "connection_id": connection_id,
-                        "connection_name": connection.name,
+                        "connection_name": connection["name"],
                         "auth_url": auth_data,
                     }
                 ),
@@ -751,11 +818,8 @@ def get_connection_auth_url(connection_id: str):
             )
 
         except Exception as e:
-            db_session.rollback()
             logging.error("Database error in get_connection_auth: %s", str(e))
             raise
-        finally:
-            db_session.close()
 
     except Exception as e:
         logging.error("Error generating connection auth: %s", str(e))

@@ -11,7 +11,7 @@ from sqlalchemy.pool import QueuePool, StaticPool
 from desktop_manager.config.settings import get_settings
 
 
-__all__ = ["get_db", "get_session_factory", "init_db"]
+__all__ = ["get_session_factory", "init_db"]
 
 logging.basicConfig(level=logging.INFO)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -81,19 +81,6 @@ def get_session_factory() -> sessionmaker:
     if _session_factory is None:
         _session_factory = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
     return _session_factory
-
-
-def get_db() -> Generator[Session, None, None]:
-    """Get database session."""
-    factory = get_session_factory()
-    db: Session = factory()
-    try:
-        yield db
-    except Exception as e:
-        logger.error("Database session error: %s", str(e))
-        raise
-    finally:
-        db.close()
 
 
 def init_db() -> None:

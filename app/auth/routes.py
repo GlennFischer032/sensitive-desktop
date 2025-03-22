@@ -131,7 +131,7 @@ def oidc_callback():
         session["token"] = data["token"]
         session["username"] = data["username"]
         session["is_admin"] = data["is_admin"]
-        session["email"] = data["email"]
+        session["email"] = data.get("email")
         session["organization"] = data.get("organization")
         session["sub"] = data.get("sub")
         session.permanent = True

@@ -6,13 +6,7 @@ from werkzeug.security import generate_password_hash
 
 from desktop_manager.api.models.user import User
 from desktop_manager.api.schemas.user import UserCreate, UserResponse
-from desktop_manager.clients.guacamole import (
-    GuacamoleClient,
-    add_user_to_group,
-    create_guacamole_user,
-    delete_guacamole_user,
-    ensure_all_users_group,
-)
+from desktop_manager.clients.guacamole import GuacamoleClient
 from desktop_manager.core.exceptions import (
     DatabaseError,
     GuacamoleError,
@@ -69,11 +63,9 @@ class UserService:
 
         try:
             # Create user in Guacamole
-            token = self.guacamole_client.login()
+            self.guacamole_client.login()
             if user_data.password:  # Only create Guacamole user if password is provided
-                create_guacamole_user(token, user_data.username, user_data.password)
-                ensure_all_users_group(token)
-                add_user_to_group(token, user_data.username, "all_users")
+                self.guacamole_client.create_user(user_data.username, user_data.password)
                 logger.info("Created user %s in Guacamole", user_data.username)
 
             # Create user in database
@@ -107,7 +99,7 @@ class UserService:
             # Cleanup Guacamole user if database fails
             if user_data.password:  # Only cleanup if Guacamole user was created
                 try:
-                    delete_guacamole_user(token, user_data.username)
+                    self.guacamole_client.delete_user(user_data.username)
                 except Exception as cleanup_error:
                     logger.error("Failed to cleanup Guacamole user: %s", cleanup_error)
             raise DatabaseError(f"Failed to create user: {e!s}") from e
@@ -134,9 +126,8 @@ class UserService:
 
         try:
             # Try to delete from Guacamole first
-            token = self.guacamole_client.login()
             try:
-                delete_guacamole_user(token, username)
+                self.guacamole_client.delete_user(username)
                 logger.info("Deleted user %s from Guacamole", username)
             except GuacamoleError as e:
                 if "User not found" in str(e):

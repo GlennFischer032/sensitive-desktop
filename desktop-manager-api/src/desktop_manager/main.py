@@ -6,16 +6,9 @@ from flask_cors import CORS
 from sqlalchemy import text
 from werkzeug.security import generate_password_hash
 
-from desktop_manager.api.models.base import get_db
 from desktop_manager.api.models.user import User
 from desktop_manager.api.routes import auth_bp, connections_bp, oidc_bp, users_bp
-from desktop_manager.clients.guacamole import (
-    add_user_to_group,
-    create_guacamole_user_if_not_exists,
-    ensure_admins_group,
-    ensure_all_users_group,
-    guacamole_login,
-)
+from desktop_manager.clients.factory import client_factory
 from desktop_manager.config.settings import get_settings
 from desktop_manager.core.database import init_db
 
@@ -64,10 +57,9 @@ def create_app() -> Flask:
     def health_check():
         """Health check endpoint for the API."""
         try:
-            # Get a database session to test database connectivity
-            db_session = next(get_db())
-            db_session.execute(text("SELECT 1"))
-            db_session.close()
+            # Use DatabaseClient to test database connectivity
+            db_client = client_factory.get_database_client()
+            db_client.execute_query("SELECT 1")
             return (
                 jsonify(
                     {
@@ -92,37 +84,49 @@ def create_app() -> Flask:
 
     # Initialize admin user
     with app.app_context():
-        db_session = next(get_db())
+        db_client = client_factory.get_database_client()
         try:
-            admin = db_session.query(User).filter(User.username == settings.ADMIN_USERNAME).first()
-            if not admin:
-                admin = User(
-                    username=settings.ADMIN_USERNAME,
-                    email="admin@example.com",
-                    password_hash=generate_password_hash(settings.ADMIN_PASSWORD),
-                    is_admin=True,
+            # Check if admin user exists
+            query = "SELECT * FROM users WHERE username = :username"
+            admins, count = db_client.execute_query(query, {"username": settings.ADMIN_USERNAME})
+
+            if count == 0:
+                # Create admin user if not exists
+                insert_query = """
+                INSERT INTO users (username, email, password_hash, is_admin, created_at)
+                VALUES (:username, :email, :password_hash, :is_admin, :created_at)
+                """
+
+                from datetime import datetime
+
+                db_client.execute_query(
+                    insert_query,
+                    {
+                        "username": settings.ADMIN_USERNAME,
+                        "email": "admin@example.com",
+                        "password_hash": generate_password_hash(settings.ADMIN_PASSWORD),
+                        "is_admin": True,
+                        "created_at": datetime.utcnow(),
+                    },
                 )
-                db_session.add(admin)
-                db_session.commit()
                 logger.info("Admin user created")
             else:
                 logger.info("Admin user already exists")
 
             # Initialize admin in Guacamole
-            token = guacamole_login()
-            create_guacamole_user_if_not_exists(
+            guacamole_client = client_factory.get_guacamole_client()
+            token = guacamole_client.login()
+            guacamole_client.create_user_if_not_exists(
                 token, settings.ADMIN_USERNAME, settings.ADMIN_PASSWORD
             )
-            ensure_admins_group(token)
-            ensure_all_users_group(token)
-            add_user_to_group(token, settings.ADMIN_USERNAME, "admins")
+            guacamole_client.ensure_group(token, "admins")
+            guacamole_client.ensure_group(token, "all_users")
+            guacamole_client.add_user_to_group(token, settings.ADMIN_USERNAME, "admins")
             logger.info("Admin user initialized in Guacamole")
 
         except Exception as e:
             logger.error("Error initializing admin user: %s", str(e))
             raise
-        finally:
-            db_session.close()
 
     logger.info("=== Starting API Application ===")
     return app

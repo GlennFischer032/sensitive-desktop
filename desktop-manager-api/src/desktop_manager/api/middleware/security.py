@@ -59,46 +59,6 @@ class RateLimiter:
 rate_limiter = RateLimiter()
 
 
-def rate_limiting(
-    requests_per_second: int = 5,
-    requests_per_minute: int = 30,
-    requests_per_hour: int = 500,
-):
-    """Rate limiting decorator.
-
-    Args:
-        requests_per_second: Max requests per second
-        requests_per_minute: Max requests per minute
-        requests_per_hour: Max requests per hour
-    """
-
-    def decorator(f: Callable) -> Callable:
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            # Get client IP
-            client_ip = request.remote_addr
-
-            # Check rate limits for different windows
-            limits = [
-                (requests_per_second, RATE_LIMIT_WINDOWS["1s"]),
-                (requests_per_minute, RATE_LIMIT_WINDOWS["1m"]),
-                (requests_per_hour, RATE_LIMIT_WINDOWS["1h"]),
-            ]
-
-            for max_requests, window in limits:
-                if rate_limiter.is_rate_limited(f"{client_ip}:{window}", max_requests, window):
-                    return (
-                        jsonify({"error": "Rate limit exceeded", "retry_after": window}),
-                        HTTPStatus.TOO_MANY_REQUESTS,
-                    )
-
-            return f(*args, **kwargs)
-
-        return decorated_function
-
-    return decorator
-
-
 def sanitize_input(data: Any) -> Any:
     """Recursively sanitize input data.
 
@@ -115,38 +75,3 @@ def sanitize_input(data: Any) -> Any:
     elif isinstance(data, list):
         return [sanitize_input(item) for item in data]
     return data
-
-
-def validate_request_data():
-    """Decorator to validate request data.
-
-    Returns:
-        Decorated function
-    """
-
-    def decorator(f: Callable) -> Callable:
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            try:
-                # Get request data
-                data = request.get_json() if request.is_json else request.form.to_dict()
-
-                # Sanitize input
-                sanitized_data = sanitize_input(data)
-
-                # Update request data
-                if request.is_json:
-                    request.json = sanitized_data
-                else:
-                    request.form = sanitized_data
-
-                return f(*args, **kwargs)
-            except Exception as e:
-                return (
-                    jsonify({"error": "Invalid request data", "message": str(e)}),
-                    HTTPStatus.BAD_REQUEST,
-                )
-
-        return decorated_function
-
-    return decorator

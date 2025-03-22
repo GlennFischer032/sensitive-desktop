@@ -8,18 +8,10 @@ from pydantic import ValidationError
 import requests
 from werkzeug.security import generate_password_hash
 
-from desktop_manager.api.models.base import get_db
 from desktop_manager.api.models.user import User
 from desktop_manager.api.schemas.user import UserCreate, UserList, UserResponse
 from desktop_manager.api.utils.error_handlers import handle_validation_error
-from desktop_manager.clients.guacamole import (
-    add_user_to_group,
-    create_guacamole_user,
-    delete_guacamole_user,
-    ensure_all_users_group,
-    guacamole_login,
-    remove_user_from_group,
-)
+from desktop_manager.clients.factory import client_factory
 from desktop_manager.config.settings import get_settings
 from desktop_manager.core.auth import admin_required, token_required
 
@@ -43,81 +35,68 @@ def remove_user() -> Tuple[Dict[str, Any], int]:
     """
     try:
         data = request.get_json()
-        username = data.get("username")
-
-        if not username:
+        if not data or "username" not in data:
             return (
-                jsonify(
-                    {
-                        "error": "Validation Error",
-                        "details": {"username": ["This field is required"]},
-                    }
-                ),
+                jsonify({"error": "Missing username in request data"}),
                 HTTPStatus.BAD_REQUEST,
             )
 
-        settings = get_settings()
-        if username == settings.GUACAMOLE_USERNAME:
+        username = data["username"]
+        logging.info("Request to remove user: %s", username)
+
+        # Get the current authenticated user
+        current_user = request.current_user
+        if current_user.username == username:
             return (
-                jsonify({"error": "Cannot remove service user"}),
-                HTTPStatus.FORBIDDEN,
+                jsonify({"error": "You cannot remove your own account"}),
+                HTTPStatus.BAD_REQUEST,
             )
 
-        # Get database session
-        db_session = next(get_db())
+        # Get database client
+        db_client = client_factory.get_database_client()
+
+        # Check if user exists
+        query = "SELECT * FROM users WHERE username = :username"
+        users, count = db_client.execute_query(query, {"username": username})
+
+        if count == 0:
+            return jsonify({"error": "User not found"}), HTTPStatus.NOT_FOUND
+
+        users[0]
+
+        # Remove from Guacamole
         try:
-            # Check if user exists in database
-            user = db_session.query(User).filter(User.username == username).first()
-            if not user:
-                return (
-                    jsonify(
-                        {
-                            "error": "Not Found",
-                            "details": {"username": ["User not found"]},
-                        }
-                    ),
-                    HTTPStatus.NOT_FOUND,
-                )
-
-            # Delete from Guacamole first
-            token = guacamole_login()
-            try:
-                delete_guacamole_user(token, username)
-                logging.info("User '%s' removed from Guacamole", username)
-            except Exception as e:
-                logging.error("Failed to remove user from Guacamole: %s", str(e))
-                raise
-
-            # Then delete from database
-            db_session.delete(user)
-            db_session.commit()
-            logging.info("User '%s' removed from database", username)
-
-            return (
-                jsonify({"message": f"User '{username}' removed successfully"}),
-                HTTPStatus.OK,
-            )
-
+            logging.info("Removing user from Guacamole: %s", username)
+            guacamole_client = client_factory.get_guacamole_client()
+            token = guacamole_client.login()
+            guacamole_client.delete_user(token, username)
+            logging.info("Successfully removed user from Guacamole: %s", username)
         except Exception as e:
-            db_session.rollback()
-            logging.error("Database error while removing user: %s", str(e))
-            raise
-        finally:
-            db_session.close()
+            logging.error("Failed to remove user from Guacamole: %s", str(e))
+            # Continue with removal from database even if Guacamole fails
+
+        # Remove user from database
+        delete_query = "DELETE FROM users WHERE username = :username"
+        db_client.execute_query(delete_query, {"username": username})
+        logging.info("Successfully removed user from database: %s", username)
+
+        return jsonify({"message": "User removed successfully"}), HTTPStatus.OK
 
     except Exception as e:
         logging.error("Error removing user: %s", str(e))
-        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+        return (
+            jsonify({"error": "Failed to remove user", "details": str(e)}),
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+        )
 
 
 @users_bp.route("/createuser", methods=["POST"])
 @token_required
 @admin_required
 def create_user() -> Tuple[Dict[str, Any], int]:
-    """Create a new user in the system.
+    """Create a new user.
 
     This endpoint creates a new user in both the application database and Guacamole.
-    It validates the input data and ensures proper setup of user permissions and groups.
 
     Returns:
         tuple: A tuple containing:
@@ -125,115 +104,98 @@ def create_user() -> Tuple[Dict[str, Any], int]:
             - HTTP status code
     """
     try:
-        # Validate input using Pydantic
+        # Parse and validate request data
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Missing request data"}), HTTPStatus.BAD_REQUEST
+
         try:
-            user_data = UserCreate(**request.get_json())
+            user_data = UserCreate(**data)
         except ValidationError as e:
             return handle_validation_error(e)
 
-        token = guacamole_login()
+        # Get database client
+        db_client = client_factory.get_database_client()
 
-        # Check if user already exists
-        db_session = next(get_db())
+        # Check if username or email already exists
+        check_query = (
+            "SELECT username, email FROM users WHERE username = :username OR email = :email"
+        )
+        existing_users, count = db_client.execute_query(
+            check_query, {"username": user_data.username, "email": user_data.email}
+        )
+
+        if count > 0:
+            # Check which field already exists
+            for user in existing_users:
+                if user["username"] == user_data.username:
+                    return jsonify({"error": "Username already exists"}), HTTPStatus.CONFLICT
+                if user["email"] == user_data.email:
+                    return jsonify({"error": "Email already exists"}), HTTPStatus.CONFLICT
+
+        # Hash password
+        password_hash = generate_password_hash(user_data.password)
+
+        # Insert into database
+        insert_query = """
+        INSERT INTO users (username, email, password_hash, is_admin, created_at)
+        VALUES (:username, :email, :password_hash, :is_admin, :created_at)
+        RETURNING id, username, email, is_admin, created_at
+        """
+
+        result, _ = db_client.execute_query(
+            insert_query,
+            {
+                "username": user_data.username,
+                "email": user_data.email,
+                "password_hash": password_hash,
+                "is_admin": user_data.is_admin,
+                "created_at": datetime.utcnow(),
+            },
+        )
+
+        new_user = result[0]
+        logging.info("Created user in database: %s", user_data.username)
+
+        # Create in Guacamole
         try:
-            existing_user = (
-                db_session.query(User).filter(User.username == user_data.username).first()
+            guacamole_client = client_factory.get_guacamole_client()
+            token = guacamole_client.login()
+
+            # Create user in Guacamole
+            guacamole_client.create_user_if_not_exists(
+                token, user_data.username, user_data.password
             )
-            if existing_user:
-                return (
-                    jsonify(
-                        {
-                            "error": "Validation Error",
-                            "details": {"username": ["Username already exists"]},
-                        }
-                    ),
-                    HTTPStatus.BAD_REQUEST,
-                )
-        finally:
-            db_session.close()
+            logging.info("Created user in Guacamole: %s", user_data.username)
 
-        # Create user in Guacamole
-        try:
-            guacamole_password = user_data.password if user_data.password else ""
+            # Add user to appropriate groups
+            if user_data.is_admin:
+                guacamole_client.ensure_group(token, "admins")
+                guacamole_client.add_user_to_group(token, user_data.username, "admins")
+                logging.info("Added user to admins group: %s", user_data.username)
 
-            attributes = {
-                "disabled": "true" if not user_data.password else "",
-                "expired": "",
-                "access-window-start": "",
-                "access-window-end": "",
-                "valid-from": "",
-                "valid-until": "",
-                "timezone": None,
-                "guac-full-name": user_data.username,
-                "guac-email-address": user_data.email,
-                "guac-organization": user_data.organization or "",
-            }
-
-            create_guacamole_user(token, user_data.username, guacamole_password, attributes)
-            ensure_all_users_group(token)
-            add_user_to_group(token, user_data.username, "all_users")
-            logging.info("Created user %s in Guacamole with attributes", user_data.username)
+            guacamole_client.ensure_group(token, "all_users")
+            guacamole_client.add_user_to_group(token, user_data.username, "all_users")
+            logging.info("Added user to all_users group: %s", user_data.username)
         except Exception as e:
-            logging.error("Failed to create user in Guacamole: %s", str(e))
-            raise
+            logging.error("Error creating user in Guacamole: %s", str(e))
+            # Continue even if Guacamole fails
 
-        # Create user in database
-        db_session = next(get_db())
-        try:
-            user = User(
-                username=user_data.username,
-                email=user_data.email,
-                organization=user_data.organization,
-                password_hash=(
-                    generate_password_hash(user_data.password) if user_data.password else None
-                ),
-                is_admin=user_data.is_admin,
-                sub=user_data.sub,
-            )
-            db_session.add(user)
-            db_session.commit()
+        # Format response
+        user_response = UserResponse(
+            id=new_user["id"],
+            username=new_user["username"],
+            email=new_user["email"],
+            is_admin=new_user["is_admin"],
+            created_at=new_user["created_at"],
+        )
 
-            # Create response using Pydantic model
-            response_data = UserResponse(
-                id=user.id,
-                username=user.username,
-                email=user.email,
-                organization=user.organization,
-                is_admin=user.is_admin,
-                created_at=user.created_at,
-            )
-
-            return (
-                jsonify(
-                    {
-                        "message": f"User '{user_data.username}' created successfully",
-                        "user": response_data.model_dump(),
-                    }
-                ),
-                HTTPStatus.CREATED,
-            )
-
-        except Exception:
-            db_session.rollback()
-            # Cleanup Guacamole user if database fails
-            try:
-                delete_guacamole_user(token, user_data.username)
-                logging.info(
-                    "Cleaned up Guacamole user %s after database error",
-                    user_data.username,
-                )
-            except Exception as cleanup_error:
-                logging.error("Failed to cleanup Guacamole user: %s", cleanup_error)
-            raise
-        finally:
-            db_session.close()
+        return jsonify(user_response.dict()), HTTPStatus.CREATED
 
     except Exception as e:
         logging.error("Error creating user: %s", str(e))
-        if isinstance(e, ValidationError):
-            return handle_validation_error(e)
         return (
-            jsonify({"error": "Internal Server Error", "details": str(e)}),
+            jsonify({"error": "Failed to create user", "details": str(e)}),
             HTTPStatus.INTERNAL_SERVER_ERROR,
         )
 
@@ -242,10 +204,9 @@ def create_user() -> Tuple[Dict[str, Any], int]:
 @token_required
 @admin_required
 def list_users() -> Tuple[Dict[str, Any], int]:
-    """List all users in the system.
+    """List all users.
 
-    This endpoint retrieves all users from both the application database
-    and Guacamole, combining the information into a comprehensive response.
+    This endpoint lists all users in the system.
 
     Returns:
         tuple: A tuple containing:
@@ -253,98 +214,75 @@ def list_users() -> Tuple[Dict[str, Any], int]:
             - HTTP status code
     """
     try:
-        settings = get_settings()
-        token = guacamole_login()
+        # Get database client
+        db_client = client_factory.get_database_client()
 
-        # Get users from Guacamole
-        users_url = f"{settings.GUACAMOLE_URL}/api/session/data/postgresql/users?token={token}"
-        response = requests.get(users_url, timeout=10)
-        response.raise_for_status()
-        guacamole_users = response.json()
+        # Query all users
+        query = """
+        SELECT id, username, email, is_admin, created_at, last_login
+        FROM users
+        ORDER BY username
+        """
+        users, _ = db_client.execute_query(query)
 
-        # Get users from database
-        db_session = next(get_db())
-        try:
-            users_list = []
-            for user in db_session.query(User).all():
-                # Skip the Guacamole service user
-                if user.username == settings.GUACAMOLE_USERNAME:
-                    continue
-
-                # Get Guacamole info if available
-                guac_info = guacamole_users.get(user.username, {})
-                last_active = None
-                if guac_info.get("lastActive"):
-                    last_active = datetime.utcfromtimestamp(guac_info["lastActive"] / 1000)
-
-                user_response = UserResponse(
-                    id=user.id,
-                    username=user.username,
-                    email=user.email,
-                    organization=user.organization,
-                    is_admin=user.is_admin,
-                    created_at=user.created_at,
-                    last_active=last_active,
+        # Format response
+        user_list = UserList(
+            users=[
+                UserResponse(
+                    id=user["id"],
+                    username=user["username"],
+                    email=user["email"],
+                    is_admin=user["is_admin"],
+                    created_at=user["created_at"],
+                    last_login=user["last_login"],
                 )
-                users_list.append(user_response)
+                for user in users
+            ]
+        )
 
-            response_data = UserList(users=users_list)
-            return jsonify(response_data.model_dump()), HTTPStatus.OK
-
-        finally:
-            db_session.close()
+        return jsonify(user_list.dict()), HTTPStatus.OK
 
     except Exception as e:
         logging.error("Error listing users: %s", str(e))
-        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+        return (
+            jsonify({"error": "Failed to list users", "details": str(e)}),
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+        )
 
 
 @users_bp.route("/check", methods=["GET"])
 def check_user() -> Tuple[Dict[str, Any], int]:
-    """Check if a user exists by email.
+    """Check if a user exists.
 
-    This endpoint checks if a user exists in the database and returns their basic info.
-    It does not require authentication as it's used during the OIDC login process.
+    This endpoint checks if a user with the given username exists in the system.
 
     Returns:
         tuple: A tuple containing:
-            - Dict with user info or error message
+            - Dict with existence flag
             - HTTP status code
     """
     try:
-        email = request.args.get("email")
-        if not email:
+        username = request.args.get("username")
+        if not username:
             return (
-                jsonify(
-                    {
-                        "error": "Validation Error",
-                        "details": {"email": ["This field is required"]},
-                    }
-                ),
+                jsonify({"error": "Missing username parameter"}),
                 HTTPStatus.BAD_REQUEST,
             )
 
-        db_session = next(get_db())
-        try:
-            user = db_session.query(User).filter(User.email == email).first()
-            if not user:
-                return jsonify({"error": "User not found"}), HTTPStatus.NOT_FOUND
+        # Get database client
+        db_client = client_factory.get_database_client()
 
-            return (
-                jsonify(
-                    {
-                        "username": user.username,
-                        "email": user.email,
-                        "is_admin": user.is_admin,
-                        "organization": user.organization,
-                    }
-                ),
-                HTTPStatus.OK,
-            )
+        # Check if user exists
+        query = "SELECT id FROM users WHERE username = :username"
+        _, count = db_client.execute_query(query, {"username": username})
 
-        finally:
-            db_session.close()
+        exists = count > 0
+
+        return jsonify({"exists": exists}), HTTPStatus.OK
 
     except Exception as e:
         logging.error("Error checking user: %s", str(e))
-        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+        return (
+            jsonify({"error": "Failed to check user", "details": str(e)}),
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+        )

@@ -4,7 +4,7 @@ This module provides a client for interacting with Apache Guacamole.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, NotRequired, Optional, TypedDict, Union
 
 import requests
 
@@ -12,12 +12,116 @@ from desktop_manager.clients.base import APIError, BaseClient
 from desktop_manager.config.settings import get_settings
 
 
-if TYPE_CHECKING:
-    from desktop_manager.core.guacamole import (
-        GuacamoleConnectionParameters,
-        GuacamoleUser,
-        GuacamoleUserAttributes,
-    )
+class GuacamoleUserAttributes(TypedDict, total=False):
+    """Type definition for Guacamole user attributes."""
+
+    guac_full_name: str
+    guac_organization: str
+    expired: str
+    disabled: str
+    access_window_start: str
+    access_window_end: str
+    valid_from: str
+    valid_until: str
+    timezone: Optional[str]
+
+
+class GuacamoleUser(TypedDict):
+    """Type definition for Guacamole user."""
+
+    username: str
+    password: str
+    attributes: GuacamoleUserAttributes
+
+
+class GuacamoleGroup(TypedDict):
+    """Type definition for Guacamole group."""
+
+    identifier: str
+    attributes: GuacamoleUserAttributes
+
+
+class GuacamoleConnectionParameters(TypedDict):
+    """Type definition for Guacamole connection parameters."""
+
+    hostname: str
+    port: str
+    password: str
+    enable_audio: str
+    read_only: NotRequired[str]
+    swap_red_blue: NotRequired[str]
+    cursor: NotRequired[str]
+    color_depth: NotRequired[str]
+    force_lossless: NotRequired[str]
+    clipboard_encoding: NotRequired[str]
+    disable_copy: NotRequired[str]
+    disable_paste: NotRequired[str]
+    dest_port: NotRequired[str]
+    recording_exclude_output: NotRequired[str]
+    recording_exclude_mouse: NotRequired[str]
+    recording_include_keys: NotRequired[str]
+    create_recording_path: NotRequired[str]
+    enable_sftp: NotRequired[str]
+    sftp_port: NotRequired[str]
+    sftp_server_alive_interval: NotRequired[str]
+    sftp_disable_download: NotRequired[str]
+    sftp_disable_upload: NotRequired[str]
+    wol_send_packet: NotRequired[str]
+    wol_udp_port: NotRequired[str]
+    wol_wait_time: NotRequired[str]
+
+
+class GuacamoleConnectionAttributes(TypedDict, total=False):
+    """Type definition for Guacamole connection attributes."""
+
+    max_connections: str
+    max_connections_per_user: str
+    weight: str
+    failover_only: str
+    guacd_hostname: str
+    guacd_port: str
+    guacd_encryption: str
+
+
+class GuacamoleConnection(TypedDict):
+    """Type definition for Guacamole connection."""
+
+    name: str
+    identifier: str
+    parentIdentifier: str
+    protocol: Literal["vnc"]
+    attributes: GuacamoleConnectionAttributes
+    activeConnections: int
+    lastActive: int
+    parameters: GuacamoleConnectionParameters
+
+
+class GuacamolePatchOperation(TypedDict):
+    """Type definition for Guacamole PATCH operation."""
+
+    op: Literal["add", "remove"]
+    path: str
+    value: Union[str, None]
+
+
+class GuacamoleAuthResponse(TypedDict):
+    """Type definition for Guacamole authentication response."""
+
+    authToken: str
+
+
+class GuacamoleConnectionResponse(TypedDict):
+    """Type definition for Guacamole connection response."""
+
+    identifier: str
+
+
+class GuacamoleUsersResponse(TypedDict):
+    """Type definition for Guacamole users response."""
+
+    username: str
+    lastActive: int
+    attributes: GuacamoleUserAttributes
 
 
 class GuacamoleClient(BaseClient):
@@ -575,121 +679,3 @@ class GuacamoleClient(BaseClient):
             raise APIError(
                 f"Failed to check/create user in Guacamole: {e!s}", status_code=e.status_code
             )
-
-
-# Helper functions for backward compatibility
-
-
-def guacamole_login() -> str:
-    """Backward compatibility function for guacamole login."""
-    client = GuacamoleClient()
-    return client.login()
-
-
-def create_guacamole_user(
-    token: str,
-    username: str,
-    password: str,
-    attributes: Optional[Dict[str, Any]] = None,
-) -> None:
-    """Backward compatibility function for creating a user."""
-    client = GuacamoleClient()
-    client.create_user(token, username, password, attributes)
-
-
-def delete_guacamole_user(token: str, username: str) -> None:
-    """Backward compatibility function for deleting a user."""
-    client = GuacamoleClient()
-    client.delete_user(token, username)
-
-
-def ensure_all_users_group(token: str) -> None:
-    """Backward compatibility function for ensuring all_users group."""
-    client = GuacamoleClient()
-    client.ensure_group(token, "all_users")
-
-
-def ensure_admins_group(token: str) -> None:
-    """Backward compatibility function for ensuring admins group."""
-    client = GuacamoleClient()
-    client.ensure_group(token, "admins")
-
-
-def add_user_to_group(token: str, username: str, group_name: str) -> None:
-    """Backward compatibility function for adding user to group."""
-    client = GuacamoleClient()
-    client.add_user_to_group(token, username, group_name)
-
-
-def remove_user_from_group(token: str, username: str, group_name: str) -> None:
-    """Backward compatibility function for removing user from group."""
-    client = GuacamoleClient()
-    client.remove_user_from_group(token, username, group_name)
-
-
-def update_guacamole_user(token: str, username: str, attributes: Dict[str, Any]) -> None:
-    """Backward compatibility function for updating a user."""
-    client = GuacamoleClient()
-    client.update_user(token, username, attributes)
-
-
-def grant_group_permission_on_connection(
-    token: str, group_name: str, connection_id: str, data_source: str = "postgresql"
-) -> None:
-    """Backward compatibility function for granting group permission on connection."""
-    client = GuacamoleClient(data_source=data_source)
-    client.grant_group_permission(token, group_name, connection_id)
-
-
-def delete_guacamole_connection(
-    token: str, connection_id: str, data_source: str = "postgresql"
-) -> None:
-    """Backward compatibility function for deleting a connection."""
-    client = GuacamoleClient(data_source=data_source)
-    client.delete_connection(token, connection_id)
-
-
-def create_guacamole_user_if_not_exists(
-    token: str, username: str, password: str, data_source: str = "postgresql"
-) -> None:
-    """Backward compatibility function for creating a user if not exists."""
-    client = GuacamoleClient(data_source=data_source)
-    client.create_user_if_not_exists(token, username, password)
-
-
-def grant_user_permission_on_connection(
-    token: str, username: str, connection_id: str, data_source: str = "postgresql"
-) -> None:
-    """Backward compatibility function for granting user permission on connection."""
-    client = GuacamoleClient(data_source=data_source)
-    client.grant_permission(token, username, connection_id)
-
-
-def create_guacamole_connection(
-    token: str,
-    connection_name: str,
-    ip_address: str,
-    password: str,
-    data_source: str = "postgresql",
-) -> str:
-    """Backward compatibility function for creating a connection."""
-    client = GuacamoleClient(data_source=data_source)
-    return client.create_connection(token, connection_name, ip_address, password)
-
-
-def copy_user_permissions(
-    token: str,
-    source_username: str,
-    target_username: str,
-    data_source: str = "postgresql",
-) -> None:
-    """Backward compatibility function for copying user permissions.
-
-    Args:
-        token: Authentication token
-        source_username: Username to copy permissions from
-        target_username: Username to copy permissions to
-        data_source: Guacamole data source
-    """
-    client = GuacamoleClient(data_source=data_source)
-    client.copy_user_permissions(token, source_username, target_username)

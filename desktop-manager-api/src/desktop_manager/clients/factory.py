@@ -71,3 +71,30 @@ class ClientFactory:
 
 # Create a singleton instance of ClientFactory
 client_factory = ClientFactory()
+
+
+def get_guacamole_client() -> GuacamoleClient:
+    """Get a GuacamoleClient instance from the singleton factory.
+
+    Returns:
+        GuacamoleClient: GuacamoleClient instance
+    """
+    return client_factory.get_guacamole_client()
+
+
+def get_database_client() -> DatabaseClient:
+    """Get a DatabaseClient instance from the singleton factory.
+
+    Returns:
+        DatabaseClient: DatabaseClient instance
+    """
+    return client_factory.get_database_client()
+
+
+def get_rancher_client() -> RancherClient:
+    """Get a RancherClient instance from the singleton factory.
+
+    Returns:
+        RancherClient: RancherClient instance
+    """
+    return client_factory.get_rancher_client()
