@@ -7,14 +7,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     # Database settings
-    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "postgres")
     POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5432"))
-    POSTGRES_DATABASE: str = os.getenv("POSTGRES_DATABASE", "guacamole_db")
+    POSTGRES_DATABASE: str = os.getenv("POSTGRES_DATABASE", "desktop_manager")
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "guacamole_user")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
 
     # Application settings
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "your_secret_key")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "dev_secret_key_123")
     ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "admin")
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
 
@@ -55,7 +55,16 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5001")
     CORS_ALLOWED_ORIGINS: str = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5001")
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    @property
+    def database_url(self) -> str:
+        """Get the database URL constructed from the Postgres settings.
+
+        Returns:
+            str: The database connection URL
+        """
+        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DATABASE}"
+
+    model_config = SettingsConfigDict(env_file=None, case_sensitive=True)
 
 
 @lru_cache

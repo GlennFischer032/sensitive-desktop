@@ -1,13 +1,37 @@
 """Unit tests for connection operations."""
 
 import pytest
-from desktop_manager.api.crud.user import create_user
 from desktop_manager.api.models.connection import Connection
+from desktop_manager.api.models.user import User
 from desktop_manager.api.schemas.user import UserCreate
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from werkzeug.security import generate_password_hash
 
 from tests.config import TEST_CONNECTION, TEST_USER
+
+
+def create_user_for_testing(test_db: Session, user_data: UserCreate) -> User:
+    """Helper function to create a user for testing.
+
+    Args:
+        test_db: SQLAlchemy session
+        user_data: User creation data
+
+    Returns:
+        The created user
+    """
+    # Create a user directly
+    user = User(
+        username=user_data.username,
+        email=user_data.email,
+        password_hash=generate_password_hash(user_data.password) if user_data.password else None,
+        organization=user_data.organization,
+    )
+    test_db.add(user)
+    test_db.commit()
+    test_db.refresh(user)
+    return user
 
 
 def test_create_connection(test_db: Session):
@@ -19,7 +43,7 @@ def test_create_connection(test_db: Session):
         password=TEST_USER["password"],
         organization=TEST_USER["organization"],
     )
-    user = create_user(test_db, user_data)
+    user = create_user_for_testing(test_db, user_data)
 
     # Create a connection
     connection = Connection(
@@ -50,7 +74,7 @@ def test_connection_user_relationship(test_db: Session):
         password=TEST_USER["password"],
         organization=TEST_USER["organization"],
     )
-    user = create_user(test_db, user_data)
+    user = create_user_for_testing(test_db, user_data)
 
     # Create multiple connections for the user
     connection_names = ["test_conn_1", "test_conn_2"]
@@ -82,7 +106,7 @@ def test_create_duplicate_connection(test_db: Session):
         password=TEST_USER["password"],
         organization=TEST_USER["organization"],
     )
-    user = create_user(test_db, user_data)
+    user = create_user_for_testing(test_db, user_data)
 
     # Create first connection
     connection1 = Connection(
@@ -116,7 +140,7 @@ def test_delete_connection(test_db: Session):
         password=TEST_USER["password"],
         organization=TEST_USER["organization"],
     )
-    user = create_user(test_db, user_data)
+    user = create_user_for_testing(test_db, user_data)
 
     # Create a connection
     connection = Connection(
@@ -149,7 +173,7 @@ def test_cascade_delete_user_connections(test_db: Session):
         password=TEST_USER["password"],
         organization=TEST_USER["organization"],
     )
-    user = create_user(test_db, user_data)
+    user = create_user_for_testing(test_db, user_data)
 
     # Create connections for the user
     connection_names = ["test_conn_1", "test_conn_2"]

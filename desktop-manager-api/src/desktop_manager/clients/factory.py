@@ -38,7 +38,7 @@ class ClientFactory:
         if not self._database_client:
             self.logger.info("Creating new DatabaseClient instance")
             self._database_client = DatabaseClient(
-                connection_string=self.settings.DATABASE_URL,
+                connection_string=self.settings.database_url,
             )
         return self._database_client
 

@@ -32,7 +32,7 @@ class DatabaseClient(BaseClient):
         super().__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
         settings = get_settings()
-        self.connection_string = connection_string or settings.DATABASE_URL
+        self.connection_string = connection_string or settings.database_url
         self._engine: Optional[Engine] = None
 
     @property

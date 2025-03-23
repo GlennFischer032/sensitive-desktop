@@ -27,6 +27,19 @@ logger = logging.getLogger(__name__)
 oidc_bp = Blueprint("oidc_bp", __name__)
 
 
+def ensure_all_users_group(guacamole_client):
+    """Ensure 'All Users' group exists in Guacamole.
+
+    Args:
+        guacamole_client: A GuacamoleClient instance
+
+    Returns:
+        str: The ID of the all users group
+    """
+    group_name = "All Users"
+    return guacamole_client.ensure_group(group_name)
+
+
 def generate_pkce_pair() -> Tuple[str, str]:
     """Generate PKCE code verifier and challenge.
 

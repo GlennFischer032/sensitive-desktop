@@ -5,44 +5,45 @@ from unittest import mock
 
 import pytest
 
-from desktop_manager.config.config import Config
+from desktop_manager.config.settings import Settings
 
 
 def test_config_defaults():
-    """Test that Config has the expected default values."""
+    """Test that Settings has the expected default values."""
     # Create a clean environment
-    with mock.patch.dict(os.environ, clear=True):
-        config = Config()
-        assert config.SECRET_KEY == ""
-        assert config.POSTGRES_HOST == "localhost"
-        assert config.POSTGRES_PORT == "5432"
-        assert config.POSTGRES_DB == "desktop_manager"
+    clean_env = {}  # Empty environment to ensure no host environment variables affect the test
+    with mock.patch.dict(os.environ, clean_env, clear=True):
+        config = Settings()
+        assert config.SECRET_KEY == "dev_secret_key_123"
+        assert config.POSTGRES_HOST == "postgres"
+        assert config.POSTGRES_PORT == 5432
+        assert config.POSTGRES_DATABASE == "desktop_manager"
         assert config.POSTGRES_USER == "guacamole_user"
-        assert config.POSTGRES_PASSWORD == ""
-        assert config.DATABASE_URL == "postgresql://guacamole_user:@localhost:5432/desktop_manager"
-        assert config.GUACAMOLE_URL == "http://localhost:8080/guacamole"
-        assert config.GUACAMOLE_USERNAME == ""
-        assert config.GUACAMOLE_PASSWORD == ""
-        assert config.NAMESPACE == ""
-        assert config.ADMIN_USERNAME == ""
-        assert config.ADMIN_PASSWORD == ""
-        assert config.RANCHER_API_TOKEN == ""
-        assert config.RANCHER_API_URL == ""
-        assert config.RANCHER_CLUSTER_ID == ""
-        assert config.RANCHER_REPO_NAME == ""
+        assert config.POSTGRES_PASSWORD == "guacpass"
+        assert config.GUACAMOLE_URL == "http://guacamole:8080/guacamole"
+        assert config.GUACAMOLE_USERNAME == "guacadmin"
+        assert config.GUACAMOLE_PASSWORD == "guacadmin"
+        assert config.NAMESPACE == "fischer-ns"
+        assert config.ADMIN_USERNAME == "admin"
+        assert config.ADMIN_PASSWORD == "admin123"
+        assert config.RANCHER_API_TOKEN == "token-58z6j:jrkfmqfms2gdlzqv98v8zjfck8nq672fgz2j2jv6t9q67txsds22wc"
+        assert config.RANCHER_API_URL == "https://rancher.cloud.e-infra.cz"
+        assert config.RANCHER_CLUSTER_ID == "c-m-qvndqhf6"
+        assert config.RANCHER_REPO_NAME == "cerit-sc"
         assert config.DESKTOP_IMAGE == "cerit.io/desktops/ubuntu-xfce:22.04-user"
+        # Verify the DATABASE_URL property works correctly
+        assert config.database_url == f"postgresql://{config.POSTGRES_USER}:{config.POSTGRES_PASSWORD}@{config.POSTGRES_HOST}:{config.POSTGRES_PORT}/{config.POSTGRES_DATABASE}"
 
 
 def test_config_from_env():
-    """Test that Config reads values from environment variables."""
+    """Test that Settings reads values from environment variables."""
     test_values = {
         "SECRET_KEY": "test-secret-key",
         "POSTGRES_HOST": "test-postgres-host",
         "POSTGRES_PORT": "5433",
-        "POSTGRES_DB": "test-db",
+        "POSTGRES_DATABASE": "test-db",
         "POSTGRES_USER": "test-user",
         "POSTGRES_PASSWORD": "test-password",
-        "DATABASE_URL": "postgresql://test-user:test-password@test-postgres-host:5433/test-db",
         "GUACAMOLE_URL": "http://test-guacamole:8080/guacamole",
         "GUACAMOLE_USERNAME": "test-guacamole-username",
         "GUACAMOLE_PASSWORD": "test-guacamole-password",
@@ -57,14 +58,13 @@ def test_config_from_env():
     }
 
     with mock.patch.dict(os.environ, test_values):
-        config = Config()
+        config = Settings()
         assert config.SECRET_KEY == "test-secret-key"
         assert config.POSTGRES_HOST == "test-postgres-host"
-        assert config.POSTGRES_PORT == "5433"
-        assert config.POSTGRES_DB == "test-db"
+        assert config.POSTGRES_PORT == 5433
+        assert config.POSTGRES_DATABASE == "test-db"
         assert config.POSTGRES_USER == "test-user"
         assert config.POSTGRES_PASSWORD == "test-password"
-        assert config.DATABASE_URL == "postgresql://test-user:test-password@test-postgres-host:5433/test-db"
         assert config.GUACAMOLE_URL == "http://test-guacamole:8080/guacamole"
         assert config.GUACAMOLE_USERNAME == "test-guacamole-username"
         assert config.GUACAMOLE_PASSWORD == "test-guacamole-password"
@@ -76,18 +76,5 @@ def test_config_from_env():
         assert config.RANCHER_CLUSTER_ID == "test-rancher-cluster-id"
         assert config.RANCHER_REPO_NAME == "test-rancher-repo-name"
         assert config.DESKTOP_IMAGE == "test-desktop-image"
-
-
-def test_database_url_construction():
-    """Test that DATABASE_URL is constructed correctly if not provided."""
-    env_vars = {
-        "POSTGRES_HOST": "db-host",
-        "POSTGRES_PORT": "5432",
-        "POSTGRES_DB": "app-db",
-        "POSTGRES_USER": "db-user",
-        "POSTGRES_PASSWORD": "db-password",
-    }
-
-    with mock.patch.dict(os.environ, env_vars, clear=True):
-        config = Config()
-        assert config.DATABASE_URL == "postgresql://db-user:db-password@db-host:5432/app-db"
+        # Verify the DATABASE_URL property uses the updated values
+        assert config.database_url == "postgresql://test-user:test-password@test-postgres-host:5433/test-db"

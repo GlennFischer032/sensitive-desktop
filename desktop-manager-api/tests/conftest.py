@@ -15,6 +15,8 @@ from sqlalchemy.sql import text
 def get_test_settings() -> Settings:
     """Get test settings with SQLite configuration."""
     return Settings(
+        # Use in-memory SQLite by default for isolated testing
+        database_url=os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:"),
         POSTGRES_HOST=os.getenv("POSTGRES_HOST", "localhost"),
         POSTGRES_PORT=int(os.getenv("POSTGRES_PORT", "5432")),
         POSTGRES_DB=os.getenv("POSTGRES_DB", "test_db"),
@@ -322,3 +324,153 @@ def mock_guacamole_client(mocker):
     mock = mocker.Mock()
     # Add common mock methods here
     return mock
+
+
+@pytest.fixture(autouse=True)
+def mock_database_client(monkeypatch, test_db):
+    """Mock the database client to use the test_db session.
+
+    This fixture replaces the real database client with a mock implementation
+    that uses the test_db session for all operations.
+    """
+    from tests.mocks import MockDatabaseClient
+
+    # Create a mock database client that uses the test_db session
+    mock_client = MockDatabaseClient(session=test_db)
+
+    # Patch the client_factory's _database_client attribute
+    monkeypatch.setattr(
+        "desktop_manager.clients.factory.client_factory._database_client",
+        mock_client
+    )
+
+    # Patch the factory method to return our mock client
+    monkeypatch.setattr(
+        "desktop_manager.clients.factory.client_factory.get_database_client",
+        lambda: mock_client
+    )
+
+    # Patch the direct factory function to return our mock client
+    monkeypatch.setattr(
+        "desktop_manager.clients.factory.get_database_client",
+        lambda: mock_client
+    )
+
+    return mock_client
+
+
+@pytest.fixture(autouse=True)
+def mock_auth_decorators(monkeypatch, test_db):
+    """Mock authentication decorators to avoid real database connections.
+
+    This fixture replaces the token_required and admin_required decorators
+    with versions that use the test_db session directly.
+    """
+    from functools import wraps
+    from flask import jsonify, request
+    import jwt
+    from desktop_manager.api.models.user import User
+
+    class MockUser:
+        """Simple user class for testing that mimics the User model."""
+        def __init__(self, id, username, is_admin):
+            self.id = id
+            self.username = username
+            self.is_admin = is_admin
+            self.email = f"{username}@example.com"
+            self.organization = "Test Org"
+
+        def __repr__(self):
+            return f"<MockUser id={self.id} username={self.username} is_admin={self.is_admin}>"
+
+    def mock_token_required(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            print("DEBUG: Executing mock_token_required decorator")
+            try:
+                token = None
+                auth_header = request.headers.get("Authorization")
+
+                if auth_header and auth_header.startswith("Bearer "):
+                    token = auth_header.split(" ")[1]
+
+                if not token:
+                    print("DEBUG: No token found in request")
+                    return jsonify({"message": "Token is missing!"}), 401
+
+                # Decode token
+                payload = jwt.decode(token, "test_secret_key", algorithms=["HS256"])
+                print(f"DEBUG TOKEN PAYLOAD: {payload}")
+
+                user_id = payload.get('user_id', 999)
+                username = payload.get('username', "unknown")
+
+                # Directly get is_admin from the token
+                is_admin = bool(payload.get('is_admin', False))
+                print(f"DEBUG: is_admin from token: {is_admin}")
+
+                # Create mock user
+                current_user = MockUser(id=user_id, username=username, is_admin=is_admin)
+                print(f"DEBUG: Created user: {current_user}")
+
+                # Set user on request - this is crucial for admin_required to work
+                request.current_user = current_user
+                print(f"DEBUG: Set current_user on request with is_admin={request.current_user.is_admin}")
+
+                return f(*args, **kwargs)
+            except Exception as e:
+                print(f"DEBUG: Exception in mock_token_required: {str(e)}")
+                return jsonify({"message": "Token is invalid!"}), 401
+
+        return decorated
+
+    def mock_admin_required(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            print("DEBUG: Executing mock_admin_required decorator")
+
+            # Get current_user from request
+            current_user = getattr(request, "current_user", None)
+            if not current_user:
+                print("DEBUG: No current_user found on request!")
+                return jsonify({"message": "Authentication required!"}), 401
+
+            print(f"DEBUG: User in admin_required: {current_user}")
+            print(f"DEBUG: is_admin value: {current_user.is_admin}")
+
+            # Check if user is admin
+            if not current_user.is_admin:
+                print(f"DEBUG: User {current_user.username} is not an admin")
+                return jsonify({"message": "Admin privilege required!"}), 403
+
+            print(f"DEBUG: User {current_user.username} is admin, proceeding")
+            return f(*args, **kwargs)
+
+        return decorated
+
+    # Patch all instances of the authentication decorators
+    # Core module patches
+    print("\nDEBUG PATCHING: Patching core auth decorators")
+    monkeypatch.setattr("desktop_manager.core.auth.token_required", mock_token_required)
+    monkeypatch.setattr("desktop_manager.core.auth.admin_required", mock_admin_required)
+
+    # Route-specific patches
+    print("DEBUG PATCHING: Patching user_routes decorators")
+    monkeypatch.setattr("desktop_manager.api.routes.user_routes.token_required", mock_token_required)
+    monkeypatch.setattr("desktop_manager.api.routes.user_routes.admin_required", mock_admin_required)
+
+    print("DEBUG PATCHING: Patching connection_routes decorators")
+    monkeypatch.setattr("desktop_manager.api.routes.connection_routes.token_required", mock_token_required)
+    # Don't patch admin_required for connection_routes since it doesn't use this decorator
+
+    # Auth routes
+    print("DEBUG PATCHING: Patching auth_routes decorators")
+    monkeypatch.setattr("desktop_manager.api.routes.auth_routes.token_required", mock_token_required)
+    monkeypatch.setattr("desktop_manager.api.routes.auth_routes.admin_required", mock_admin_required)
+
+    # Return the mock decorators for potential use in tests
+    print("DEBUG PATCHING: Patching finished")
+    return {
+        "token_required": mock_token_required,
+        "admin_required": mock_admin_required
+    }

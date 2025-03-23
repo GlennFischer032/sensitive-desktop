@@ -1,13 +1,37 @@
 """Unit tests for the rancher client module."""
 
 import json
+from dataclasses import dataclass, field, asdict
 from unittest.mock import Mock, patch
 
 import pytest
 import requests
 from desktop_manager.clients.base import APIError
 from desktop_manager.clients.rancher import RancherClient
-from desktop_manager.core.rancher import DesktopValues
+
+
+@dataclass
+class DesktopValues:
+    """Desktop values for Helm chart installation."""
+
+    desktop: str
+    name: str
+    vnc_password: str
+    image: str = field(default="")
+
+    def __post_init__(self):
+        """Set image to desktop value if not provided."""
+        if not self.image:
+            self.image = self.desktop
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for API call."""
+        return {
+            "desktop": self.desktop,
+            "name": self.name,
+            "password": self.vnc_password,
+            "image": self.image
+        }
 
 
 @pytest.fixture()
@@ -20,6 +44,7 @@ def mock_settings():
         settings.RANCHER_CLUSTER_ID = "test-cluster"
         settings.RANCHER_REPO_NAME = "test-repo"
         settings.NAMESPACE = "test-namespace"
+        settings.DESKTOP_IMAGE = "test-image:latest"
         mock_get_settings.return_value = settings
         yield settings
 

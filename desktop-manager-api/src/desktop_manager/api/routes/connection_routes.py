@@ -390,11 +390,13 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
 
             # Get connections from database - filter by user if not admin
             if current_user.is_admin:
+                logging.debug("Listing connections for admin user")
                 query = """
                 SELECT * FROM connections
                 """
                 connections, _ = db_client.execute_query(query)
             else:
+                logging.debug("Listing connections for non-admin user")
                 query = """
                 SELECT * FROM connections
                 WHERE created_by = :username
