@@ -54,83 +54,51 @@ def mock_api_auth(responses_mock: responses.RequestsMock) -> Generator:
 
 
 def test_login_success(client: FlaskClient, responses_mock) -> None:
-    """Test successful login."""
-    responses_mock.add(
-        responses_mock.POST,
-        f"{TestConfig.API_URL}/api/auth/login",
-        json={
-            "token": TEST_TOKEN,
-            "username": TEST_USER["username"],
-            "is_admin": TEST_USER["is_admin"],
-        },
-        status=200,
-    )
-
+    """Test successful login with redirect to OIDC login."""
     response = client.post(
         "/auth/login",
         json={"username": TEST_USER["username"], "password": TEST_USER["password"]},
         follow_redirects=False,
     )
 
-    assert response.status_code == 302  # Should be a redirect
-    with client.session_transaction() as sess:
-        assert sess["token"] == TEST_TOKEN
-        assert sess["username"] == TEST_USER["username"]
-        assert sess["is_admin"] == TEST_USER["is_admin"]
+    # Should redirect to OIDC login
+    assert response.status_code == 302
+    assert response.headers["Location"] == url_for("auth.oidc_login", _external=False)
 
 
 def test_login_admin_success(client: FlaskClient, responses_mock) -> None:
-    """Test successful admin login."""
-    responses_mock.add(
-        responses_mock.POST,
-        f"{TestConfig.API_URL}/api/auth/login",
-        json={
-            "token": TEST_TOKEN,
-            "username": TEST_ADMIN["username"],
-            "is_admin": TEST_ADMIN["is_admin"],
-        },
-        status=200,
-    )
-
+    """Test successful admin login with redirect to OIDC login."""
     response = client.post(
         "/auth/login",
         json={"username": TEST_ADMIN["username"], "password": TEST_ADMIN["password"]},
         follow_redirects=False,
     )
 
-    assert response.status_code == 302  # Should be a redirect
-    with client.session_transaction() as sess:
-        assert sess["token"] == TEST_TOKEN
-        assert sess["username"] == TEST_ADMIN["username"]
-        assert sess["is_admin"] == TEST_ADMIN["is_admin"]
+    # Should redirect to OIDC login
+    assert response.status_code == 302
+    assert response.headers["Location"] == url_for("auth.oidc_login", _external=False)
 
 
 def test_login_failure(client: FlaskClient, responses_mock) -> None:
-    """Test failed login."""
-    responses_mock.add(
-        responses_mock.POST,
-        f"{TestConfig.API_URL}/api/auth/login",
-        json={"error": "Invalid credentials"},
-        status=401,
-    )
-
+    """Test redirect to OIDC login (username/password authentication is disabled)."""
     response = client.post(
-        "/auth/login", json={"username": "wronguser", "password": "wrongpass"}
+        "/auth/login",
+        json={"username": "wronguser", "password": "wrongpass"},
+        follow_redirects=False
     )
 
-    assert response.status_code == 401
-    assert response.is_json
-    assert "error" in response.json
-    assert response.json["error"] == "Invalid credentials"
+    # Should redirect to OIDC login
+    assert response.status_code == 302
+    assert response.headers["Location"] == url_for("auth.oidc_login", _external=False)
 
 
 def test_login_missing_credentials(client: FlaskClient) -> None:
-    """Test login with missing credentials."""
-    response = client.post("/auth/login", json={})
-    assert response.status_code == 400
-    assert response.is_json
-    assert "error" in response.json
-    assert response.json["error"] == "Missing required fields"
+    """Test login with missing credentials results in redirect to OIDC login."""
+    response = client.post("/auth/login", json={}, follow_redirects=False)
+
+    # Should redirect to OIDC login
+    assert response.status_code == 302
+    assert response.headers["Location"] == url_for("auth.oidc_login", _external=False)
 
 
 def test_logout(client: FlaskClient) -> None:
@@ -215,10 +183,11 @@ def test_oidc_callback_success(client: FlaskClient, responses_mock) -> None:
         ],
         json={
             "token": TEST_TOKEN,
-            "username": TEST_USER["username"],
-            "is_admin": TEST_USER["is_admin"],
-            # Not all tests might be accessing these fields
-            # so it's fine if they're missing in some responses
+            "user": {
+                "username": TEST_USER["username"],
+                "is_admin": TEST_USER["is_admin"],
+                "email": "test@example.com"
+            }
         },
         status=200,
     )
@@ -237,7 +206,7 @@ def test_oidc_callback_success(client: FlaskClient, responses_mock) -> None:
         assert sess["token"] == TEST_TOKEN
         assert sess["username"] == TEST_USER["username"]
         assert sess["is_admin"] == TEST_USER["is_admin"]
-        # Don't check for email or other optional fields
+        assert sess["email"] == "test@example.com"
         assert sess.permanent is True
 
 

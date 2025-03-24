@@ -8,8 +8,7 @@
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255),
-    email VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(255) UNIQUE,
     organization VARCHAR(255),
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -17,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     sub VARCHAR(255) UNIQUE,  -- OIDC subject identifier
     given_name VARCHAR(255),
     family_name VARCHAR(255),
+    name VARCHAR(255),        -- Full name, can be extracted or combined from given/family name
     locale VARCHAR(10),
     email_verified BOOLEAN DEFAULT FALSE,
     last_login TIMESTAMP

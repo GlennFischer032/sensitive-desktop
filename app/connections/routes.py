@@ -95,10 +95,10 @@ def delete_connection(connection_name):
 @login_required
 @rate_limit(requests_per_minute=10)  # Rate limit direct connections
 def direct_connect(connection_id):
-    """Redirect to the API direct-connect endpoint for seamless connection experience.
+    """Handle connection to remote desktop via Guacamole.
 
-    This endpoint redirects to the API's direct-connect endpoint which handles
-    authentication and connection directly to Guacamole with the right desktop.
+    This endpoint makes a request to the API to get the Guacamole auth URL,
+    then redirects the user to that URL for a seamless connection experience.
     """
     try:
         token = session.get("token")
@@ -109,9 +109,69 @@ def direct_connect(connection_id):
         # Construct the API URL for direct connection
         api_url = f"{current_app.config['API_URL']}/api/connections/direct-connect/{connection_id}"
 
-        # Redirect to the API endpoint which will handle the connection
-        return redirect(api_url)
+        # Make the request to the API with auth token
+        response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
+
+        # Check for successful response
+        if response.status_code == 200:
+            # Get the Guacamole auth URL from the response
+            data = response.json()
+            guacamole_url = data.get("auth_url")
+
+            if guacamole_url:
+                # Redirect to the Guacamole auth URL
+                return redirect(guacamole_url)
+            else:
+                flash("Invalid response from API: missing auth_url")
+                return redirect(url_for("connections.view_connections"))
+        else:
+            flash(f"API Error: {response.status_code} - {response.text}")
+            return redirect(url_for("connections.view_connections"))
+
     except Exception as e:
         current_app.logger.error(f"Error connecting to desktop: {str(e)}")
         flash(f"Error connecting to desktop: {str(e)}")
+        return redirect(url_for("connections.view_connections"))
+
+
+@connections_bp.route("/guacamole-dashboard")
+@login_required
+@rate_limit(requests_per_minute=10)  # Rate limit dashboard access
+def guacamole_dashboard():
+    """Access the Guacamole dashboard with automatic authentication.
+
+    This endpoint makes a request to the API to get the Guacamole dashboard auth URL,
+    then redirects the user to that URL for a seamless experience.
+    """
+    try:
+        token = session.get("token")
+        if not token:
+            flash("Authentication required")
+            return redirect(url_for("auth.login"))
+
+        # Construct the API URL for Guacamole dashboard
+        api_url = f"{current_app.config['API_URL']}/api/connections/guacamole-dashboard"
+
+        # Make the request to the API with auth token
+        response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
+
+        # Check for successful response
+        if response.status_code == 200:
+            # Get the Guacamole auth URL from the response
+            data = response.json()
+            guacamole_url = data.get("auth_url")
+
+            if guacamole_url:
+                # Redirect to the Guacamole auth URL
+                return redirect(guacamole_url)
+            else:
+                flash("Invalid response from API: missing auth_url")
+                return redirect(url_for("connections.view_connections"))
+        else:
+            flash(f"API Error: {response.status_code} - {response.text}")
+            return redirect(url_for("connections.view_connections"))
+
+    except Exception as e:
+        current_app.logger.error(f"Error accessing Guacamole dashboard: {str(e)}")
+        flash(f"Error accessing Guacamole dashboard: {str(e)}")
         return redirect(url_for("connections.view_connections"))

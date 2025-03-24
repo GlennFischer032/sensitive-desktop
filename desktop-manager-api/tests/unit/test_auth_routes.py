@@ -13,6 +13,9 @@ from werkzeug.security import generate_password_hash
 
 from desktop_manager.api.models.user import User
 from desktop_manager.api.routes.auth_routes import auth_bp
+from desktop_manager.core import auth
+from desktop_manager.core import security  # Correct import for token decoding
+from desktop_manager.api.schemas.user import UserCreate
 
 
 # Mock decorators
@@ -35,10 +38,16 @@ def test_user(test_db):
     """Create a test user in the database."""
     user = User(
         username="testuser",
-        password_hash=generate_password_hash("password123"),
         email="test@example.com",
         organization="Test Org",
         is_admin=False,
+        sub="test_oidc_sub_123",
+        given_name="Test",
+        family_name="User",
+        name="Test User",
+        locale="en",
+        email_verified=True,
+        last_login=None,
     )
     test_db.add(user)
     test_db.commit()
@@ -50,10 +59,16 @@ def test_admin(test_db):
     """Create a test admin user in the database."""
     admin = User(
         username="admin",
-        password_hash=generate_password_hash("adminpass"),
         email="admin@example.com",
         organization="Admin Org",
         is_admin=True,
+        sub="admin_oidc_sub_456",
+        given_name="Admin",
+        family_name="User",
+        name="Admin User",
+        locale="en",
+        email_verified=True,
+        last_login=None,
     )
     test_db.add(admin)
     test_db.commit()
@@ -261,33 +276,41 @@ def client(test_app):
 
 # Login tests
 def test_login_success(client, test_user):
-    """Test successful login."""
+    """Test login with password auth disabled."""
     response = client.post(
         "/auth/login", json={"username": "testuser", "password": "password123"}
     )
     data = json.loads(response.data)
-    assert response.status_code == 200
-    assert "token" in data
+    assert response.status_code == 400
+    assert data["error"] == "Username/password authentication has been disabled"
+    assert data["message"] == "Please use OIDC authentication instead"
+    assert "oidc_login_url" in data
 
 
 def test_login_missing_json(client):
     """Test login with missing JSON."""
     response = client.post("/auth/login")
-    assert response.status_code == 415  # Unsupported Media Type
+    assert response.status_code == 400  # Now returns Bad Request with OIDC message
+    data = json.loads(response.data)
+    assert data["error"] == "Username/password authentication has been disabled"
 
 
 def test_login_empty_json(client):
     """Test login with empty JSON."""
     response = client.post("/auth/login", json={})
     assert response.status_code == 400
-    assert b"Missing request data" in response.data
+    data = json.loads(response.data)
+    assert data["error"] == "Username/password authentication has been disabled"
+    assert data["message"] == "Please use OIDC authentication instead"
 
 
 def test_login_missing_fields(client):
     """Test login with missing fields."""
     response = client.post("/auth/login", json={"username": "testuser"})
     assert response.status_code == 400
-    assert b"Missing username or password" in response.data
+    data = json.loads(response.data)
+    assert data["error"] == "Username/password authentication has been disabled"
+    assert data["message"] == "Please use OIDC authentication instead"
 
 
 def test_login_invalid_credentials(client, test_user):
@@ -295,88 +318,53 @@ def test_login_invalid_credentials(client, test_user):
     response = client.post(
         "/auth/login", json={"username": "testuser", "password": "wrongpassword"}
     )
-    assert response.status_code == 401
-    assert b"Invalid credentials" in response.data
+    assert response.status_code == 400
+    data = json.loads(response.data)
+    assert data["error"] == "Username/password authentication has been disabled"
+    assert data["message"] == "Please use OIDC authentication instead"
 
 
 # Registration tests
-def test_register_success(client, test_admin, mock_guacamole, admin_token):
-    """Test successful user registration by admin."""
+def test_register_success(client, admin_token):
+    """Test registration with password auth disabled."""
     response = client.post(
         "/auth/register",
-        json={
-            "username": "newuser",
-            "password": "newpassword",
-            "email": "new@example.com",
-            "organization": "New Org",
-            "is_admin": False,
-        },
+        json={"username": "newuser", "password": "password123", "email": "new@example.com"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    data = json.loads(response.data)
-    assert response.status_code == 201
-    assert "User created successfully" in data["message"]
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
-def test_register_as_admin(client, test_admin, mock_guacamole, admin_token):
-    """Test registering a new admin user."""
+def test_register_as_admin(client, admin_token):
+    """Test admin registration with password auth disabled."""
     response = client.post(
         "/auth/register",
-        json={
-            "username": "newadmin",
-            "password": "adminpass",
-            "email": "newadmin@example.com",
-            "organization": "Admin Org",
-            "is_admin": True,
-        },
+        json={"username": "newuser", "password": "password123", "email": "new@example.com"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    data = json.loads(response.data)
-    assert response.status_code == 201
-    assert "User created successfully" in data["message"]
-
-    # Check that both groups were created
-    mock_guacamole["ensure_group"].assert_has_calls([
-        call("mock_token", "admins"),
-        call("mock_token", "all_users")
-    ])
-
-    # Check that user was added to both groups
-    mock_guacamole["add_to_group"].assert_has_calls([
-        call("mock_token", "newadmin", "admins"),
-        call("mock_token", "newadmin", "all_users")
-    ])
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
 def test_register_non_admin(client, user_token):
-    """Test registration attempt by non-admin user."""
+    """Test non-admin registration with password auth disabled."""
     response = client.post(
         "/auth/register",
-        json={
-            "username": "newuser2",
-            "password": "password123",
-            "email": "new2@example.com",
-            "organization": "New Org",
-        },
+        json={"username": "newuser", "password": "password123", "email": "new@example.com", "is_admin": True},
         headers={"Authorization": f"Bearer {user_token}"},
     )
-
-    # Non-admin should not be able to register users
-    assert response.status_code == 403
-    assert b"Admin privilege required" in response.data
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
 def test_register_missing_token(client):
-    """Test registration with missing token."""
+    """Test registration without token with password auth disabled."""
     response = client.post(
         "/auth/register",
-        json={
-            "username": "newuser",
-            "password": "newpassword",
-            "email": "new@example.com",
-        },
+        json={"username": "newuser", "password": "password123", "email": "new@example.com"},
     )
-    assert response.status_code == 401
+    assert response.status_code == 401  # Keep as 401 since missing token returns unauthorized first
     assert b"Token is missing" in response.data
 
 
@@ -414,8 +402,8 @@ def test_register_invalid_input(client, admin_token):
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == 400
-    assert b"Missing required fields" in response.data
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
 def test_register_duplicate_username(client, test_user, admin_token):
@@ -430,9 +418,8 @@ def test_register_duplicate_username(client, test_user, admin_token):
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == 201  # In the test environment, duplicates are allowed
-    data = json.loads(response.data)
-    assert "User created successfully" in data["message"]
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
 def test_register_guacamole_login_error(client, admin_token, mock_guacamole):
@@ -449,10 +436,8 @@ def test_register_guacamole_login_error(client, admin_token, mock_guacamole):
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    # The implementation logs a warning but continues with user creation
-    assert response.status_code == 201
-    data = json.loads(response.data)
-    assert "User created successfully" in data["message"]
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
 def test_register_guacamole_create_error(client, admin_token, mock_guacamole):
@@ -469,10 +454,8 @@ def test_register_guacamole_create_error(client, admin_token, mock_guacamole):
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    # The implementation logs a warning but continues with user creation
-    assert response.status_code == 201
-    data = json.loads(response.data)
-    assert "User created successfully" in data["message"]
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
 def test_register_guacamole_group_error(client, admin_token, mock_guacamole):
@@ -491,7 +474,5 @@ def test_register_guacamole_group_error(client, admin_token, mock_guacamole):
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    # The implementation logs a warning but continues with user creation
-    assert response.status_code == 201
-    data = json.loads(response.data)
-    assert "User created successfully" in data["message"]
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data

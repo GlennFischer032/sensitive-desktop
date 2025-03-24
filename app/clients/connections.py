@@ -10,11 +10,14 @@ from .base import APIError, BaseClient
 class ConnectionsClient(BaseClient):
     """Client for connection-related API interactions."""
 
-    def list_connections(self, token: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_connections(
+        self, token: Optional[str] = None, filter_by_user: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """Get list of connections.
 
         Args:
             token: Authentication token. If None, uses token from session.
+            filter_by_user: Optional username to filter connections created by this user.
 
         Returns:
             List[Dict[str, Any]]: List of connections
@@ -28,12 +31,29 @@ class ConnectionsClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
+            endpoint = "/api/connections/list"
+            params = {}
+
+            if filter_by_user:
+                params["created_by"] = filter_by_user
+
             data, _ = self.get(
-                endpoint="/api/connections/list",
+                endpoint=endpoint,
+                params=params,
                 token=token,
                 timeout=10,
             )
-            return data.get("connections", [])
+
+            connections = data.get("connections", [])
+
+            # If filtering by user but the API doesn't support the filter parameter,
+            # perform filtering client-side
+            if filter_by_user and not params:
+                connections = [
+                    conn for conn in connections if conn.get("created_by") == filter_by_user
+                ]
+
+            return connections
         except APIError as e:
             self.logger.error(f"Error fetching connections: {str(e)}")
             raise

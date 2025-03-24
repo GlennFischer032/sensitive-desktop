@@ -1,3 +1,4 @@
+from datetime import datetime
 from http import HTTPStatus
 import logging
 
@@ -6,7 +7,7 @@ from flask_cors import CORS
 from sqlalchemy import text
 from werkzeug.security import generate_password_hash
 
-from desktop_manager.api.models.user import User
+from desktop_manager.api.models.user import SocialAuthAssociation, User
 from desktop_manager.api.routes import auth_bp, connections_bp, oidc_bp, users_bp
 from desktop_manager.clients.factory import client_factory
 from desktop_manager.config.settings import get_settings
@@ -86,43 +87,120 @@ def create_app() -> Flask:
     with app.app_context():
         db_client = client_factory.get_database_client()
         try:
-            # Check if admin user exists
-            query = "SELECT * FROM users WHERE username = :username"
-            admins, count = db_client.execute_query(query, {"username": settings.ADMIN_USERNAME})
+            admin_created = False
+            admin_username = ""
 
-            if count == 0:
-                # Create admin user if not exists
-                insert_query = """
-                INSERT INTO users (username, email, password_hash, is_admin, created_at)
-                VALUES (:username, :email, :password_hash, :is_admin, :created_at)
-                """
+            # First, check if admin exists via OIDC sub (new method)
+            if settings.ADMIN_OIDC_SUB:
+                query = "SELECT * FROM users WHERE sub = :sub"
+                admins, count = db_client.execute_query(query, {"sub": settings.ADMIN_OIDC_SUB})
 
-                from datetime import datetime
+                if count == 0:
+                    # Create admin user with OIDC sub
+                    insert_query = """
+                    INSERT INTO users (username, email, sub, is_admin, created_at)
+                    VALUES (:username, :email, :sub, :is_admin, :created_at)
+                    """
 
-                db_client.execute_query(
-                    insert_query,
-                    {
-                        "username": settings.ADMIN_USERNAME,
-                        "email": "admin@example.com",
-                        "password_hash": generate_password_hash(settings.ADMIN_PASSWORD),
-                        "is_admin": True,
-                        "created_at": datetime.utcnow(),
-                    },
+                    # Generate a username from the sub
+                    admin_username = f"admin-{settings.ADMIN_OIDC_SUB.split('@')[0][:8]}"
+
+                    db_client.execute_query(
+                        insert_query,
+                        {
+                            "username": admin_username,
+                            "email": "admin@example.com",
+                            "sub": settings.ADMIN_OIDC_SUB,
+                            "is_admin": True,
+                            "created_at": datetime.utcnow(),
+                        },
+                    )
+
+                    # Add social auth association
+                    association_query = """
+                    INSERT INTO social_auth_association (user_id, provider, provider_user_id, provider_name, created_at)
+                    VALUES (
+                        (SELECT id FROM users WHERE sub = :sub),
+                        :provider,
+                        :provider_user_id,
+                        :provider_name,
+                        :created_at
+                    )
+                    """
+
+                    db_client.execute_query(
+                        association_query,
+                        {
+                            "sub": settings.ADMIN_OIDC_SUB,
+                            "provider": "oidc",
+                            "provider_user_id": settings.ADMIN_OIDC_SUB,
+                            "provider_name": "e-infra",
+                            "created_at": datetime.utcnow(),
+                        },
+                    )
+
+                    logger.info("Admin user created with OIDC sub: %s", settings.ADMIN_OIDC_SUB)
+                    admin_created = True
+                else:
+                    admin_username = admins[0]["username"]
+                    logger.info(
+                        "Admin user already exists with OIDC sub: %s", settings.ADMIN_OIDC_SUB
+                    )
+                    admin_created = True
+
+            # For backward compatibility, create admin via username/password if not created via OIDC
+            if not admin_created and settings.ADMIN_USERNAME and settings.ADMIN_PASSWORD:
+                # Check if admin user exists by username
+                query = "SELECT * FROM users WHERE username = :username"
+                admins, count = db_client.execute_query(
+                    query, {"username": settings.ADMIN_USERNAME}
                 )
-                logger.info("Admin user created")
-            else:
-                logger.info("Admin user already exists")
+
+                if count == 0:
+                    # Create admin user if not exists
+                    insert_query = """
+                    INSERT INTO users (username, email, password_hash, is_admin, created_at)
+                    VALUES (:username, :email, :password_hash, :is_admin, :created_at)
+                    """
+
+                    db_client.execute_query(
+                        insert_query,
+                        {
+                            "username": settings.ADMIN_USERNAME,
+                            "email": "admin@example.com",
+                            "password_hash": generate_password_hash(settings.ADMIN_PASSWORD),
+                            "is_admin": True,
+                            "created_at": datetime.utcnow(),
+                        },
+                    )
+                    logger.info("Admin user created with username/password (legacy method)")
+                    admin_username = settings.ADMIN_USERNAME
+                else:
+                    admin_username = settings.ADMIN_USERNAME
+                    logger.info("Admin user already exists with username/password (legacy method)")
 
             # Initialize admin in Guacamole
             guacamole_client = client_factory.get_guacamole_client()
             token = guacamole_client.login()
-            guacamole_client.create_user_if_not_exists(
-                token, settings.ADMIN_USERNAME, settings.ADMIN_PASSWORD
-            )
-            guacamole_client.ensure_group(token, "admins")
-            guacamole_client.ensure_group(token, "all_users")
-            guacamole_client.add_user_to_group(token, settings.ADMIN_USERNAME, "admins")
-            logger.info("Admin user initialized in Guacamole")
+
+            # For JSON authentication, we'll create the user without password
+            # This is supported since the admin will use OIDC authentication
+            if admin_username:
+                # Create Guacamole user without password for JSON auth
+                guacamole_client.create_user_if_not_exists(
+                    token=token,
+                    username=admin_username,
+                    password="",  # Empty password for JSON auth
+                    attributes={"guac_full_name": "Admin User", "guac_organization": "e-INFRA"},
+                )
+                guacamole_client.ensure_group(token, "admins")
+                guacamole_client.ensure_group(token, "all_users")
+                guacamole_client.add_user_to_group(token, admin_username, "admins")
+                logger.info("Admin user initialized in Guacamole using JSON authentication")
+            else:
+                logger.warning(
+                    "Could not initialize admin user in Guacamole: no username available"
+                )
 
         except Exception as e:
             logger.error("Error initializing admin user: %s", str(e))

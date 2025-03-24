@@ -95,6 +95,12 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             rancher_client.install(name, desktop_values)
             logging.info("Helm chart installation completed")
 
+            # Check if VNC server is ready
+            logging.info("Checking if VNC server is ready for %s", name)
+            vnc_ready = rancher_client.check_vnc_ready(name)
+            status = "ready" if vnc_ready else "provisioning"
+            logging.info("VNC server ready status for %s: %s", name, status)
+
             # Get Guacamole client from factory
             guacamole_client = client_factory.get_guacamole_client()
 
@@ -155,10 +161,6 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             connection = result[0]
             logging.info("Stored connection in database: %s", name)
 
-            # Start VNC readiness check in background (don't wait for it)
-            # This prevents timeouts during the API request
-            logging.info("VNC readiness check will continue in the background")
-
             return (
                 jsonify(
                     {
@@ -173,7 +175,7 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                             ),
                             "created_by": connection["created_by"],
                             "guacamole_connection_id": connection["guacamole_connection_id"],
-                            "status": "provisioning",
+                            "status": status,
                         },
                     }
                 ),
@@ -660,18 +662,18 @@ def get_connection_auth(connection_id: str) -> Tuple[Dict[str, Any], int]:
 @connections_bp.route("/direct-connect/<string:connection_id>", methods=["GET"])
 @token_required
 def direct_connect(connection_id: str):
-    """Directly connect to a Guacamole connection via a redirect.
+    """Get the Guacamole auth URL for a direct connection.
 
     This endpoint:
     1. Retrieves the connection information
     2. Generates a properly formatted, signed, and encrypted JSON auth token
-    3. Redirects the user to the Guacamole connection
+    3. Returns the auth URL for the client to redirect to
 
     Args:
         connection_id: The ID of the connection to access
 
     Returns:
-        A redirect to the Guacamole connection with proper authentication
+        JSON with the auth URL for the Guacamole connection
     """
     try:
         # Get authenticated user
@@ -734,15 +736,21 @@ def direct_connect(connection_id: str):
             encoded_token = urllib.parse.quote_plus(token)
             auth_url = f"{guacamole_external_url}/#/?data={encoded_token}"
 
-            # Redirect to the connection URL
-            return redirect(auth_url)
+            # Return the auth URL in the response instead of redirecting
+            return jsonify(
+                {
+                    "auth_url": auth_url,
+                    "connection_id": connection_id,
+                    "connection_name": connection["name"],
+                }
+            ), HTTPStatus.OK
 
         except Exception as e:
             logging.error("Database error: %s", str(e))
             raise
 
     except Exception as e:
-        logging.error("Error redirecting to connection: %s", str(e))
+        logging.error("Error generating connection auth URL: %s", str(e))
         return (
             jsonify({"error": "Internal server error", "details": str(e)}),
             HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -825,6 +833,61 @@ def get_connection_auth_url(connection_id: str):
 
     except Exception as e:
         logging.error("Error generating connection auth: %s", str(e))
+        return (
+            jsonify({"error": "Internal server error", "details": str(e)}),
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+        )
+
+
+@connections_bp.route("/guacamole-dashboard", methods=["GET"])
+@token_required
+def guacamole_dashboard():
+    """Get the authentication URL for the Guacamole dashboard.
+
+    This endpoint:
+    1. Gets the current authenticated user
+    2. Generates a properly formatted, signed, and encrypted JSON auth token
+    3. Returns the auth URL for the Guacamole dashboard
+
+    Returns:
+        JSON with the auth URL for the Guacamole dashboard
+    """
+    try:
+        # Get authenticated user
+        current_user = request.current_user
+
+        # Initialize the JSON auth utility
+        guacamole_json_auth = GuacamoleJsonAuth()
+
+        # Generate auth token (with empty connections as we're just accessing the dashboard)
+        token = guacamole_json_auth.generate_auth_data(
+            username=current_user.username,
+            connections={},  # Empty connections as we're just accessing the dashboard
+            expires_in_ms=3600000,  # 1 hour
+        )
+
+        # Construct the URL
+        settings = get_settings()
+        guacamole_external_url = settings.EXTERNAL_GUACAMOLE_URL.rstrip("/")
+        if not guacamole_external_url:
+            guacamole_external_url = "http://localhost:8080/guacamole"
+
+        # The URL should include the "data" parameter with the token
+        import urllib.parse
+
+        encoded_token = urllib.parse.quote_plus(token)
+        auth_url = f"{guacamole_external_url}/#/?data={encoded_token}"
+
+        # Return the auth URL in the response
+        return jsonify(
+            {
+                "auth_url": auth_url,
+                "username": current_user.username,
+            }
+        ), HTTPStatus.OK
+
+    except Exception as e:
+        logging.error("Error generating Guacamole dashboard auth URL: %s", str(e))
         return (
             jsonify({"error": "Internal server error", "details": str(e)}),
             HTTPStatus.INTERNAL_SERVER_ERROR,

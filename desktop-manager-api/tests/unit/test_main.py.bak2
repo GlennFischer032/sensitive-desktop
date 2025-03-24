@@ -1,0 +1,181 @@
+"""Unit tests for the main application."""
+
+import os
+from unittest.mock import patch, MagicMock
+
+import pytest
+from flask import Flask
+from flask.testing import FlaskClient
+
+# We need to patch the database initialization before importing create_app
+with patch("desktop_manager.core.database.init_db"), patch("desktop_manager.core.database.create_db_engine"):
+    from desktop_manager.main import create_app
+
+
+@pytest.fixture
+def mock_settings():
+    """Mock application settings."""
+    with patch("desktop_manager.main.get_settings") as mock_get_settings:
+        settings = MagicMock()
+        settings.SECRET_KEY = "test-secret-key"
+        settings.OIDC_PROVIDER_URL = "https://test-provider.com"
+        settings.OIDC_CLIENT_ID = "test-client-id"
+        settings.OIDC_CLIENT_SECRET = "test-client-secret"
+        settings.OIDC_BACKEND_REDIRECT_URI = "http://localhost:5000/api/auth/oidc/callback"
+        settings.FRONTEND_URL = "http://localhost:5001"
+        settings.OIDC_REDIRECT_URI = "http://localhost:5001/auth/oidc/callback"
+        settings.CORS_ALLOWED_ORIGINS = "http://localhost:5001,http://localhost:3000"
+        settings.ADMIN_USERNAME = "admin"
+        settings.ADMIN_PASSWORD = "adminpassword"
+        settings.DB_HOST = "localhost"
+        settings.DB_PORT = 5432
+        settings.DB_NAME = "testdb"
+        settings.DB_USER = "testuser"
+        settings.DB_PASSWORD = "testpass"
+        mock_get_settings.return_value = settings
+        yield mock_get_settings
+
+
+@pytest.fixture
+def mock_init_db():
+    """Mock database initialization."""
+    with patch("desktop_manager.main.init_db") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_client_factory():
+    """Mock client factory."""
+    with patch("desktop_manager.main.client_factory") as mock:
+        db_client = MagicMock()
+        mock.get_database_client.return_value = db_client
+
+        guacamole_client = MagicMock()
+        mock.get_guacamole_client.return_value = guacamole_client
+
+        yield mock, db_client, guacamole_client
+
+
+@pytest.fixture
+def patch_db_engine():
+    """Patch database engine creation to avoid actual DB connections."""
+    with patch("desktop_manager.core.database.create_engine") as mock_create_engine:
+        engine = MagicMock()
+        mock_create_engine.return_value = engine
+        yield engine
+
+
+def test_create_app(mock_settings, mock_init_db, mock_client_factory, patch_db_engine):
+    """Test app creation."""
+    mock_factory, db_client, guacamole_client = mock_client_factory
+
+    # Set up DB client to indicate admin user does not exist
+    db_client.execute_query.return_value = []
+
+    # Set up Guacamole client
+    guacamole_client.login.return_value = "fake-token"
+
+    # Create app
+    app = create_app()
+
+    # Assert app is correctly configured
+    assert isinstance(app, Flask)
+    assert app.config["SECRET_KEY"] == "test-secret-key"
+    assert app.config["SOCIAL_AUTH_OIDC_PROVIDER_URL"] == "https://test-provider.com"
+    assert app.config["SOCIAL_AUTH_OIDC_CLIENT_ID"] == "test-client-id"
+
+    # Verify database was initialized
+    mock_init_db.assert_called_once()
+
+    # Verify admin user was created
+    assert db_client.execute_query.call_count >= 1
+
+    # Verify Guacamole initialization
+    guacamole_client.login.assert_called_once()
+    guacamole_client.create_user_if_not_exists.assert_called_once()
+    guacamole_client.ensure_group.call_count == 2  # "admins" and "all_users" groups
+    guacamole_client.add_user_to_group.assert_called_once()
+
+
+def test_create_app_admin_exists(mock_settings, mock_init_db, mock_client_factory, patch_db_engine):
+    """Test app creation when admin user already exists."""
+    mock_factory, db_client, guacamole_client = mock_client_factory
+
+    # Set up DB client to indicate admin user exists
+    db_client.execute_query.return_value = [{"username": "admin"}]
+
+    # Set up Guacamole client
+    guacamole_client.login.return_value = "fake-token"
+
+    # Create app
+    app = create_app()
+
+    # Assert app is correctly configured
+    assert isinstance(app, Flask)
+
+    # Verify database was initialized
+    mock_init_db.assert_called_once()
+
+    # Verify admin user was checked but not created
+    assert db_client.execute_query.call_count >= 1
+
+    # Verify Guacamole initialization
+    guacamole_client.login.assert_called_once()
+    guacamole_client.create_user_if_not_exists.assert_called_once()
+
+
+@patch("desktop_manager.main.generate_password_hash")
+def test_create_app_admin_password_hash(mock_hash, mock_settings, mock_init_db, mock_client_factory, patch_db_engine):
+    """Test admin password is properly hashed during app creation."""
+    mock_factory, db_client, guacamole_client = mock_client_factory
+
+    # Set up mock password hash
+    mock_hash.return_value = "hashed_password"
+
+    # Set up DB client to indicate admin user does not exist
+    db_client.execute_query.return_value = []
+
+    # Set up Guacamole client
+    guacamole_client.login.return_value = "fake-token"
+
+    # Create app
+    app = create_app()
+
+    # Verify password was hashed
+    mock_hash.assert_called_once_with("adminpassword")
+
+    # Verify admin user was created with hashed password
+    for call_args in db_client.execute_query.call_args_list:
+        args, kwargs = call_args
+        if "INSERT INTO" in str(args[0]).upper():
+            assert "password_hash" in str(kwargs.get("parameters", {}))
+
+
+def test_create_app_error_handling(mock_settings, mock_init_db, mock_client_factory, patch_db_engine):
+    """Test error handling during app creation."""
+    mock_factory, db_client, guacamole_client = mock_client_factory
+
+    # Set up DB client to raise an exception
+    db_client.execute_query.side_effect = Exception("Database error")
+
+    # Expect the exception to be raised
+    with pytest.raises(Exception):
+        create_app()
+
+    # Verify database was initialized
+    mock_init_db.assert_called_once()
+
+
+def test_create_app_guacamole_error(mock_settings, mock_init_db, mock_client_factory, patch_db_engine):
+    """Test error handling during Guacamole initialization."""
+    mock_factory, db_client, guacamole_client = mock_client_factory
+
+    # Set up DB client to indicate admin user does not exist
+    db_client.execute_query.return_value = []
+
+    # Set up Guacamole client to raise an exception
+    guacamole_client.login.side_effect = Exception("Guacamole error")
+
+    # Expect the exception to be raised
+    with pytest.raises(Exception):
+        create_app()

@@ -67,7 +67,16 @@ class DatabaseClient(BaseClient):
         try:
             self.logger.info("Executing query: %s with params: %s", query, params)
             with self.engine.connect() as connection:
-                result = connection.execute(text(query), params or {})
+                # For non-SELECT queries, use a transaction context to ensure commit
+                is_select = query.lstrip().upper().startswith("SELECT")
+                if not is_select:
+                    conn_with_autocommit = connection.execution_options(
+                        isolation_level="AUTOCOMMIT"
+                    )
+                    result = conn_with_autocommit.execute(text(query), params or {})
+                else:
+                    result = connection.execute(text(query), params or {})
+
                 if result.returns_rows:
                     # Convert result to list of dictionaries
                     rows = [dict(row._mapping) for row in result]

@@ -1,0 +1,380 @@
+"""Unit tests for database client."""
+
+import os
+from unittest.mock import patch, MagicMock, call
+
+import pytest
+import sqlalchemy
+from sqlalchemy.exc import SQLAlchemyError
+
+from desktop_manager.clients.database import DatabaseClient
+from desktop_manager.core.exceptions import DatabaseError
+
+
+@pytest.fixture
+def mock_engine():
+    """Mock SQLAlchemy engine."""
+    with patch("desktop_manager.clients.database.create_engine") as mock_create_engine:
+        engine = MagicMock()
+        mock_create_engine.return_value = engine
+        yield engine
+
+
+@pytest.fixture
+def mock_session_factory():
+    """Mock SQLAlchemy session factory."""
+    with patch("desktop_manager.clients.database.sessionmaker") as mock_sessionmaker:
+        session_factory = MagicMock()
+        session = MagicMock()
+        session_factory.return_value = session
+        mock_sessionmaker.return_value = session_factory
+        yield session_factory, session
+
+
+def test_database_client_init(mock_engine, mock_session_factory):
+    """Test database client initialization."""
+    session_factory, _ = mock_session_factory
+    client = DatabaseClient(
+        db_host="localhost",
+        db_port=5432,
+        db_name="testdb",
+        db_user="testuser",
+        db_password="testpass",
+    )
+
+    assert client._engine == mock_engine
+    assert client._Session == session_factory
+
+
+def test_database_client_connection_string_default():
+    """Test database client connection string with default parameters."""
+    with patch("desktop_manager.clients.database.create_engine") as mock_create_engine:
+        DatabaseClient()
+        mock_create_engine.assert_called_once()
+        conn_string = mock_create_engine.call_args[0][0]
+        assert "postgres://postgres:postgres@localhost:5432/postgres" in conn_string
+
+
+def test_database_client_connection_string_custom():
+    """Test database client connection string with custom parameters."""
+    with patch("desktop_manager.clients.database.create_engine") as mock_create_engine:
+        DatabaseClient(
+            db_host="custom-host",
+            db_port=5433,
+            db_name="custom-db",
+            db_user="custom-user",
+            db_password="custom-pass",
+        )
+        mock_create_engine.assert_called_once()
+        conn_string = mock_create_engine.call_args[0][0]
+        assert "postgres://custom-user:custom-pass@custom-host:5433/custom-db" in conn_string
+
+
+def test_execute_query_select(mock_engine, mock_session_factory):
+    """Test execute_query method with a SELECT statement."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Mock session.execute to return a result with fetchall method
+    result = MagicMock()
+    result.fetchall.return_value = [{"id": 1, "name": "test"}]
+    session.execute.return_value = result
+
+    # Execute a SELECT query
+    query = "SELECT * FROM test"
+    results = client.execute_query(query)
+
+    # Verify the query was executed and results were fetched
+    session.execute.assert_called_once_with(query, parameters={})
+    assert results == [{"id": 1, "name": "test"}]
+
+    # Verify session handling
+    session.commit.assert_called_once()
+    session.close.assert_called_once()
+
+
+def test_execute_query_insert(mock_engine, mock_session_factory):
+    """Test execute_query method with an INSERT statement."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Execute an INSERT query
+    query = "INSERT INTO test (id, name) VALUES (:id, :name)"
+    params = {"id": 1, "name": "test"}
+    client.execute_query(query, params)
+
+    # Verify the query was executed with parameters
+    session.execute.assert_called_once_with(query, parameters=params)
+
+    # Verify session handling
+    session.commit.assert_called_once()
+    session.close.assert_called_once()
+
+
+def test_execute_query_error(mock_engine, mock_session_factory):
+    """Test execute_query method with an error."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Mock session.execute to raise an exception
+    session.execute.side_effect = SQLAlchemyError("Database error")
+
+    # Execute a query that will raise an exception
+    query = "SELECT * FROM nonexistent_table"
+
+    # Verify the exception is caught and re-raised as DatabaseError
+    with pytest.raises(DatabaseError):
+        client.execute_query(query)
+
+    # Verify session handling
+    session.rollback.assert_called_once()
+    session.close.assert_called_once()
+
+
+def test_create_tables(mock_engine):
+    """Test create_tables method."""
+    client = DatabaseClient()
+
+    # Mock Base.metadata.create_all
+    with patch("desktop_manager.clients.database.Base") as mock_base:
+        client.create_tables()
+        mock_base.metadata.create_all.assert_called_once_with(client._engine)
+
+
+def test_drop_tables(mock_engine):
+    """Test drop_tables method."""
+    client = DatabaseClient()
+
+    # Mock Base.metadata.drop_all
+    with patch("desktop_manager.clients.database.Base") as mock_base:
+        client.drop_tables()
+        mock_base.metadata.drop_all.assert_called_once_with(client._engine)
+
+
+def test_add_model(mock_engine, mock_session_factory):
+    """Test add_model method."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Create a mock model
+    model = MagicMock()
+
+    # Add the model
+    client.add_model(model)
+
+    # Verify session handling
+    session.add.assert_called_once_with(model)
+    session.commit.assert_called_once()
+    session.close.assert_called_once()
+
+
+def test_add_model_error(mock_engine, mock_session_factory):
+    """Test add_model method with an error."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Create a mock model
+    model = MagicMock()
+
+    # Mock session.add to raise an exception
+    session.add.side_effect = SQLAlchemyError("Database error")
+
+    # Add the model
+    with pytest.raises(DatabaseError):
+        client.add_model(model)
+
+    # Verify session handling
+    session.rollback.assert_called_once()
+    session.close.assert_called_once()
+
+
+def test_delete_model(mock_engine, mock_session_factory):
+    """Test delete_model method."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Create a mock model
+    model = MagicMock()
+
+    # Delete the model
+    client.delete_model(model)
+
+    # Verify session handling
+    session.delete.assert_called_once_with(model)
+    session.commit.assert_called_once()
+    session.close.assert_called_once()
+
+
+def test_delete_model_error(mock_engine, mock_session_factory):
+    """Test delete_model method with an error."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Create a mock model
+    model = MagicMock()
+
+    # Mock session.delete to raise an exception
+    session.delete.side_effect = SQLAlchemyError("Database error")
+
+    # Delete the model
+    with pytest.raises(DatabaseError):
+        client.delete_model(model)
+
+    # Verify session handling
+    session.rollback.assert_called_once()
+    session.close.assert_called_once()
+
+
+def test_commit_session(mock_engine, mock_session_factory):
+    """Test commit_session method."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Commit the session
+    client.commit_session()
+
+    # Verify session handling
+    session.commit.assert_called_once()
+    session.close.assert_called_once()
+
+
+def test_commit_session_error(mock_engine, mock_session_factory):
+    """Test commit_session method with an error."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Mock session.commit to raise an exception
+    session.commit.side_effect = SQLAlchemyError("Database error")
+
+    # Commit the session
+    with pytest.raises(DatabaseError):
+        client.commit_session()
+
+    # Verify session handling
+    session.rollback.assert_called_once()
+    session.close.assert_called_once()
+
+
+def test_get_model(mock_engine, mock_session_factory):
+    """Test get_model method."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Create a mock model class
+    model_class = MagicMock()
+    mock_instance = MagicMock()
+
+    # Mock session.query().filter().first()
+    query_mock = MagicMock()
+    filter_mock = MagicMock()
+    filter_mock.first.return_value = mock_instance
+    query_mock.filter.return_value = filter_mock
+    session.query.return_value = query_mock
+
+    # Get the model
+    result = client.get_model(model_class, id=1)
+
+    # Verify session handling
+    session.query.assert_called_once_with(model_class)
+    query_mock.filter.assert_called_once()
+    assert result == mock_instance
+    session.close.assert_called_once()
+
+
+def test_get_model_not_found(mock_engine, mock_session_factory):
+    """Test get_model method when model is not found."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Create a mock model class
+    model_class = MagicMock()
+
+    # Mock session.query().filter().first() to return None
+    query_mock = MagicMock()
+    filter_mock = MagicMock()
+    filter_mock.first.return_value = None
+    query_mock.filter.return_value = filter_mock
+    session.query.return_value = query_mock
+
+    # Get the model
+    result = client.get_model(model_class, id=1)
+
+    # Verify session handling
+    session.query.assert_called_once_with(model_class)
+    query_mock.filter.assert_called_once()
+    assert result is None
+    session.close.assert_called_once()
+
+
+def test_get_models(mock_engine, mock_session_factory):
+    """Test get_models method."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Create a mock model class
+    model_class = MagicMock()
+    mock_instances = [MagicMock(), MagicMock()]
+
+    # Mock session.query().all()
+    query_mock = MagicMock()
+    query_mock.all.return_value = mock_instances
+    session.query.return_value = query_mock
+
+    # Get all models
+    results = client.get_models(model_class)
+
+    # Verify session handling
+    session.query.assert_called_once_with(model_class)
+    query_mock.all.assert_called_once()
+    assert results == mock_instances
+    session.close.assert_called_once()
+
+
+def test_get_models_with_filter(mock_engine, mock_session_factory):
+    """Test get_models method with filter."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Create a mock model class
+    model_class = MagicMock()
+    mock_instances = [MagicMock()]
+
+    # Mock session.query().filter().all()
+    query_mock = MagicMock()
+    filter_mock = MagicMock()
+    filter_mock.all.return_value = mock_instances
+    query_mock.filter.return_value = filter_mock
+    session.query.return_value = query_mock
+
+    # Get filtered models
+    results = client.get_models(model_class, name="test")
+
+    # Verify session handling
+    session.query.assert_called_once_with(model_class)
+    query_mock.filter.assert_called_once()
+    filter_mock.all.assert_called_once()
+    assert results == mock_instances
+    session.close.assert_called_once()
+
+
+def test_get_models_empty(mock_engine, mock_session_factory):
+    """Test get_models method when no models are found."""
+    _, session = mock_session_factory
+    client = DatabaseClient()
+
+    # Create a mock model class
+    model_class = MagicMock()
+
+    # Mock session.query().all() to return empty list
+    query_mock = MagicMock()
+    query_mock.all.return_value = []
+    session.query.return_value = query_mock
+
+    # Get all models
+    results = client.get_models(model_class)
+
+    # Verify session handling
+    session.query.assert_called_once_with(model_class)
+    query_mock.all.assert_called_once()
+    assert results == []
+    session.close.assert_called_once()

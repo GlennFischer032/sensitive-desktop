@@ -2,10 +2,10 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, request
 import jwt
-from werkzeug.security import check_password_hash, generate_password_hash
 
 from desktop_manager.api.models.user import User
 from desktop_manager.clients.factory import client_factory
+from desktop_manager.config.settings import get_settings
 from desktop_manager.core.auth import admin_required, token_required
 
 
@@ -19,95 +19,36 @@ def login():
     tags:
       - Authentication
     requestBody:
-      required: true
+      required: false
       content:
         application/json:
           schema:
             type: object
-            properties:
-              username:
-                type: string
-                description: The username of the user
-              password:
-                type: string
-                description: The password of the user
-            required:
-              - username
-              - password
     responses:
-      200:
-        description: Login successful
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                token:
-                  type: string
-                  description: JWT token for authentication
       400:
-        description: Missing username or password
-      401:
-        description: Invalid credentials
+        description: Username/password authentication has been disabled
       500:
         description: Internal server error.
     """
-    # Get request data
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Missing request data"}), 400
-
-    # Extract username and password
-    username = data.get("username")
-    password = data.get("password")
-
-    if not username or not password:
-        return jsonify({"error": "Missing username or password"}), 400
-
-    try:
-        # Get database client
-        db_client = client_factory.get_database_client()
-
-        # Query user by username
-        query = "SELECT * FROM users WHERE username = :username"
-        users, count = db_client.execute_query(query, {"username": username})
-
-        if count == 0:
-            return jsonify({"error": "Invalid credentials"}), 401
-
-        user = users[0]
-
-        # Check password
-        if not check_password_hash(user["password_hash"], password):
-            return jsonify({"error": "Invalid credentials"}), 401
-
-        # Create token
-        # Get expiration time from config
-        exp_time = datetime.utcnow() + timedelta(hours=2)
-        payload = {
-            "sub": user["id"],
-            "name": user["username"],
-            "iat": datetime.utcnow(),
-            "exp": exp_time,
-            "admin": user["is_admin"],
+    return jsonify(
+        {
+            "error": "Username/password authentication has been disabled",
+            "message": "Please use OIDC authentication instead",
+            "oidc_login_url": "/api/auth/oidc/login",
         }
-        token = jwt.encode(payload, current_app.config["SECRET_KEY"], algorithm="HS256")
-
-        # Update last login
-        update_query = "UPDATE users SET last_login = :now WHERE id = :user_id"
-        db_client.execute_query(update_query, {"now": datetime.utcnow(), "user_id": user["id"]})
-
-        return jsonify({"token": token}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    ), 400
 
 
 @auth_bp.route("/register", methods=["POST"])
 @token_required
 @admin_required
 def register():
-    """Register a new user.
+    """Register a new user for OIDC authentication.
+
+    This endpoint allows administrators to pre-register users for OIDC authentication.
+    It creates a minimal user record that will be populated with details from the
+    OIDC provider when the user first logs in.
+
     ---
     tags:
       - Authentication
@@ -123,19 +64,22 @@ def register():
               username:
                 type: string
                 description: The username of the new user
-              password:
-                type: string
-                description: The password of the new user
               email:
                 type: string
                 description: The email of the new user
+              sub:
+                type: string
+                description: OIDC subject identifier
               is_admin:
                 type: boolean
                 description: Whether the new user is an admin
+              organization:
+                type: string
+                description: The user's organization
             required:
               - username
-              - password
               - email
+              - sub
     responses:
       201:
         description: User created successfully
@@ -148,7 +92,7 @@ def register():
       409:
         description: Username or email already exists
       500:
-        description: Internal server error.
+        description: Internal server error
     """
     # Get request data
     data = request.get_json()
@@ -157,23 +101,27 @@ def register():
 
     # Extract user details
     username = data.get("username")
-    password = data.get("password")
     email = data.get("email")
+    sub = data.get("sub")
     is_admin = data.get("is_admin", False)
+    organization = data.get("organization")
 
-    if not username or not password or not email:
-        return jsonify({"error": "Missing required fields"}), 400
+    if not username or not email or not sub:
+        return jsonify(
+            {"error": "Missing required fields: username, email, and sub are required"}
+        ), 400
 
     try:
         # Get database client
         db_client = client_factory.get_database_client()
 
-        # Check if username or email already exists
-        check_query = (
-            "SELECT username, email FROM users WHERE username = :username OR email = :email"
-        )
+        # Check if username, email, or sub already exists
+        check_query = """
+        SELECT username, email, sub FROM users
+        WHERE username = :username OR email = :email OR sub = :sub
+        """
         existing_users, count = db_client.execute_query(
-            check_query, {"username": username, "email": email}
+            check_query, {"username": username, "email": email, "sub": sub}
         )
 
         if count > 0:
@@ -183,11 +131,13 @@ def register():
                     return jsonify({"error": "Username already exists"}), 409
                 if user["email"] == email:
                     return jsonify({"error": "Email already exists"}), 409
+                if user["sub"] == sub:
+                    return jsonify({"error": "User with this OIDC subject already exists"}), 409
 
-        # Create new user
+        # Create new user with OIDC sub
         insert_query = """
-        INSERT INTO users (username, email, password_hash, is_admin, created_at)
-        VALUES (:username, :email, :password_hash, :is_admin, :created_at)
+        INSERT INTO users (username, email, sub, is_admin, created_at, organization)
+        VALUES (:username, :email, :sub, :is_admin, :created_at, :organization)
         """
 
         db_client.execute_query(
@@ -195,17 +145,28 @@ def register():
             {
                 "username": username,
                 "email": email,
-                "password_hash": generate_password_hash(password),
+                "sub": sub,
                 "is_admin": is_admin,
                 "created_at": datetime.utcnow(),
+                "organization": organization,
             },
         )
 
-        # Create user in Guacamole if possible
+        # Create user in Guacamole
         try:
             guacamole_client = client_factory.get_guacamole_client()
             token = guacamole_client.login()
-            guacamole_client.create_user_if_not_exists(token, username, password)
+
+            # Create user in Guacamole with empty password for JSON auth
+            guacamole_client.create_user_if_not_exists(
+                token=token,
+                username=username,
+                password="",  # Empty password for JSON auth
+                attributes={
+                    "guac_full_name": f"{email} ({sub})",
+                    "guac_organization": organization or "Default",
+                },
+            )
 
             # Add to appropriate groups
             if is_admin:

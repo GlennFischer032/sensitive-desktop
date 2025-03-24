@@ -27,14 +27,21 @@ def create_user_for_testing(test_db: Session, user_data: UserCreate) -> User:
     unique_id = uuid.uuid4().hex[:8]
     username = f"{user_data.username}_{unique_id}"
     email = f"{unique_id}_{user_data.email}"
+    sub = f"{unique_id}_{user_data.sub}" if user_data.sub else f"{unique_id}_sub"
 
     # Create a user directly
     user = User(
         username=username,
         email=email,
-        password_hash=generate_password_hash(user_data.password) if user_data.password else None,
         organization=user_data.organization,
         is_admin=user_data.is_admin if hasattr(user_data, "is_admin") else False,
+        sub=sub,
+        given_name=None,
+        family_name=None,
+        name=None,
+        locale=None,
+        email_verified=False,
+        last_login=None,
     )
     test_db.add(user)
     test_db.commit()
@@ -71,8 +78,8 @@ def test_create_user(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
 
     user = create_user_for_testing(test_db, user_data)
@@ -80,8 +87,6 @@ def test_create_user(test_db: Session):
     assert user.username.startswith(TEST_USER["username"])
     assert user.email.endswith(TEST_USER["email"])
     assert user.organization == TEST_USER["organization"]
-    assert user.password_hash is not None
-    assert user.password_hash != TEST_USER["password"]  # Password should be hashed
     assert not user.is_admin
 
 
@@ -90,8 +95,8 @@ def test_create_admin_user(test_db: Session):
     admin_data = UserCreate(
         username=TEST_ADMIN["username"],
         email=TEST_ADMIN["email"],
-        password=TEST_ADMIN["password"],
         organization=TEST_ADMIN["organization"],
+        sub=TEST_ADMIN["sub"],
         is_admin=True,
     )
 
@@ -107,8 +112,8 @@ def test_get_user(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
     created_user = create_user_for_testing(test_db, user_data)
 
@@ -125,8 +130,8 @@ def test_get_user_by_username(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
     created_user = create_user_for_testing(test_db, user_data)
 
@@ -143,14 +148,14 @@ def test_get_users(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
     admin_data = UserCreate(
         username=TEST_ADMIN["username"],
         email=TEST_ADMIN["email"],
-        password=TEST_ADMIN["password"],
         organization=TEST_ADMIN["organization"],
+        sub=TEST_ADMIN["sub"],
         is_admin=True,
     )
 
@@ -169,8 +174,8 @@ def test_create_duplicate_user(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
 
     # Create first user - this will use a unique username internally
@@ -186,8 +191,8 @@ def test_delete_user(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
     created_user = create_user_for_testing(test_db, user_data)
 
@@ -222,8 +227,8 @@ def test_delete_user_not_in_guacamole(test_db: Session, mock_guacamole_client, m
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
     created_user = create_user_for_testing(test_db, user_data)
 
@@ -253,8 +258,8 @@ def test_delete_user_guacamole_error(test_db: Session, mock_guacamole_client, mo
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
     created_user = create_user_for_testing(test_db, user_data)
 

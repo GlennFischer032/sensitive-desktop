@@ -28,48 +28,17 @@ logger.setLevel(logging.DEBUG)
 @auth_bp.route("/login", methods=["GET", "POST"])
 @rate_limit(requests_per_minute=5, requests_per_hour=20)  # Stricter limits for login attempts
 def login():
+    # Username/password authentication has been removed
+    # If POST method is used, redirect to OIDC login
     if request.method == "POST":
-        # Handle both form data and JSON
-        if request.is_json:
-            data = request.get_json()
-            username = data.get("username")
-            password = data.get("password")
-        else:
-            username = request.form.get("username")
-            password = request.form.get("password")
+        logger.info("Username/password authentication attempt detected - redirecting to OIDC login")
+        flash(
+            "Username/password authentication has been disabled. Please use e-INFRA CZ login.",
+            "info",
+        )
+        return redirect(url_for("auth.oidc_login"))
 
-        logger.debug(f"Login attempt for user: {username}")
-
-        if not username or not password:
-            logger.warning("Missing username or password")
-            if request.is_json:
-                return {"error": "Missing required fields"}, 400
-            flash("Please provide both username and password")
-            return render_template("login.html")
-
-        try:
-            auth_client = client_factory.get_auth_client()
-            data, status_code = auth_client.login(username, password)
-
-            logger.debug(f"Successful login response data: {json.dumps(data, indent=2)}")
-            logger.info(f"Login successful for {username}, is_admin: {session['is_admin']}")
-
-            if session["is_admin"]:
-                return redirect(url_for("users.dashboard"))
-            return redirect(url_for("connections.view_connections"))
-
-        except APIError as e:
-            logger.error(f"Login failed: {e.message}")
-            if request.is_json:
-                return {"error": e.message}, e.status_code
-            flash("Login failed. Please check your credentials.")
-            return render_template("login.html")
-        except Exception as e:
-            logger.error(f"Login error: {str(e)}")
-            if request.is_json:
-                return {"error": str(e)}, 500
-            flash("Login service unavailable. Please try again later.")
-            return render_template("login.html")
+    # For GET requests, show the login page with OIDC button only
     return render_template("login.html")
 
 
@@ -129,14 +98,14 @@ def oidc_callback():
         data = response.json()
         session.clear()
         session["token"] = data["token"]
-        session["username"] = data["username"]
-        session["is_admin"] = data["is_admin"]
-        session["email"] = data.get("email")
+        session["username"] = data["user"]["username"]
+        session["is_admin"] = data["user"]["is_admin"]
+        session["email"] = data["user"]["email"]
         session["organization"] = data.get("organization")
         session["sub"] = data.get("sub")
         session.permanent = True
 
-        logger.info(f"User {data['username']} successfully authenticated via OIDC")
+        logger.info(f"User {data['user']['username']} successfully authenticated via OIDC")
         flash("Successfully logged in", "success")
 
         next_url = session.pop("next_url", None)
@@ -162,7 +131,10 @@ def oidc_login():
             raise ValueError("Failed to get authorization URL from backend")
 
         data = response.json()
-        auth_url = data["auth_url"]
+        auth_url = data.get("authorization_url") or data.get("auth_url")
+
+        if not auth_url:
+            raise ValueError("No authorization URL in response")
 
         logger.info("Redirecting to OIDC provider for authentication")
         return redirect(auth_url)

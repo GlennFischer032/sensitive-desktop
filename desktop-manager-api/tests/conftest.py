@@ -164,6 +164,7 @@ def setup_test_db(database_url):
                         sub TEXT UNIQUE,
                         given_name TEXT,
                         family_name TEXT,
+                        name TEXT,
                         locale TEXT,
                         email_verified INTEGER DEFAULT 0,
                         last_login DATETIME
@@ -398,25 +399,57 @@ def mock_auth_decorators(monkeypatch, test_db):
                     print("DEBUG: No token found in request")
                     return jsonify({"message": "Token is missing!"}), 401
 
-                # Decode token
-                payload = jwt.decode(token, "test_secret_key", algorithms=["HS256"])
-                print(f"DEBUG TOKEN PAYLOAD: {payload}")
+                try:
+                    # First attempt: Try decoding token as JWT
+                    payload = jwt.decode(token, "test_secret_key", algorithms=["HS256"])
+                    print(f"DEBUG TOKEN PAYLOAD: {payload}")
 
-                user_id = payload.get('user_id', 999)
-                username = payload.get('username', "unknown")
+                    user_id = payload.get('user_id', 999)
+                    username = payload.get('username', "unknown")
+                    is_admin = bool(payload.get('is_admin', False))
 
-                # Directly get is_admin from the token
-                is_admin = bool(payload.get('is_admin', False))
-                print(f"DEBUG: is_admin from token: {is_admin}")
+                    # Create mock user
+                    current_user = MockUser(id=user_id, username=username, is_admin=is_admin)
+                    print(f"DEBUG: Created user from JWT: {current_user}")
 
-                # Create mock user
-                current_user = MockUser(id=user_id, username=username, is_admin=is_admin)
-                print(f"DEBUG: Created user: {current_user}")
+                    # Set user on request
+                    request.current_user = current_user
+                except jwt.InvalidTokenError:
+                    # Second attempt: Mock OIDC token validation
+                    print("DEBUG: JWT validation failed, trying OIDC token validation")
 
-                # Set user on request - this is crucial for admin_required to work
-                request.current_user = current_user
+                    # Mock the userinfo response with a valid 'sub' field
+                    # This simulates the userinfo endpoint for OIDC
+                    userinfo = {
+                        'success': True,
+                        'sub': '123',  # Add the missing 'sub' field
+                        'email': 'test@example.com',
+                        'name': 'Test User',
+                        'username': 'testuser'
+                    }
+
+                    print(f"DEBUG: Mocked userinfo response: {userinfo}")
+
+                    # Extract user ID from JWT payload if possible
+                    try:
+                        raw_payload = jwt.decode(token, options={"verify_signature": False})
+                        user_id = raw_payload.get('user_id', 999)
+                        username = raw_payload.get('username', 'testuser')
+                        is_admin = bool(raw_payload.get('is_admin', False))
+                    except:
+                        # Default values if JWT decoding fails completely
+                        user_id = 999
+                        username = 'testuser'
+                        is_admin = False
+
+                    # Create mock user for OIDC
+                    current_user = MockUser(id=user_id, username=username, is_admin=is_admin)
+                    print(f"DEBUG: Created user from OIDC: {current_user}")
+
+                    # Set user on request
+                    request.current_user = current_user
+
                 print(f"DEBUG: Set current_user on request with is_admin={request.current_user.is_admin}")
-
                 return f(*args, **kwargs)
             except Exception as e:
                 print(f"DEBUG: Exception in mock_token_required: {str(e)}")

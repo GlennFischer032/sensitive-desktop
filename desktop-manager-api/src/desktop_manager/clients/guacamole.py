@@ -214,18 +214,21 @@ class GuacamoleClient(BaseClient):
         Args:
             token: Authentication token
             username: Username
-            password: Password
+            password: Password (can be empty for OIDC users)
             attributes: User attributes
 
         Raises:
             APIError: If user creation fails
         """
         try:
-            user_data: GuacamoleUser = {
+            user_data: dict = {
                 "username": username,
-                "password": password,
                 "attributes": attributes or {},
             }
+
+            # Only include password if it's not empty
+            if password:
+                user_data["password"] = password
 
             endpoint = f"/api/session/data/{self.data_source}/users?token={token}"
             self.post(endpoint=endpoint, data=user_data)

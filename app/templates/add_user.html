@@ -23,14 +23,8 @@
         <h4 style="margin-top: 0; color: #1976d2;">Requirements:</h4>
         <ul style="margin-bottom: 0; color: #2196f3;">
             <li>Username must be at least 3 characters long</li>
-            <li>Email is required</li>
-            <li>If password is provided:</li>
-            <ul>
-                <li>Must be at least 8 characters long</li>
-                <li>Must contain at least one uppercase letter</li>
-                <li>Must contain at least one lowercase letter</li>
-                <li>Must contain at least one number</li>
-            </ul>
+            <li>OIDC Subject Identifier (sub) is required</li>
+            <li>Other user information will be filled from OIDC during first login</li>
         </ul>
     </div>
 
@@ -42,34 +36,10 @@
         </div>
 
         <div class="form-group">
-            <label for="email">Email:</label>
-            <input type="email" id="email" name="email" required>
-            <small class="error-message" id="email-error" style="color: #c62828; display: none;"></small>
-        </div>
-
-        <div class="form-group">
-            <label for="organization">Organization:</label>
-            <input type="text" id="organization" name="organization">
-            <small class="error-message" id="organization-error" style="color: #c62828; display: none;"></small>
-        </div>
-
-        <div class="form-group">
             <label for="sub">OIDC Subject Identifier (sub):</label>
-            <input type="text" id="sub" name="sub">
-            <small class="help-text" style="color: #757575; display: block; margin-top: 0.25rem;">Optional. Only needed for OIDC users. This is the unique identifier from the OIDC provider.</small>
+            <input type="text" id="sub" name="sub" required>
+            <small class="help-text" style="color: #757575; display: block; margin-top: 0.25rem;">This is the unique identifier from the OIDC provider.</small>
             <small class="error-message" id="sub-error" style="color: #c62828; display: none;"></small>
-        </div>
-
-        <div class="form-group">
-            <label for="password">Password: (optional)</label>
-            <input type="password" id="password" name="password" minlength="8">
-            <small class="error-message" id="password-error" style="color: #c62828; display: none;"></small>
-        </div>
-
-        <div class="form-group">
-            <label for="confirm_password">Confirm Password:</label>
-            <input type="password" id="confirm_password" name="confirm_password" minlength="8">
-            <small class="error-message" id="confirm-password-error" style="color: #c62828; display: none;"></small>
         </div>
 
         <div class="form-group">
@@ -100,9 +70,7 @@
 <script>
 document.getElementById('user-form').addEventListener('submit', function(e) {
     const username = document.getElementById('username').value;
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirm_password').value;
+    const sub = document.getElementById('sub').value;
 
     // Clear previous error messages
     document.querySelectorAll('.error-message').forEach(el => {
@@ -121,60 +89,13 @@ document.getElementById('user-form').addEventListener('submit', function(e) {
         hasError = true;
     }
 
-    // Email validation
-    if (!email) {
+    // Sub validation
+    if (!sub) {
         e.preventDefault();
-        const emailError = document.getElementById('email-error');
-        emailError.textContent = 'Email is required';
-        emailError.style.display = 'block';
+        const subError = document.getElementById('sub-error');
+        subError.textContent = 'OIDC Subject Identifier is required';
+        subError.style.display = 'block';
         hasError = true;
-    }
-
-    // Password validation (only if password is provided)
-    if (password) {
-        if (password.length < 8) {
-            e.preventDefault();
-            const passwordError = document.getElementById('password-error');
-            passwordError.textContent = 'Password must be at least 8 characters long';
-            passwordError.style.display = 'block';
-            hasError = true;
-        } else if (!/[A-Z]/.test(password)) {
-            e.preventDefault();
-            const passwordError = document.getElementById('password-error');
-            passwordError.textContent = 'Password must contain at least one uppercase letter';
-            passwordError.style.display = 'block';
-            hasError = true;
-        } else if (!/[a-z]/.test(password)) {
-            e.preventDefault();
-            const passwordError = document.getElementById('password-error');
-            passwordError.textContent = 'Password must contain at least one lowercase letter';
-            passwordError.style.display = 'block';
-            hasError = true;
-        } else if (!/[0-9]/.test(password)) {
-            e.preventDefault();
-            const passwordError = document.getElementById('password-error');
-            passwordError.textContent = 'Password must contain at least one number';
-            passwordError.style.display = 'block';
-            hasError = true;
-        }
-
-        // Confirm password validation (only if password is provided)
-        if (password !== confirmPassword) {
-            e.preventDefault();
-            const confirmPasswordError = document.getElementById('confirm-password-error');
-            confirmPasswordError.textContent = 'Passwords do not match';
-            confirmPasswordError.style.display = 'block';
-            hasError = true;
-        }
-    } else {
-        // If no password is provided, confirm password should also be empty
-        if (confirmPassword) {
-            e.preventDefault();
-            const confirmPasswordError = document.getElementById('confirm-password-error');
-            confirmPasswordError.textContent = 'Please leave confirm password empty if no password is provided';
-            confirmPasswordError.style.display = 'block';
-            hasError = true;
-        }
     }
 
     if (!hasError) {

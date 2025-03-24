@@ -25,8 +25,14 @@ def create_user_for_testing(test_db: Session, user_data: UserCreate) -> User:
     user = User(
         username=user_data.username,
         email=user_data.email,
-        password_hash=generate_password_hash(user_data.password) if user_data.password else None,
         organization=user_data.organization,
+        sub=user_data.sub,
+        given_name=None,
+        family_name=None,
+        name=None,
+        locale=None,
+        email_verified=False,
+        last_login=None,
     )
     test_db.add(user)
     test_db.commit()
@@ -40,8 +46,8 @@ def test_create_connection(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
     user = create_user_for_testing(test_db, user_data)
 
@@ -71,8 +77,8 @@ def test_connection_user_relationship(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
     user = create_user_for_testing(test_db, user_data)
 
@@ -103,42 +109,8 @@ def test_create_duplicate_connection(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
-    )
-    user = create_user_for_testing(test_db, user_data)
-
-    # Create first connection
-    connection1 = Connection(
-        name=TEST_CONNECTION["name"],
-        created_by=user.username,
-        guacamole_connection_id=TEST_CONNECTION["guacamole_connection_id"],
-    )
-    test_db.add(connection1)
-    test_db.commit()
-
-    # Try to create second connection with same name
-    connection2 = Connection(
-        name=TEST_CONNECTION["name"],  # Same name
-        created_by=user.username,
-        guacamole_connection_id="different_id",
-    )
-    test_db.add(connection2)
-
-    # Should raise IntegrityError
-    with pytest.raises(IntegrityError):
-        test_db.commit()
-    test_db.rollback()
-
-
-def test_delete_connection(test_db: Session):
-    """Test connection deletion."""
-    # Create a user
-    user_data = UserCreate(
-        username=TEST_USER["username"],
-        email=TEST_USER["email"],
-        password=TEST_USER["password"],
-        organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
     user = create_user_for_testing(test_db, user_data)
 
@@ -151,17 +123,50 @@ def test_delete_connection(test_db: Session):
     test_db.add(connection)
     test_db.commit()
 
+    # Try to create another connection with the same name
+    duplicate = Connection(
+        name=TEST_CONNECTION["name"],
+        created_by=user.username,
+        guacamole_connection_id="test_guac_dup",
+    )
+    test_db.add(duplicate)
+
+    # Should raise an integrity error
+    with pytest.raises(IntegrityError):
+        test_db.commit()
+    test_db.rollback()
+
+
+def test_delete_connection(test_db: Session):
+    """Test connection deletion."""
+    # Create a user
+    user_data = UserCreate(
+        username=TEST_USER["username"],
+        email=TEST_USER["email"],
+        organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
+    )
+    user = create_user_for_testing(test_db, user_data)
+
+    # Create a connection
+    connection = Connection(
+        name=TEST_CONNECTION["name"],
+        created_by=user.username,
+        guacamole_connection_id=TEST_CONNECTION["guacamole_connection_id"],
+    )
+    test_db.add(connection)
+    test_db.commit()
+
+    # Get the connection ID
+    conn_id = connection.id
+
     # Delete the connection
     test_db.delete(connection)
     test_db.commit()
 
-    # Verify connection is deleted
-    deleted_connection = (
-        test_db.query(Connection)
-        .filter(Connection.name == TEST_CONNECTION["name"])
-        .first()
-    )
-    assert deleted_connection is None
+    # Verify it's gone
+    deleted = test_db.query(Connection).filter(Connection.id == conn_id).first()
+    assert deleted is None
 
 
 def test_cascade_delete_user_connections(test_db: Session):
@@ -170,8 +175,8 @@ def test_cascade_delete_user_connections(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
     user = create_user_for_testing(test_db, user_data)
 

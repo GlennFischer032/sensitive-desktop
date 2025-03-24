@@ -35,7 +35,7 @@ def token_required(f):
                 data = jwt.decode(token, current_app.config["SECRET_KEY"], algorithms=["HS256"])
                 db_client = client_factory.get_database_client()
                 query = "SELECT * FROM users WHERE id = :user_id"
-                users, count = db_client.execute_query(query, {"user_id": data["user_id"]})
+                users, count = db_client.execute_query(query, {"user_id": int(data["sub"])})
 
                 if count == 0:
                     return jsonify({"message": "User not found!"}), 401

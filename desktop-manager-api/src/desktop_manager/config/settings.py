@@ -15,8 +15,11 @@ class Settings(BaseSettings):
 
     # Application settings
     SECRET_KEY: str = os.getenv("SECRET_KEY", "dev_secret_key_123")
+    # Keep these for backward compatibility but they'll be phased out
     ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "admin")
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
+    # New OIDC-based admin identification
+    ADMIN_OIDC_SUB: str = os.getenv("ADMIN_OIDC_SUB", "")
 
     # Guacamole settings
     GUACAMOLE_URL: str = os.getenv("GUACAMOLE_URL", "http://guacamole:8080/guacamole")

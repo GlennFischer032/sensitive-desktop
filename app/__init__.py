@@ -1,5 +1,6 @@
 import logging
 import secrets
+from datetime import datetime
 from http import HTTPStatus
 
 import redis
@@ -267,6 +268,32 @@ def create_app(config_class=Config):
     @app.route("/health")
     def health_check():
         return {"status": "healthy"}, 200
+
+    # Register custom template filters
+    @app.template_filter("datetime")
+    def format_datetime(value, date_format="%Y-%m-%d %H:%M:%S"):
+        """Format a datetime object or ISO string to a readable string format.
+
+        Args:
+            value: The datetime object or ISO format string
+            date_format: The output format string
+
+        Returns:
+            str: Formatted datetime string
+        """
+        if value is None:
+            return ""
+
+        if isinstance(value, str):
+            try:
+                value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                return value
+
+        if isinstance(value, datetime):
+            return value.strftime(date_format)
+
+        return value
 
     logger.info("=== Starting Frontend Application ===")
     return app
