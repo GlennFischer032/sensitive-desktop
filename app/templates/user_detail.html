@@ -17,11 +17,8 @@
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
-        <div class="alert alert-{{ category }}" style="padding: 1rem; margin-bottom: 1rem; border-radius: 4px;
-            {% if category == 'error' %}background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2;{% endif %}
-            {% if category == 'success' %}background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;{% endif %}
-            {% if category == 'warning' %}background-color: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2;{% endif %}">
-            <p style="margin: 0;">{{ message }}</p>
+        <div class="alert alert-{{ category }}">
+            <p>{{ message }}</p>
         </div>
         {% endfor %}
     {% endif %}
@@ -139,118 +136,5 @@
         </div>
     </div>
 </div>
-
-<style>
-.user-detail-container {
-    max-width: 100%;
-    margin: 0 auto;
-}
-.detail-section {
-    background-color: #ffffff;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    padding: 1.5rem;
-    margin-bottom: 2rem;
-}
-.detail-section h3 {
-    margin-top: 0;
-    color: #2c3e50;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 0.5rem;
-    margin-bottom: 1.5rem;
-}
-.detail-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 1.5rem;
-}
-.detail-item {
-    margin-bottom: 1rem;
-}
-.detail-label {
-    font-weight: 600;
-    color: #7f8c8d;
-    margin-bottom: 0.25rem;
-    font-size: 0.9rem;
-}
-.detail-value {
-    font-size: 1.1rem;
-}
-.not-set {
-    color: #95a5a6;
-    font-style: italic;
-}
-.verified {
-    color: #27ae60;
-    font-weight: 600;
-}
-.not-verified {
-    color: #e74c3c;
-}
-.oidc-id {
-    font-family: monospace;
-    background: #f8f9fa;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    word-break: break-all;
-}
-.inline-form {
-    display: inline;
-}
-.button.secondary {
-    background-color: #95a5a6;
-}
-.button.danger {
-    background-color: #e74c3c;
-}
-.connections-list table {
-    width: 100%;
-    border-collapse: collapse;
-}
-.connections-list th, .connections-list td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid #ecf0f1;
-}
-.connections-list th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-}
-.header-with-button {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-}
-
-.status-badge {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-align: center;
-}
-
-.status-badge.active {
-    background-color: #d4edda;
-    color: #155724;
-}
-
-.status-badge.stopped {
-    background-color: #f8d7da;
-    color: #721c24;
-}
-
-.empty-state {
-    padding: 2rem;
-    text-align: center;
-    background-color: #f8f9fa;
-    border-radius: 4px;
-    color: #6c757d;
-    font-style: italic;
-}
-</style>
 
 {% endblock %}

@@ -8,6 +8,16 @@ body {
     line-height: 1.6;
 }
 
+/* Focus styles for keyboard navigation (accessibility) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid #3498db;
+    outline-offset: 2px;
+}
+
 .container {
     max-width: 1200px;
     margin: 2rem auto;
@@ -85,7 +95,7 @@ h1, h2, h3 {
     cursor: pointer;
     text-decoration: none;
     font-size: 14px;
-    transition: background-color 0.3s;
+    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
     line-height: 1.5;
     margin: 0;
 }
@@ -93,6 +103,13 @@ h1, h2, h3 {
 .button:hover,
 .action-button:hover {
     background-color: #2980b9;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.button:active,
+.action-button:active {
+    transform: translateY(1px);
+    box-shadow: none;
 }
 
 .connect-button {
@@ -103,11 +120,15 @@ h1, h2, h3 {
     background-color: #27ae60;
 }
 
-.delete-button {
+.delete-button,
+.button.danger,
+.button.delete-btn {
     background-color: #e74c3c;
 }
 
-.delete-button:hover {
+.delete-button:hover,
+.button.danger:hover,
+.button.delete-btn:hover {
     background-color: #c0392b;
 }
 
@@ -132,6 +153,9 @@ table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 1rem;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 th, td {
@@ -141,18 +165,26 @@ th, td {
 }
 
 th {
-    background-color: #f8f9fa;
+    background-color: #f1f4f7;
     font-weight: bold;
+    color: #2c3e50;
+}
+
+/* Zebra striping for table rows */
+tbody tr:nth-child(even) {
+    background-color: #f9fafc;
 }
 
 tr:hover {
-    background-color: #f5f5f5;
+    background-color: #eef2f7;
 }
 
 /* Forms */
 .form-container {
-    max-width: 600px;
+    max-width: 800px;
+    width: 100%;
     margin: 0 auto;
+    padding: 20px;
 }
 
 .form-group {
@@ -167,19 +199,48 @@ tr:hover {
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
     width: 100%;
     padding: 0.5rem;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+    font-family: inherit;
 }
 
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
     outline: none;
     border-color: #3498db;
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Enhanced form feedback */
+.form-group.has-error input,
+.form-group.has-error select,
+.form-group.has-error textarea {
+    border-color: #e74c3c;
+    background-color: #fff8f8;
+}
+
+.form-group.has-error .error-message {
+    display: block;
+    color: #e74c3c;
+}
+
+.form-group.has-success input,
+.form-group.has-success select,
+.form-group.has-success textarea {
+    border-color: #2ecc71;
+    background-color: #f8fff8;
 }
 
 /* Messages */
@@ -215,7 +276,14 @@ tr:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.header-with-button > div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 /* Login page */
@@ -388,8 +456,21 @@ tr:hover {
 
     .header-with-button {
         flex-direction: column;
-        gap: 1rem;
-        text-align: center;
+        align-items: flex-start;
+    }
+
+    .header-with-button > div {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .action-buttons {
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .actions {
+        justify-content: flex-start;
     }
 }
 
@@ -429,30 +510,29 @@ tr:hover {
     animation: fade 1.5s infinite;
 }
 
-/* Form Layouts */
-.form-container {
-    max-width: 400px;
-    margin: 2rem auto;
-}
-
 /* Notifications */
 .notification-container {
     position: fixed;
     top: 20px;
     right: 20px;
     z-index: 1000;
+    max-width: 350px;
+    pointer-events: none; /* Allow clicking through container */
 }
 
 .notification {
     background: white;
     padding: 1rem 2rem;
     border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
     margin-bottom: 10px;
     transform: translateX(100%);
     opacity: 0;
     animation: slideIn 0.3s ease forwards;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    position: relative;
+    padding-right: 40px;
+    pointer-events: auto; /* Re-enable pointer events on actual notifications */
 }
 
 .notification.success {
@@ -460,8 +540,56 @@ tr:hover {
     color: #27ae60;
 }
 
+.notification.error {
+    border-left: 4px solid #e74c3c;
+    color: #c0392b;
+}
+
+.notification.warning {
+    border-left: 4px solid #f39c12;
+    color: #d35400;
+}
+
+.notification-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 20px;
+    height: 20px;
+    opacity: 0.5;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.notification-close:hover {
+    opacity: 1;
+}
+
+.notification-close:before,
+.notification-close:after {
+    content: '';
+    position: absolute;
+    width: 2px;
+    height: 20px;
+    background-color: #333;
+    top: 0;
+    left: 9px;
+}
+
+.notification-close:before {
+    transform: rotate(45deg);
+}
+
+.notification-close:after {
+    transform: rotate(-45deg);
+}
+
 @keyframes slideIn {
-    to {
+    0% {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    100% {
         transform: translateX(0);
         opacity: 1;
     }
@@ -516,7 +644,8 @@ tr:hover {
 
 /* Configuration Management Styles */
 .configuration-form {
-    background: white;
+    width: 100%;
+    background-color: white;
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -541,54 +670,123 @@ tr:hover {
     padding: 10px;
 }
 
-/* Detail View Styles */
-.detail-container {
-    max-width: 1000px;
+/* Detail View Styles - Improve formatting */
+.user-detail-container {
+    max-width: 100%;
     margin: 0 auto;
-    padding: 20px;
-}
-
-.detail-card {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    padding: 20px;
 }
 
 .detail-section {
-    margin-bottom: 30px;
-}
-
-.detail-section:last-child {
-    margin-bottom: 0;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
 }
 
 .detail-section h3 {
-    margin-bottom: 15px;
-    padding-bottom: 10px;
+    margin-top: 0;
+    color: #2c3e50;
     border-bottom: 1px solid #eee;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
 }
 
 .detail-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
 }
 
 .detail-item {
     display: flex;
     flex-direction: column;
+    margin-bottom: 10px;
+    overflow: hidden;
 }
 
-.detail-item label {
-    font-weight: 500;
-    color: #666;
-    margin-bottom: 5px;
+.detail-label {
+    font-weight: 600;
+    color: #7f8c8d;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
 }
 
-.detail-item p {
+.detail-value {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    font-size: 1.1rem;
+}
+
+.connections-list table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.connections-list th,
+.connections-list td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+.connections-list th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+.oidc-id {
+    font-family: monospace;
+    background: #f8f9fa;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    word-break: break-all;
+}
+
+.inline-form {
+    display: inline-block;
     margin: 0;
-    color: #333;
+}
+
+/* Modal styling improvement */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.modal.visible {
+    opacity: 1;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 25px;
+    border-radius: 8px;
+    width: 400px;
+    max-width: 90%;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transform: translateY(-20px);
+    transition: transform 0.3s;
+}
+
+.modal.visible .modal-content {
+    transform: translateY(0);
+}
+
+.modal .warning {
+    color: #dc3545;
+    font-weight: bold;
 }
 
 /* Badge Styles */
@@ -662,4 +860,609 @@ tr:hover {
     .button {
         width: 100%;
     }
+}
+
+/* Login Page Enhanced Styles */
+.login-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.login-option {
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.login-option h3 {
+    margin: 0 0 1rem;
+    font-size: 1.3rem;
+    color: #495057;
+}
+
+.login-description {
+    margin-bottom: 1.5rem;
+    color: #6c757d;
+    line-height: 1.5;
+}
+
+.oidc-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.85rem;
+    background: #0056b3;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    font-size: 1.1rem;
+}
+
+.oidc-button:hover {
+    background: #004494;
+}
+
+.oidc-logo {
+    height: 24px;
+    width: auto;
+    max-width: 100px;
+}
+
+.debug-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.85rem;
+    background: #dc3545;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    font-size: 1.1rem;
+}
+
+.debug-button:hover {
+    background: #bd2130;
+}
+
+/* Configuration table specific styles */
+.config-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.config-table th,
+.config-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.config-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+.config-table tr:hover {
+    background-color: #f5f5f5;
+}
+
+.actions {
+    white-space: nowrap;
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+
+/* Fix checkbox alignment */
+.checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    font-weight: normal;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin-right: 10px;
+    margin-top: 3px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.button.edit,
+.button.small {
+    background-color: #3498db;
+}
+
+.button.small {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    min-width: 60px;
+    margin-right: 5px;
+    display: inline-block;
+}
+
+.resume-button {
+    background-color: #4CAF50 !important;
+    color: white !important;
+}
+
+.resume-button:hover {
+    background-color: #45a049 !important;
+}
+
+.button.danger,
+button.danger {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.button.danger:hover,
+button.danger:hover {
+    background-color: #c0392b;
+}
+
+.action-button.delete-button {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.action-button.connect-button {
+    background-color: #2ecc71;
+    color: white;
+}
+
+/* Action buttons */
+.action-button {
+    display: inline-block;
+    padding: 8px 16px;
+    min-width: 80px;
+    text-align: center;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 14px;
+    transition: background-color 0.3s;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.button.small.delete-btn {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.button.small.delete-btn:hover {
+    background-color: #c0392b;
+}
+
+/* User access group for configuration */
+.user-access-group {
+    display: none;
+}
+
+.user-access-group.visible {
+    display: block;
+}
+
+/* Hidden elements */
+.hidden {
+    display: none;
+}
+
+/* Loading container */
+#loading,
+#loading-container {
+    display: none;
+}
+
+#loading.visible,
+#loading-container.visible {
+    display: block;
+}
+
+/* Error message */
+#errorMessage {
+    display: none;
+}
+
+#errorMessage.visible {
+    display: block;
+}
+
+/* Print styles */
+@media print {
+    body {
+        background-color: white;
+        font-size: 12pt;
+    }
+
+    .container {
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        max-width: 100%;
+    }
+
+    .nav-container,
+    .action-buttons,
+    .button,
+    .form-actions {
+        display: none !important;
+    }
+
+    table, th, td {
+        border: 1px solid #ddd;
+    }
+
+    @page {
+        margin: 1.5cm;
+    }
+}
+
+/* Core Variables for Consistency */
+:root {
+    --primary-color: #3498db;
+    --primary-dark: #2980b9;
+    --secondary-color: #95a5a6;
+    --success-color: #2ecc71;
+    --success-dark: #27ae60;
+    --danger-color: #e74c3c;
+    --danger-dark: #c0392b;
+    --warning-color: #f39c12;
+    --warning-dark: #d35400;
+    --info-color: #3498db;
+    --text-color: #333;
+    --text-dark: #2c3e50;
+    --text-light: #7f8c8d;
+    --border-color: #ddd;
+    --border-radius: 4px;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 4px 15px rgba(0, 0, 0, 0.2);
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    --transition-fast: 0.2s;
+    --transition-medium: 0.3s;
+}
+
+/* Enhance visual element transitions */
+a, button, input, select, textarea {
+    transition: all var(--transition-fast) ease;
+}
+
+/* Better table responsiveness */
+@media (max-width: 768px) {
+    .config-table,
+    .connections-list table {
+        display: block;
+        width: 100%;
+    }
+
+    .config-table thead,
+    .connections-list table thead {
+        display: none;
+    }
+
+    .config-table tbody,
+    .connections-list table tbody,
+    .config-table tr,
+    .connections-list table tr,
+    .config-table td,
+    .connections-list table td {
+        display: block;
+        width: 100%;
+    }
+
+    .config-table tr,
+    .connections-list table tr {
+        margin-bottom: 1rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 0.5rem;
+    }
+
+    .config-table td,
+    .connections-list table td {
+        padding: 0.5rem;
+        text-align: right;
+        border-bottom: none;
+        position: relative;
+        padding-left: 45%;
+    }
+
+    .config-table td:before,
+    .connections-list table td:before {
+        position: absolute;
+        left: 0.5rem;
+        width: 40%;
+        text-align: left;
+        font-weight: bold;
+        content: attr(data-label);
+    }
+
+    .config-table td:last-child,
+    .connections-list table td:last-child {
+        border-bottom: none;
+    }
+}
+
+/* Improved focus and active states */
+.button:focus,
+.action-button:focus,
+input:focus,
+select:focus,
+textarea:focus {
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.3);
+}
+
+.button.danger:focus {
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.3);
+}
+
+.button.success:focus,
+.connect-button:focus {
+    box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.3);
+}
+
+/* Animated loading spinner */
+.spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 0.8s linear infinite;
+    margin-right: 0.5rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Button with spinner state */
+.button.is-loading {
+    position: relative;
+    color: transparent;
+}
+
+.button.is-loading:after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: calc(50% - 8px);
+    left: calc(50% - 8px);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.8s linear infinite;
+}
+
+/* Improved form input focus */
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+/* Add input placeholder styling */
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: #b2b9c1;
+    opacity: 1;
+}
+
+/* Form helper text improvements */
+.form-text, .form-help {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+/* Required field indicator */
+.form-group label.required:after {
+    content: " *";
+    color: var(--danger-color);
+}
+
+/* Table row hover effect enhancement */
+table tr {
+    transition: background-color 0.2s;
+}
+
+/* Table row active state */
+tr.active {
+    background-color: rgba(52, 152, 219, 0.1);
+}
+
+/* Card hover effects */
+.dashboard-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Toast notification improvements */
+.notification {
+    max-width: 350px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Material design inspired ripple effect for buttons */
+.button, .action-button {
+    position: relative;
+    overflow: hidden;
+}
+
+.button:after, .action-button:after {
+    content: "";
+    display: block;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle, #fff 10%, transparent 10%);
+    background-repeat: no-repeat;
+    background-position: 50%;
+    transform: scale(10, 10);
+    opacity: 0;
+    transition: transform 0.5s, opacity 0.5s;
+}
+
+.button:active:after, .action-button:active:after {
+    transform: scale(0, 0);
+    opacity: 0.3;
+    transition: 0s;
+}
+
+/* Proper field disabled state */
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Add basic tooltip */
+[data-tooltip] {
+    position: relative;
+    cursor: help;
+}
+
+[data-tooltip]:hover:before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px 10px;
+    background: rgba(50, 50, 50, 0.9);
+    color: white;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+}
+
+/* Table improvements */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Skeleton loading state */
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+    height: 1em;
+    margin-bottom: 0.5em;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Badge enhancements */
+.badge {
+    display: inline-block;
+    padding: 0.25em 0.6em;
+    font-size: 75%;
+    font-weight: 500;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+}
+
+/* Add scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+}
+
+/* Fix for buttons in action cells */
+.actions {
+    white-space: nowrap;
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+
+/* Config table styling for action buttons */
+.config-table .actions {
+    min-width: 150px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+    justify-content: flex-start;
+    align-items: center;
+    border-bottom: none;
+    padding-bottom: 0.75rem;
+}
+
+.config-table td {
+    vertical-align: middle;
+}
+
+/* Edit and Delete buttons in configuration table */
+.config-table .button.small {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    min-width: 60px;
+    height: 32px;
+    display: inline-block;
+    text-align: center;
+    box-sizing: border-box;
+    line-height: normal;
 }

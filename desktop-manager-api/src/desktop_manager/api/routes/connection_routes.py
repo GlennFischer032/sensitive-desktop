@@ -62,20 +62,35 @@ def scale_up() -> tuple[Dict[str, Any], int]:
 
             # If desktop_configuration_id is provided, verify it exists and user has access
             if desktop_configuration_id:
-                config_query = """
-                SELECT dc.*
-                FROM desktop_configurations dc
-                LEFT JOIN desktop_configuration_access dca
-                    ON dc.id = dca.desktop_configuration_id AND dca.username = :username
-                WHERE dc.id = :config_id AND (dc.is_public = TRUE OR dca.username IS NOT NULL)
-                """
-                config_result, config_count = db_client.execute_query(
-                    config_query,
-                    {
-                        "config_id": desktop_configuration_id,
-                        "username": request.current_user.username,
-                    },
-                )
+                # Different queries for admin vs regular users
+                if request.current_user.is_admin:
+                    # Admins can access any configuration
+                    config_query = """
+                    SELECT *
+                    FROM desktop_configurations
+                    WHERE id = :config_id
+                    """
+                    config_result, config_count = db_client.execute_query(
+                        config_query,
+                        {
+                            "config_id": desktop_configuration_id,
+                        },
+                    )
+                else:
+                    config_query = """
+                    SELECT dc.*
+                    FROM desktop_configurations dc
+                    LEFT JOIN desktop_configuration_access dca
+                        ON dc.id = dca.desktop_configuration_id AND dca.username = :username
+                    WHERE dc.id = :config_id AND (dc.is_public = TRUE OR dca.username IS NOT NULL)
+                    """
+                    config_result, config_count = db_client.execute_query(
+                        config_query,
+                        {
+                            "config_id": desktop_configuration_id,
+                            "username": request.current_user.username,
+                        },
+                    )
 
                 if config_count == 0:
                     return (
@@ -179,6 +194,9 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                 token = guacamole_client.login()
                 # Ensure admins group exists
                 guacamole_client.ensure_group(token, "admins")
+
+                # Get settings here to ensure it's in scope
+                settings = get_settings()
 
                 # Use correct hostname format
                 target_host = f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz"
@@ -1127,6 +1145,9 @@ def resume_connection() -> Tuple[Dict[str, Any], int]:
                 token = guacamole_client.login()
                 # Ensure admins group exists
                 guacamole_client.ensure_group(token, "admins")
+
+                # Get settings here to ensure it's in scope
+                settings = get_settings()
 
                 # Use correct hostname format
                 target_host = f"{settings.NAMESPACE}-{connection_name}.dyn.cloud.e-infra.cz"

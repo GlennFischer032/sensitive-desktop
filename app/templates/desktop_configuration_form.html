@@ -71,19 +71,22 @@
       </label>
     </div>
 
-    <div class="form-group" id="user-access-group" style="display: {% if configuration and configuration.is_public == false %}block{% else %}none{% endif %};">
+    <div class="form-group user-access-group" id="user-access-group">
       <label>User Access</label>
       <div class="user-list">
         {% if users %}
-          {% for user in users %}
-            {% if not user.is_admin %}
+          {% set non_admin_users = users|selectattr('is_admin', 'equalto', false)|list %}
+          {% if non_admin_users %}
+            {% for user in non_admin_users %}
             <label class="checkbox-label">
               <input type="checkbox" name="allowed_users" value="{{ user.username }}"
                     {% if configuration and configuration.allowed_users and user.username in configuration.allowed_users %}checked{% endif %}>
               {{ user.username }}
             </label>
-            {% endif %}
-          {% endfor %}
+            {% endfor %}
+          {% else %}
+            <p>No non-admin users available</p>
+          {% endif %}
         {% else %}
           <p>No users available</p>
         {% endif %}
@@ -99,109 +102,27 @@
   </form>
 </div>
 
-<style>
-  .form-container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-
-  .form-group {
-    margin-bottom: 15px;
-  }
-
-  .form-row {
-    display: flex;
-    gap: 20px;
-  }
-
-  .form-row .form-group {
-    flex: 1;
-  }
-
-  label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 500;
-  }
-
-  input[type="text"],
-  input[type="number"],
-  textarea,
-  select {
-    width: 100%;
-    padding: 8px 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 14px;
-  }
-
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    font-weight: normal;
-    margin-bottom: 8px;
-    cursor: pointer;
-  }
-
-  .checkbox-label input[type="checkbox"] {
-    margin-right: 8px;
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-    vertical-align: middle;
-  }
-
-  .user-list {
-    max-height: 200px;
-    overflow-y: auto;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 15px;
-  }
-
-  .user-list .checkbox-label {
-    margin-bottom: 10px;
-    padding: 4px 0;
-  }
-
-  .user-list .checkbox-label:hover {
-    background-color: #f8f9fa;
-  }
-
-  .form-actions {
-    margin-top: 20px;
-    display: flex;
-    gap: 10px;
-  }
-
-  .button {
-    padding: 8px 15px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-block;
-  }
-
-  .button.secondary {
-    background-color: #6c757d;
-  }
-</style>
-
 <script>
 // Initialize the user access group visibility when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     const isPublic = document.getElementById('is_public');
     const userAccessGroup = document.getElementById('user-access-group');
-    userAccessGroup.style.display = isPublic.checked ? 'none' : 'block';
+
+    if (!isPublic.checked) {
+        userAccessGroup.classList.add('visible');
+    } else {
+        userAccessGroup.classList.remove('visible');
+    }
 });
 
 document.getElementById('is_public').addEventListener('change', function() {
     const userAccessGroup = document.getElementById('user-access-group');
-    userAccessGroup.style.display = this.checked ? 'none' : 'block';
+
+    if (!this.checked) {
+        userAccessGroup.classList.add('visible');
+    } else {
+        userAccessGroup.classList.remove('visible');
+    }
 });
 
 // Add submit handler using fetch API with proper JSON content-type

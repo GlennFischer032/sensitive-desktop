@@ -3,25 +3,22 @@
 {% block title %}Add User - Desktop Manager{% endblock %}
 
 {% block content %}
-<div style="max-width: 600px; margin: 0 auto;">
+<div class="form-container">
     <h2>Add New User</h2>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
-        <div class="alert alert-{{ category }}" style="padding: 1rem; margin-bottom: 1rem; border-radius: 4px;
-            {% if category == 'error' %}background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2;{% endif %}
-            {% if category == 'success' %}background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;{% endif %}
-            {% if category == 'warning' %}background-color: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2;{% endif %}">
-            <p style="margin: 0;">{{ message }}</p>
+        <div class="alert alert-{{ category }}">
+            <p>{{ message }}</p>
         </div>
         {% endfor %}
     {% endif %}
     {% endwith %}
 
-    <div class="requirements-box" style="background-color: #e3f2fd; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; border: 1px solid #bbdefb;">
-        <h4 style="margin-top: 0; color: #1976d2;">Requirements:</h4>
-        <ul style="margin-bottom: 0; color: #2196f3;">
+    <div class="requirements-box">
+        <h4>Requirements:</h4>
+        <ul>
             <li>Username must be at least 3 characters long</li>
             <li>OIDC Subject Identifier (sub) is required</li>
             <li>Other user information will be filled from OIDC during first login</li>
@@ -32,14 +29,14 @@
         <div class="form-group">
             <label for="username">Username:</label>
             <input type="text" id="username" name="username" required minlength="3">
-            <small class="error-message" id="username-error" style="color: #c62828; display: none;"></small>
+            <small class="error-message" id="username-error"><!-- Error message will appear here --></small>
         </div>
 
         <div class="form-group">
             <label for="sub">OIDC Subject Identifier (sub):</label>
             <input type="text" id="sub" name="sub" required>
-            <small class="help-text" style="color: #757575; display: block; margin-top: 0.25rem;">This is the unique identifier from the OIDC provider.</small>
-            <small class="error-message" id="sub-error" style="color: #c62828; display: none;"></small>
+            <small class="form-help">This is the unique identifier from the OIDC provider.</small>
+            <small class="error-message" id="sub-error"><!-- Error message will appear here --></small>
         </div>
 
         <div class="form-group">
@@ -49,10 +46,10 @@
                     Admin User
                 </label>
             </div>
-            <small class="help-text" style="color: #757575; display: block; margin-top: 0.25rem;">Administrators can manage users and desktop configurations.</small>
+            <small class="form-help">Administrators can manage users and desktop configurations.</small>
         </div>
 
-        <div id="loading" style="display: none;">
+        <div id="loading" class="hidden">
             <div class="loading-wave">
                 <div class="loading-bar"></div>
                 <div class="loading-bar"></div>
@@ -61,112 +58,13 @@
             </div>
         </div>
 
-        <div style="margin-top: 2rem; text-align: center;">
+        <div class="form-actions">
             <button type="submit" class="button" id="submit-btn">Add User</button>
-            <a href="{{ url_for('users.view_users') }}" class="button" style="margin-left: 1rem; background-color: #95a5a6;">Cancel</a>
+            <a href="{{ url_for('users.view_users') }}" class="button secondary">Cancel</a>
         </div>
     </form>
 </div>
 
-<style>
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-
-    .form-group label {
-        display: block;
-        margin-bottom: 0.5rem;
-        font-weight: 500;
-        color: #333;
-    }
-
-    .form-group input[type="text"] {
-        width: 100%;
-        padding: 0.75rem;
-        font-size: 1rem;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        box-sizing: border-box;
-    }
-
-    .form-group input[type="text"]:focus {
-        border-color: #4a90e2;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
-    }
-
-    .checkbox-wrapper {
-        margin-bottom: 0.5rem;
-    }
-
-    .checkbox-label {
-        display: flex;
-        align-items: center;
-        font-weight: normal;
-        cursor: pointer;
-    }
-
-    .checkbox-label input[type="checkbox"] {
-        margin-right: 10px;
-        width: 18px;
-        height: 18px;
-        cursor: pointer;
-        vertical-align: middle;
-    }
-
-    .button {
-        padding: 0.75rem 1.5rem;
-        font-size: 1rem;
-        background-color: #4a90e2;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-block;
-        transition: background-color 0.2s;
-    }
-
-    .button:hover {
-        background-color: #3a80d2;
-    }
-
-    .loading-wave {
-        display: flex;
-        justify-content: center;
-        margin: 1.5rem 0;
-    }
-
-    .loading-bar {
-        width: 6px;
-        height: 30px;
-        margin: 0 4px;
-        background-color: #4a90e2;
-        border-radius: 3px;
-        animation: wave 1s ease-in-out infinite;
-    }
-
-    .loading-bar:nth-child(2) {
-        animation-delay: 0.1s;
-    }
-
-    .loading-bar:nth-child(3) {
-        animation-delay: 0.2s;
-    }
-
-    .loading-bar:nth-child(4) {
-        animation-delay: 0.3s;
-    }
-
-    @keyframes wave {
-        0%, 100% {
-            transform: scaleY(0.5);
-        }
-        50% {
-            transform: scaleY(1);
-        }
-    }
-</style>
 {% endblock %}
 
 {% block scripts %}
@@ -202,8 +100,8 @@ document.getElementById('user-form').addEventListener('submit', function(e) {
     }
 
     if (!hasError) {
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('submit-btn').style.display = 'none';
+        document.getElementById('loading').classList.add('visible');
+        document.getElementById('submit-btn').classList.add('hidden');
     }
 });
 </script>
