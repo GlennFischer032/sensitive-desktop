@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Desktop Configurations - Desktop Manager{% endblock %}
+
+{% block content %}
+<div class="config-header">
+    <h2>Desktop Configurations</h2>
+    {% if session.get('is_admin') %}
+    <a href="{{ url_for('desktop_configurations.create_configuration') }}" class="button">Add Configuration</a>
+    {% endif %}
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category }}">{{ message }}</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+{% if configurations %}
+<div class="config-table-container">
+    <table class="config-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Image</th>
+                <th>CPU</th>
+                <th>RAM</th>
+                <th>Created By</th>
+                <th>Public</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for config in configurations %}
+            <tr>
+                <td>{{ config.name }}</td>
+                <td>{{ config.description or "No description" }}</td>
+                <td>{{ config.image }}</td>
+                <td>{{ config.min_cpu }} - {{ config.max_cpu }} cores</td>
+                <td>{{ config.min_ram }} - {{ config.max_ram }}</td>
+                <td>{{ config.created_by or "System" }}</td>
+                <td>{{ "Yes" if config.is_public else "No" }}</td>
+                <td class="actions">
+                    {% if session.get('is_admin') %}
+                    <a href="{{ url_for('desktop_configurations.edit_configuration', config_id=config.id) }}" class="button small">Edit</a>
+                    <button class="button small delete-btn" data-id="{{ config.id }}" data-name="{{ config.name }}">Delete</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="no-data">
+    <p>No desktop configurations available.</p>
+    {% if session.get('is_admin') %}
+    <p>Click the "Add Configuration" button to create one.</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<style>
+    .config-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .config-table-container {
+        overflow-x: auto;
+    }
+
+    .config-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .config-table th, .config-table td {
+        padding: 10px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .config-table th {
+        background-color: #f2f2f2;
+    }
+
+    .config-table tr:hover {
+        background-color: #f5f5f5;
+    }
+
+    .actions {
+        white-space: nowrap;
+    }
+
+    .button.small {
+        padding: 5px 10px;
+        font-size: 0.8rem;
+        margin-right: 5px;
+    }
+
+    .button.small.delete-btn {
+        background-color: #dc3545;
+    }
+
+    .no-data {
+        text-align: center;
+        margin: 50px 0;
+        color: #666;
+    }
+
+    .alert {
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+    }
+
+    .alert-error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .alert-info {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+
+    /* Modal styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        width: 400px;
+        max-width: 90%;
+    }
+
+    .modal h3 {
+        margin-top: 0;
+    }
+
+    .modal .warning {
+        color: #dc3545;
+        font-weight: bold;
+    }
+
+    .modal-buttons {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 20px;
+        gap: 10px;
+    }
+
+    .button.danger {
+        background-color: #dc3545;
+    }
+</style>
+
+<!-- Confirmation Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <h3>Confirm Deletion</h3>
+        <p>Are you sure you want to delete the configuration "<span id="configName"></span>"?</p>
+        <p class="warning">This action cannot be undone!</p>
+        <div class="modal-buttons">
+            <button id="confirmDelete" class="button danger">Delete</button>
+            <button id="cancelDelete" class="button secondary">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Modal handling
+    const modal = document.getElementById('deleteModal');
+    const configNameSpan = document.getElementById('configName');
+    const confirmDeleteBtn = document.getElementById('confirmDelete');
+    const cancelDeleteBtn = document.getElementById('cancelDelete');
+    let configIdToDelete = null;
+
+    // Show modal when delete button is clicked
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            configIdToDelete = this.getAttribute('data-id');
+            const configName = this.getAttribute('data-name');
+            configNameSpan.textContent = configName;
+            modal.style.display = 'flex';
+        });
+    });
+
+    // Hide modal on cancel
+    cancelDeleteBtn.addEventListener('click', function() {
+        modal.style.display = 'none';
+    });
+
+    // Handle delete confirmation
+    confirmDeleteBtn.addEventListener('click', function() {
+        if (configIdToDelete) {
+            fetch(`/desktop-configurations/delete/${configIdToDelete}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the row from the table
+                    const row = document.querySelector(`button[data-id="${configIdToDelete}"]`).closest('tr');
+                    row.remove();
+
+                    // Add success message
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-success';
+                    alertDiv.textContent = data.message;
+                    document.querySelector('.config-header').insertAdjacentElement('afterend', alertDiv);
+
+                    // Remove the alert after 3 seconds
+                    setTimeout(() => {
+                        alertDiv.remove();
+                    }, 3000);
+                } else {
+                    alert(data.error || 'Error deleting configuration');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting configuration');
+            })
+            .finally(() => {
+                modal.style.display = 'none';
+                configIdToDelete = null;
+            });
+        }
+    });
+
+    // Close modal if clicked outside
+    window.addEventListener('click', function(event) {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+</script>
+{% endblock %}

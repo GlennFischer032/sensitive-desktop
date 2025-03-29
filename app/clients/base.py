@@ -132,6 +132,10 @@ class BaseClient:
 
         self.logger.debug(f"Making {method} request to {url}")
         try:
+            # Ensure we have the right Content-Type header
+            if method.upper() in ["POST", "PUT"] and data is not None:
+                request_headers["Content-Type"] = "application/json"
+
             response = requests.request(
                 method=method,
                 url=url,

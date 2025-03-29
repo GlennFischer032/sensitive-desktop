@@ -87,8 +87,12 @@ def init_db() -> None:
     """Initialize the database by creating all tables."""
     logger.info("Initializing database...")
     try:
+        # Import all models to ensure they're registered with SQLAlchemy
         from desktop_manager.api.models.base import Base
+        from desktop_manager.api.models.desktop_configuration import DesktopConfiguration
+        from desktop_manager.api.models.user import User
 
+        # Create all tables
         Base.metadata.create_all(bind=get_engine())
         logger.info("Database initialized successfully")
     except Exception as e:

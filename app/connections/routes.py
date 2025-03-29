@@ -44,18 +44,49 @@ def view_connections():
 @rate_limit(requests_per_minute=10)  # Stricter limit for adding connections
 def add_connection():
     if request.method == "POST":
-        connection_name = request.form.get("connection_name")
-
-        if not connection_name:
-            flash("Please provide a connection name")
-            return render_template("add_connection.html")
-
         try:
-            current_app.logger.info(f"Adding new connection: {connection_name}")
-            connections_client = client_factory.get_connections_client()
-            connections_client.add_connection(connection_name)
+            connection_name = request.form.get("connection_name")
+            if not connection_name:
+                flash("Connection name is required", "error")
+                return redirect(url_for("connections.add_connection"))
 
-            flash("Connection added successfully")
+            # Get desktop configuration if specified
+            desktop_configuration_id = request.form.get("desktop_configuration_id")
+            desktop_configuration = None
+            if desktop_configuration_id:
+                desktop_configs_client = client_factory.get_desktop_configurations_client()
+                config_response = desktop_configs_client.get_configuration(
+                    int(desktop_configuration_id)
+                )
+                # Extract the configuration from the response
+                desktop_configuration = config_response.get("configuration", {})
+                current_app.logger.debug(
+                    f"Retrieved desktop configuration: {desktop_configuration}"
+                )
+
+            # Get persistent home setting
+            persistent_home = bool(request.form.get("persistent_home"))
+
+            # Create connection
+            connections_client = client_factory.get_connections_client()
+            connection_data = {
+                "name": connection_name,
+                "persistent_home": persistent_home,
+            }
+
+            if desktop_configuration:
+                connection_data.update(
+                    {
+                        "desktop_configuration_id": desktop_configuration.get("id"),
+                        "min_cpu": desktop_configuration.get("min_cpu"),
+                        "max_cpu": desktop_configuration.get("max_cpu"),
+                        "min_ram": desktop_configuration.get("min_ram"),
+                        "max_ram": desktop_configuration.get("max_ram"),
+                    }
+                )
+
+            connections_client.add_connection(**connection_data)
+            flash("Connection created successfully", "success")
             return redirect(url_for("connections.view_connections"))
         except APIError as e:
             current_app.logger.error(f"Failed to add connection: {e.message}")
@@ -64,7 +95,15 @@ def add_connection():
             current_app.logger.error(f"Error adding connection: {str(e)}")
             flash(f"Error adding connection: {str(e)}")
 
-    return render_template("add_connection.html")
+    # For GET requests or if POST fails, fetch desktop configurations for the form
+    try:
+        desktop_configs_client = client_factory.get_desktop_configurations_client()
+        desktop_configurations = desktop_configs_client.list_configurations()
+    except Exception as e:
+        current_app.logger.error(f"Error fetching desktop configurations: {str(e)}")
+        desktop_configurations = []
+
+    return render_template("add_connection.html", desktop_configurations=desktop_configurations)
 
 
 @connections_bp.route("/delete/<connection_name>", methods=["POST"])
@@ -76,13 +115,13 @@ def delete_connection(connection_name):
         connections_client = client_factory.get_connections_client()
         connections_client.delete_connection(connection_name)
 
-        flash("Connection deleted successfully")
+        flash("Connection stopped successfully")
     except APIError as e:
         current_app.logger.error(f"Failed to delete connection: {e.message}")
-        flash(f"Failed to delete connection: {e.message}")
+        flash(f"Failed to stop connection: {e.message}")
     except Exception as e:
         current_app.logger.error(f"Error deleting connection: {str(e)}")
-        flash(f"Error deleting connection: {str(e)}")
+        flash(f"Error stopping connection: {str(e)}")
 
     # If it's an AJAX request, return JSON response
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -174,4 +213,53 @@ def guacamole_dashboard():
     except Exception as e:
         current_app.logger.error(f"Error accessing Guacamole dashboard: {str(e)}")
         flash(f"Error accessing Guacamole dashboard: {str(e)}")
+        return redirect(url_for("connections.view_connections"))
+
+
+@connections_bp.route("/resume/<connection_name>", methods=["POST"])
+@login_required
+@rate_limit(requests_per_minute=10)  # Stricter limit for resuming connections
+def resume_connection(connection_name):
+    try:
+        current_app.logger.info(f"Resuming connection: {connection_name}")
+
+        # Extract connection name from JSON body if present
+        if request.is_json:
+            data = request.get_json()
+            if data and "name" in data:
+                connection_name = data["name"]
+                current_app.logger.info(f"Using connection name from JSON body: {connection_name}")
+
+        connections_client = client_factory.get_connections_client()
+        connections_client.resume_connection(connection_name)
+
+        # If it's an AJAX request, return JSON response
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"status": "success", "message": "Connection resumed successfully"}), 200
+
+        flash("Connection resumed successfully")
+        return redirect(url_for("connections.view_connections"))
+
+    except APIError as e:
+        current_app.logger.error(f"Failed to resume connection: {e.message}")
+
+        # If it's an AJAX request, return JSON error response
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(
+                {"status": "error", "message": f"Failed to resume connection: {e.message}"}
+            ), 400
+
+        flash(f"Failed to resume connection: {e.message}")
+        return redirect(url_for("connections.view_connections"))
+
+    except Exception as e:
+        current_app.logger.error(f"Error resuming connection: {str(e)}")
+
+        # If it's an AJAX request, return JSON error response
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(
+                {"status": "error", "message": f"Error resuming connection: {str(e)}"}
+            ), 500
+
+        flash(f"Error resuming connection: {str(e)}")
         return redirect(url_for("connections.view_connections"))

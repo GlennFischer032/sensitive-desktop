@@ -8,7 +8,7 @@ from sqlalchemy import text
 from werkzeug.security import generate_password_hash
 
 from desktop_manager.api.models.user import SocialAuthAssociation, User
-from desktop_manager.api.routes import auth_bp, connections_bp, oidc_bp, users_bp
+from desktop_manager.api.routes import auth_bp, connections_bp, desktop_config_bp, oidc_bp, users_bp
 from desktop_manager.clients.factory import client_factory
 from desktop_manager.config.settings import get_settings
 from desktop_manager.core.database import init_db
@@ -80,6 +80,7 @@ def create_app() -> Flask:
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(connections_bp, url_prefix="/api/connections")
+    app.register_blueprint(desktop_config_bp, url_prefix="/api/desktop-config")
     app.register_blueprint(users_bp, url_prefix="/api/users")
     app.register_blueprint(oidc_bp, url_prefix="/api")  # OIDC routes
 
@@ -100,6 +101,9 @@ def create_app() -> Flask:
                     insert_query = """
                     INSERT INTO users (username, email, sub, is_admin, created_at)
                     VALUES (:username, :email, :sub, :is_admin, :created_at)
+                    ON CONFLICT (email) DO UPDATE
+                    SET sub = EXCLUDED.sub,
+                        is_admin = EXCLUDED.is_admin
                     """
 
                     # Generate a username from the sub

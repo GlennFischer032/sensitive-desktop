@@ -54,6 +54,64 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                     HTTPStatus.BAD_REQUEST,
                 )
 
+            # Get persistent_home parameter (default to True if not provided)
+            persistent_home = data.get("persistent_home", True)
+
+            # Get desktop_configuration_id (default to 1 if not provided)
+            desktop_configuration_id = data.get("desktop_configuration_id")
+
+            # If desktop_configuration_id is provided, verify it exists and user has access
+            if desktop_configuration_id:
+                config_query = """
+                SELECT dc.*
+                FROM desktop_configurations dc
+                LEFT JOIN desktop_configuration_access dca
+                    ON dc.id = dca.desktop_configuration_id AND dca.username = :username
+                WHERE dc.id = :config_id AND (dc.is_public = TRUE OR dca.username IS NOT NULL)
+                """
+                config_result, config_count = db_client.execute_query(
+                    config_query,
+                    {
+                        "config_id": desktop_configuration_id,
+                        "username": request.current_user.username,
+                    },
+                )
+
+                if config_count == 0:
+                    return (
+                        jsonify({"error": "Desktop configuration not found or access denied"}),
+                        HTTPStatus.NOT_FOUND,
+                    )
+
+                desktop_image = config_result[0]["image"]
+                min_cpu = config_result[0]["min_cpu"]
+                max_cpu = config_result[0]["max_cpu"]
+                min_ram = config_result[0]["min_ram"]
+                max_ram = config_result[0]["max_ram"]
+            else:
+                # Use default configuration (ID 1)
+                config_query = """
+                SELECT id, image, min_cpu, max_cpu, min_ram, max_ram FROM desktop_configurations WHERE id = 1
+                """
+                config_result, config_count = db_client.execute_query(config_query)
+
+                if config_count == 0:
+                    # If no default configuration exists, use the hardcoded one
+                    settings = get_settings()
+                    desktop_image = settings.DESKTOP_IMAGE
+                    desktop_configuration_id = None
+                    min_cpu = 1
+                    max_cpu = 4
+                    min_ram = "4096Mi"
+                    max_ram = "16384Mi"
+                else:
+                    desktop_image = config_result[0]["image"]
+                    desktop_configuration_id = config_result[0]["id"]
+                    min_cpu = config_result[0]["min_cpu"]
+                    max_cpu = config_result[0]["max_cpu"]
+                    min_ram = config_result[0]["min_ram"]
+                    max_ram = config_result[0]["max_ram"]
+
             # Sanitize and generate unique name
             base_name = sanitize_name(data["name"])
             logging.info("Sanitized base name: %s", base_name)
@@ -61,8 +119,6 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             # Check if name already exists
             query = "SELECT name FROM connections WHERE name LIKE :name_pattern"
             existing_names, _ = db_client.execute_query(query, {"name_pattern": f"{base_name}%"})
-            name = generate_unique_connection_name(base_name, existing_names)
-            logging.info("Generated unique name: %s", name)
 
             # Get the current user
             current_user = request.current_user
@@ -75,20 +131,33 @@ def scale_up() -> tuple[Dict[str, Any], int]:
 
             logging.info("Current user: %s", current_user.username)
 
+            # Generate deterministic name using username as suffix
+            name = generate_unique_connection_name(base_name, current_user.username)
+            logging.info("Generated unique name: %s", name)
+
             # Generate VNC password
             vnc_password = generate_random_string(12)
             logging.info("Generated VNC password")
 
             # Create Rancher API client
-            settings = get_settings()
             rancher_client = client_factory.get_rancher_client()
             logging.info("Created Rancher client")
 
             # Create desktop values
             desktop_values = DesktopValues(
-                desktop=settings.DESKTOP_IMAGE, name=name, vnc_password=vnc_password
+                desktop=desktop_image,
+                name=name,
+                vnc_password=vnc_password,
+                mincpu=min_cpu,
+                maxcpu=max_cpu,
+                minram=min_ram,
+                maxram=max_ram,
             )
-            logging.info("Created desktop values")
+
+            # Configure storage with persistent_home setting
+            desktop_values.storage.persistenthome = persistent_home
+
+            logging.info("Created desktop values with persistent_home=%s", persistent_home)
 
             # Install Helm chart
             logging.info("Installing Helm chart for %s", name)
@@ -110,11 +179,14 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                 token = guacamole_client.login()
                 # Ensure admins group exists
                 guacamole_client.ensure_group(token, "admins")
+
+                # Use correct hostname format
+                target_host = f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz"
+
                 guacamole_connection_id = guacamole_client.create_connection(
                     token,
                     name,
-                    # Use correct hostname format
-                    f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz",
+                    target_host,
                     vnc_password,
                 )
                 logging.info("Created Guacamole connection: %s", guacamole_connection_id)
@@ -140,10 +212,9 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                 raise guac_error
 
             # Store in database
-            target_host = f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz"
             insert_query = """
-            INSERT INTO connections (name, created_by, guacamole_connection_id, target_host, target_port, password, protocol)
-            VALUES (:name, :created_by, :guacamole_connection_id, :target_host, :target_port, :password, :protocol)
+            INSERT INTO connections (name, created_by, guacamole_connection_id, persistent_home, desktop_configuration_id)
+            VALUES (:name, :created_by, :guacamole_connection_id, :persistent_home, :desktop_configuration_id)
             RETURNING id, name, created_at, created_by, guacamole_connection_id
             """
 
@@ -151,15 +222,25 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                 "name": name,
                 "created_by": current_user.username,
                 "guacamole_connection_id": guacamole_connection_id,
-                "target_host": target_host,
-                "target_port": 5900,
-                "password": vnc_password,
-                "protocol": "vnc",
+                "persistent_home": persistent_home,
+                "desktop_configuration_id": desktop_configuration_id,
             }
 
             result, _ = db_client.execute_query(insert_query, connection_data)
             connection = result[0]
             logging.info("Stored connection in database: %s", name)
+
+            # Get the configuration name if it exists
+            config_name = None
+            if desktop_configuration_id:
+                config_name_query = """
+                SELECT name FROM desktop_configurations WHERE id = :config_id
+                """
+                config_name_result, config_name_count = db_client.execute_query(
+                    config_name_query, {"config_id": desktop_configuration_id}
+                )
+                if config_name_count > 0:
+                    config_name = config_name_result[0]["name"]
 
             return (
                 jsonify(
@@ -176,6 +257,9 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                             "created_by": connection["created_by"],
                             "guacamole_connection_id": connection["guacamole_connection_id"],
                             "status": status,
+                            "persistent_home": persistent_home,
+                            "desktop_configuration_id": desktop_configuration_id,
+                            "desktop_configuration_name": config_name,
                         },
                     }
                 ),
@@ -197,9 +281,14 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
     """Scale down a desktop connection.
 
     This endpoint removes a desktop connection by:
-    1. Uninstalling the Rancher deployment
-    2. Deleting the Guacamole connection
-    3. Removing the connection details from the database
+    1. For connections with persistent_home=false:
+       - Uninstalling the Rancher deployment
+       - Deleting the Guacamole connection
+       - Removing the connection details from the database
+    2. For connections with persistent_home=true:
+       - Uninstalling the Rancher deployment
+       - Deleting the Guacamole connection
+       - Marking the connection as deleted (soft delete)
 
     Returns:
         tuple: A tuple containing:
@@ -256,6 +345,7 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
 
             # Get Guacamole connection ID
             guacamole_connection_id = connection["guacamole_connection_id"]
+            persistent_home = connection.get("persistent_home", True)
 
             get_settings()
 
@@ -272,7 +362,7 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
             except Exception as e:
                 rancher_uninstall_success = False
                 logging.error("Failed to uninstall Rancher deployment: %s", str(e))
-                # Continue to delete Guacamole connection and database entry
+                # Continue to delete Guacamole connection and update database entry
 
             # Delete Guacamole connection
             try:
@@ -287,7 +377,32 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
             except Exception as e:
                 guacamole_delete_success = False
                 logging.error("Failed to delete Guacamole connection: %s", str(e))
-                # Continue to delete the database entry even if Guacamole deletion fails
+                # Continue to update the database entry even if Guacamole deletion fails
+
+            # Check if we should soft delete or hard delete
+            if persistent_home:
+                # Soft delete - mark as stopped in the database
+                update_query = """
+                UPDATE connections
+                SET is_stopped = TRUE
+                WHERE name = :connection_name
+                """
+                db_client.execute_query(update_query, {"connection_name": connection_name})
+                logging.info("Marked connection as stopped: %s", connection_name)
+
+                message = (
+                    f"Connection {connection_name} scaled down and preserved for future resumption"
+                )
+            else:
+                # Hard delete - remove from database
+                delete_query = """
+                DELETE FROM connections
+                WHERE name = :connection_name
+                """
+                db_client.execute_query(delete_query, {"connection_name": connection_name})
+                logging.info("Hard deleted connection: %s", connection_name)
+
+                message = f"Connection {connection_name} permanently deleted"
 
             # Return appropriate status based on what succeeded and what failed
             if not rancher_uninstall_success and not guacamole_delete_success:
@@ -303,18 +418,11 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
                     HTTPStatus.INTERNAL_SERVER_ERROR,
                 )
             elif not rancher_uninstall_success:
-                # Only delete the database entry if one of the operations succeeded
-                delete_query = """
-                DELETE FROM connections
-                WHERE name = :connection_name
-                """
-                db_client.execute_query(delete_query, {"connection_name": connection_name})
-                logging.info("Deleted database entry for connection: %s", connection_name)
                 return (
                     jsonify(
                         {
                             "message": (
-                                f"Connection {connection_name} scaled down with warnings: "
+                                f"{message} with warnings: "
                                 "Rancher deployment could not be removed"
                             )
                         }
@@ -322,18 +430,11 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
                     HTTPStatus.OK,
                 )
             elif not guacamole_delete_success:
-                # Only delete the database entry if one of the operations succeeded
-                delete_query = """
-                DELETE FROM connections
-                WHERE name = :connection_name
-                """
-                db_client.execute_query(delete_query, {"connection_name": connection_name})
-                logging.info("Deleted database entry for connection: %s", connection_name)
                 return (
                     jsonify(
                         {
                             "message": (
-                                f"Connection {connection_name} scaled down with warnings: "
+                                f"{message} with warnings: "
                                 "Guacamole connection could not be removed"
                             )
                         }
@@ -341,15 +442,8 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
                     HTTPStatus.OK,
                 )
             else:
-                # Delete database entry if all operations succeeded
-                delete_query = """
-                DELETE FROM connections
-                WHERE name = :connection_name
-                """
-                db_client.execute_query(delete_query, {"connection_name": connection_name})
-                logging.info("Deleted database entry for connection: %s", connection_name)
                 return (
-                    jsonify({"message": f"Connection {connection_name} scaled down successfully"}),
+                    jsonify({"message": message}),
                     HTTPStatus.OK,
                 )
 
@@ -394,27 +488,36 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
             if current_user.is_admin:
                 logging.debug("Listing connections for admin user")
                 query = """
-                SELECT * FROM connections
+                SELECT c.*, dc.name as desktop_configuration_name
+                FROM connections c
+                LEFT JOIN desktop_configurations dc ON c.desktop_configuration_id = dc.id
                 """
                 connections, _ = db_client.execute_query(query)
             else:
                 logging.debug("Listing connections for non-admin user")
                 query = """
-                SELECT * FROM connections
-                WHERE created_by = :username
+                SELECT c.*, dc.name as desktop_configuration_name
+                FROM connections c
+                LEFT JOIN desktop_configurations dc ON c.desktop_configuration_id = dc.id
+                WHERE c.created_by = :username
                 """
                 connections, _ = db_client.execute_query(query, {"username": current_user.username})
 
             result = []
 
             for connection in connections:
+                # Construct target host from connection name
+                target_host = f"{settings.NAMESPACE}-{connection['name']}.dyn.cloud.e-infra.cz"
+
                 # Format connection parameters for JSON auth
                 connection_info = {
                     "protocol": "vnc",
                     "parameters": {
-                        "hostname": connection["target_host"],
-                        "port": str(connection["target_port"]),
-                        "password": connection["password"],
+                        "hostname": target_host,
+                        "port": "5900",  # Fixed VNC port
+                        "password": connection.get(
+                            "password", ""
+                        ),  # Password is in Guacamole, not in our DB
                         "enable-audio": "true",
                         "color-depth": "24",
                         "cursor": "local",
@@ -442,8 +545,6 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
                     {
                         "id": connection["id"],
                         "name": connection["name"],
-                        "target_host": connection["target_host"],
-                        "target_port": connection["target_port"],
                         "created_at": (
                             connection["created_at"].isoformat()
                             if connection["created_at"]
@@ -452,6 +553,10 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
                         "created_by": connection["created_by"],
                         "guacamole_connection_id": connection["guacamole_connection_id"],
                         "auth_url": auth_url,
+                        "persistent_home": connection.get("persistent_home", True),
+                        "is_stopped": connection.get("is_stopped", False),
+                        "desktop_configuration_id": connection.get("desktop_configuration_id"),
+                        "desktop_configuration_name": connection.get("desktop_configuration_name"),
                     }
                 )
 
@@ -513,8 +618,10 @@ def get_connection(connection_name):
 
     try:
         query = """
-        SELECT * FROM connections
-        WHERE name = :connection_name
+        SELECT c.*, dc.name as desktop_configuration_name
+        FROM connections c
+        LEFT JOIN desktop_configurations dc ON c.desktop_configuration_id = dc.id
+        WHERE c.name = :connection_name
         """
         result, count = db_client.execute_query(query, {"connection_name": connection_name})
 
@@ -537,6 +644,10 @@ def get_connection(connection_name):
                         else None,
                         "created_by": connection["created_by"],
                         "guacamole_connection_id": connection["guacamole_connection_id"],
+                        "persistent_home": connection.get("persistent_home", True),
+                        "is_stopped": connection.get("is_stopped", False),
+                        "desktop_configuration_id": connection.get("desktop_configuration_id"),
+                        "desktop_configuration_name": connection.get("desktop_configuration_name"),
                     }
                 }
             ),
@@ -599,13 +710,18 @@ def get_connection_auth(connection_id: str) -> Tuple[Dict[str, Any], int]:
                 secret_key=settings.GUACAMOLE_JSON_SECRET_KEY, guacamole_url=settings.GUACAMOLE_URL
             )
 
+            # Construct hostname from connection name
+            target_host = f"{settings.NAMESPACE}-{connection['name']}.dyn.cloud.e-infra.cz"
+
             # Format connection parameters for JSON auth
             connection_info = {
                 "protocol": "vnc",
                 "parameters": {
-                    "hostname": connection["target_host"],
-                    "port": str(connection["target_port"]),
-                    "password": connection["password"],
+                    "hostname": target_host,
+                    "port": "5900",  # Fixed VNC port
+                    "password": connection.get(
+                        "password", ""
+                    ),  # Password is stored in Guacamole, not in our DB
                     "enable-audio": "true",
                     "color-depth": "24",
                     "cursor": "local",
@@ -698,13 +814,19 @@ def direct_connect(connection_id: str):
             # Initialize the JSON auth utility
             guacamole_json_auth = GuacamoleJsonAuth()
 
+            # Construct hostname from connection name
+            settings = get_settings()
+            target_host = f"{settings.NAMESPACE}-{connection['name']}.dyn.cloud.e-infra.cz"
+
             # Format connection parameters for JSON auth
             connection_info = {
                 "protocol": "vnc",
                 "parameters": {
-                    "hostname": connection["target_host"],
-                    "port": str(connection["target_port"]),
-                    "password": connection["password"],
+                    "hostname": target_host,
+                    "port": "5900",  # Fixed VNC port
+                    "password": connection.get(
+                        "password", ""
+                    ),  # Password is stored in Guacamole, not in our DB
                     "enable-audio": "true",
                     "color-depth": "24",
                     "cursor": "local",
@@ -724,8 +846,6 @@ def direct_connect(connection_id: str):
             )
 
             # Construct the URL
-            settings = get_settings()
-            # Directly use the external Guacamole URL for client use
             guacamole_external_url = settings.EXTERNAL_GUACAMOLE_URL.rstrip("/")
             if not guacamole_external_url:
                 guacamole_external_url = "http://localhost:8080/guacamole"
@@ -892,3 +1012,198 @@ def guacamole_dashboard():
             jsonify({"error": "Internal server error", "details": str(e)}),
             HTTPStatus.INTERNAL_SERVER_ERROR,
         )
+
+
+@connections_bp.route("/resume", methods=["POST"])
+@token_required
+def resume_connection() -> Tuple[Dict[str, Any], int]:
+    """Resume a previously deleted connection.
+
+    This endpoint restores a soft-deleted connection by:
+    1. Reinstalling the Rancher deployment
+    2. Recreating the Guacamole connection
+    3. Marking the connection as active
+
+    Returns:
+        tuple: A tuple containing:
+            - Dict with success/error message
+            - HTTP status code
+    """
+    try:
+        data = request.get_json()
+        if not data or not data.get("name"):
+            return (
+                jsonify({"error": "Missing required field: name"}),
+                HTTPStatus.BAD_REQUEST,
+            )
+
+        connection_name = data.get("name")
+        logging.info("Processing resume for connection: %s", connection_name)
+
+        # Get the current user
+        current_user = request.current_user
+        if current_user is None:
+            logging.error("No authenticated user found")
+            return (
+                jsonify({"error": "Authentication error: No user found"}),
+                HTTPStatus.UNAUTHORIZED,
+            )
+
+        logging.info("Current user: %s", current_user.username)
+
+        # Get database client
+        db_client = client_factory.get_database_client()
+
+        try:
+            # Get connection from database
+            query = """
+            SELECT c.*, dc.min_cpu, dc.max_cpu, dc.min_ram, dc.max_ram
+            FROM connections c
+            LEFT JOIN desktop_configurations dc ON c.desktop_configuration_id = dc.id
+            WHERE c.name = :connection_name AND c.is_stopped = TRUE
+            """
+            result, count = db_client.execute_query(query, {"connection_name": connection_name})
+
+            if count == 0:
+                return (
+                    jsonify({"error": f"Stopped connection {connection_name} not found"}),
+                    HTTPStatus.NOT_FOUND,
+                )
+
+            connection = result[0]
+
+            # Check if user has permission to resume this connection
+            if not current_user.is_admin and connection["created_by"] != current_user.username:
+                return (
+                    jsonify({"error": "You do not have permission to resume this connection"}),
+                    HTTPStatus.FORBIDDEN,
+                )
+
+            # Generate new VNC password
+            vnc_password = generate_random_string(12)
+            logging.info("Generated VNC password")
+
+            # Create Rancher API client
+            settings = get_settings()
+            rancher_client = client_factory.get_rancher_client()
+            logging.info("Created Rancher client")
+
+            # Create desktop values with CPU and RAM from configuration
+            desktop_values = DesktopValues(
+                desktop=settings.DESKTOP_IMAGE,
+                name=connection_name,
+                vnc_password=vnc_password,
+                mincpu=connection.get("min_cpu", 1),
+                maxcpu=connection.get("max_cpu", 4),
+                minram=connection.get("min_ram", "4096Mi"),
+                maxram=connection.get("max_ram", "16384Mi"),
+            )
+
+            # Configure storage with persistent_home setting
+            desktop_values.storage.persistenthome = connection.get("persistent_home", True)
+
+            logging.info(
+                "Created desktop values with persistent_home=%s",
+                connection.get("persistent_home", True),
+            )
+
+            # Install Helm chart
+            logging.info("Installing Helm chart for %s", connection_name)
+            rancher_client.install(connection_name, desktop_values)
+            logging.info("Helm chart installation completed")
+
+            # Check if VNC server is ready
+            logging.info("Checking if VNC server is ready for %s", connection_name)
+            vnc_ready = rancher_client.check_vnc_ready(connection_name)
+            status = "ready" if vnc_ready else "provisioning"
+            logging.info("VNC server ready status for %s: %s", connection_name, status)
+
+            # Get Guacamole client from factory
+            guacamole_client = client_factory.get_guacamole_client()
+
+            try:
+                # Create Guacamole connection
+                # First get a Guacamole token
+                token = guacamole_client.login()
+                # Ensure admins group exists
+                guacamole_client.ensure_group(token, "admins")
+
+                # Use correct hostname format
+                target_host = f"{settings.NAMESPACE}-{connection_name}.dyn.cloud.e-infra.cz"
+
+                guacamole_connection_id = guacamole_client.create_connection(
+                    token,
+                    connection_name,
+                    target_host,
+                    vnc_password,
+                )
+                logging.info("Created Guacamole connection: %s", guacamole_connection_id)
+
+                # Grant permission to admins group
+                guacamole_client.grant_group_permission(token, "admins", guacamole_connection_id)
+                logging.info("Granted permission to admins group")
+
+                # Grant permission to user
+                guacamole_client.grant_permission(
+                    token, current_user.username, guacamole_connection_id
+                )
+                logging.info("Granted permission to %s", current_user.username)
+            except Exception as guac_error:
+                # If Guacamole operations fail, clean up the Rancher deployment
+                logging.error("Guacamole operation failed: %s", str(guac_error))
+                try:
+                    rancher_client.uninstall(connection_name)
+                    logging.info("Cleaned up Rancher deployment after Guacamole error")
+                except Exception as cleanup_error:
+                    logging.error("Failed to clean up Rancher deployment: %s", str(cleanup_error))
+                # Re-raise the original error
+                raise guac_error
+
+            # Update database to mark as active and update the new Guacamole connection ID
+            update_query = """
+            UPDATE connections
+            SET is_stopped = FALSE, guacamole_connection_id = :guacamole_connection_id
+            WHERE name = :connection_name
+            RETURNING id, name, created_at, created_by, guacamole_connection_id
+            """
+
+            update_data = {
+                "connection_name": connection_name,
+                "guacamole_connection_id": guacamole_connection_id,
+            }
+
+            result, _ = db_client.execute_query(update_query, update_data)
+            updated_connection = result[0]
+            logging.info("Resumed connection in database: %s", connection_name)
+
+            return (
+                jsonify(
+                    {
+                        "message": f"Connection {connection_name} resumed successfully",
+                        "connection": {
+                            "name": updated_connection["name"],
+                            "id": updated_connection["id"],
+                            "created_at": (
+                                updated_connection["created_at"].isoformat()
+                                if updated_connection["created_at"]
+                                else None
+                            ),
+                            "created_by": updated_connection["created_by"],
+                            "guacamole_connection_id": updated_connection[
+                                "guacamole_connection_id"
+                            ],
+                            "status": status,
+                            "persistent_home": connection.get("persistent_home", True),
+                        },
+                    }
+                ),
+                HTTPStatus.OK,
+            )
+
+        except Exception as e:
+            logging.error("Database error in resume_connection: %s", str(e))
+            raise
+
+    except Exception as e:
+        logging.error("Error in resume_connection: %s", str(e))
+        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR

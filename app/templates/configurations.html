@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Desktop Configurations - Desktop Manager{% endblock %}
+
+{% block content %}
+<div class="header-with-button">
+    <h2>Desktop Configurations</h2>
+    <a href="{{ url_for('configurations.add_configuration') }}" class="button">Add Configuration</a>
+</div>
+
+<div class="table-container">
+    {% if configurations %}
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Image</th>
+                <th>CPU</th>
+                <th>RAM</th>
+                <th>Access</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for config in configurations %}
+            <tr id="config-{{ config.id }}">
+                <td>{{ config.name }}</td>
+                <td>{{ config.description or 'No description' }}</td>
+                <td>{{ config.image }}</td>
+                <td>{{ config.min_cpu }}-{{ config.max_cpu }} cores</td>
+                <td>{{ config.min_ram }}-{{ config.max_ram }}</td>
+                <td>
+                    {% if config.is_public %}
+                    <span class="public-badge">Public</span>
+                    {% else %}
+                    <span class="private-badge">Private</span>
+                    {% endif %}
+                </td>
+                <td class="action-buttons">
+                    <a href="{{ url_for('configurations.configuration_detail', config_id=config.id) }}" class="action-button view-button">View Details</a>
+                    <form action="{{ url_for('configurations.delete_configuration', config_id=config.id) }}" method="post" onsubmit="handleDelete(event, '{{ config.id }}')">
+                        <button type="submit" class="action-button delete-button">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No configurations found. Click "Add Configuration" to create one.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+async function handleDelete(event, configId) {
+    event.preventDefault();
+
+    if (!confirm('Are you sure you want to delete this configuration?')) {
+        return;
+    }
+
+    const form = event.target;
+    const row = document.getElementById(`config-${configId}`);
+    const actionButtons = row.querySelector('.action-buttons');
+
+    // Replace button with loading animation
+    actionButtons.innerHTML = `
+        <span class="deleting-text">Deleting</span>
+        <div class="loading-dots">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+        </div>
+    `;
+
+    row.classList.add('deleting-row');
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            // Show success notification
+            const notificationContainer = document.createElement('div');
+            notificationContainer.className = 'notification-container';
+            notificationContainer.innerHTML = `
+                <div class="notification success">
+                    Configuration deleted successfully
+                </div>
+            `;
+            document.body.appendChild(notificationContainer);
+
+            // Remove notification after delay
+            setTimeout(() => {
+                notificationContainer.querySelector('.notification').style.opacity = '0';
+                setTimeout(() => notificationContainer.remove(), 300);
+            }, 3000);
+
+            // Fade out and remove the row
+            row.style.transition = 'opacity 0.5s';
+            row.style.opacity = '0';
+            setTimeout(() => {
+                row.remove();
+                // If this was the last row, show the empty state
+                const tbody = document.querySelector('tbody');
+                if (!tbody.hasChildNodes()) {
+                    location.reload();
+                }
+            }, 500);
+        } else {
+            const error = await response.text();
+            throw new Error(error);
+        }
+    } catch (error) {
+        actionButtons.innerHTML = `
+            <span class="error-text">Error: ${error.message}</span>
+            <button onclick="location.reload()" class="action-button">Retry</button>
+        `;
+    }
+}
+</script>
+
+{% endblock %}

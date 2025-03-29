@@ -305,8 +305,8 @@ class RancherClient(BaseClient):
                     desktop_pod = None
                     for pod in pods.get("data", []):
                         pod_name = pod["metadata"]["name"]
-                        # The pod name format is {connection_name}-{random-suffix}-0
-                        if pod_name.startswith(f"{connection_name}-") and pod_name.endswith("-0"):
+                        # The pod name format is {connection_name}-0
+                        if pod_name == f"{connection_name}-0":
                             desktop_pod = pod
                             self.logger.info("Found desktop pod: %s", pod_name)
                             break

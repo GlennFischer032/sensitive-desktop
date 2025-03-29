@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from desktop_manager.api.models.base import Base
@@ -19,10 +19,9 @@ class Connection(Base):
         created_at (datetime): Timestamp of when the connection was created
         created_by (str): Username of the user who created the connection
         guacamole_connection_id (str): ID of the corresponding Guacamole connection
-        target_host (str): Hostname or IP address of the remote desktop
-        target_port (int): Port number for the connection
-        password (str): Password for the connection
-        protocol (str): Protocol used for the connection (e.g., vnc, rdp)
+        is_stopped (bool): Whether the connection is currently stopped
+        persistent_home (bool): Whether the home directory is persistent
+        desktop_configuration_id (int): ID of the desktop configuration used
     """
 
     __tablename__ = "connections"
@@ -32,13 +31,17 @@ class Connection(Base):
     created_at: datetime = Column(DateTime, default=datetime.utcnow)
     created_by: str = Column(String(255), ForeignKey("users.username", ondelete="CASCADE"))
     guacamole_connection_id: str = Column(String(255), nullable=False)
-    target_host: str = Column(String(255), nullable=True)
-    target_port: int = Column(Integer, nullable=True)
-    password: str = Column(String(255), nullable=True)
-    protocol: str = Column(String(50), nullable=True, default="vnc")
+    is_stopped: bool = Column(Boolean, default=False)
+    persistent_home: bool = Column(Boolean, default=True)
+    desktop_configuration_id: int = Column(
+        Integer, ForeignKey("desktop_configurations.id"), nullable=True
+    )
 
     # Relationship to user who created the connection
     creator = relationship("User", back_populates="connections")
+
+    # Relationship to desktop configuration
+    desktop_configuration = relationship("DesktopConfiguration", back_populates="connections")
 
     def __repr__(self) -> str:
         """Return string representation of the Connection."""

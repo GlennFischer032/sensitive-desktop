@@ -115,6 +115,10 @@ class User(Base):
     social_auth = relationship(
         "SocialAuthAssociation", back_populates="user", cascade="all, delete-orphan"
     )
+    desktop_configurations = relationship("DesktopConfiguration", back_populates="creator")
+    desktop_configuration_access = relationship(
+        "DesktopConfigurationAccess", back_populates="user", cascade="all, delete-orphan"
+    )
 
     __table_args__ = {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"}
 

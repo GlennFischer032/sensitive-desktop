@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Add Desktop Configuration - Desktop Manager{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h2>Add Desktop Configuration</h2>
+    <form method="post" class="configuration-form">
+        <div class="form-group">
+            <label for="name">Name *</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="image">Docker Image *</label>
+            <input type="text" id="image" name="image" required>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="min_cpu">Minimum CPU Cores *</label>
+                <input type="number" id="min_cpu" name="min_cpu" min="1" max="32" value="1" required>
+            </div>
+
+            <div class="form-group">
+                <label for="max_cpu">Maximum CPU Cores *</label>
+                <input type="number" id="max_cpu" name="max_cpu" min="1" max="32" value="4" required>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="min_ram">Minimum RAM *</label>
+                <select id="min_ram" name="min_ram" required>
+                    <option value="1024Mi">1GB</option>
+                    <option value="2048Mi">2GB</option>
+                    <option value="4096Mi" selected>4GB</option>
+                    <option value="8192Mi">8GB</option>
+                    <option value="16384Mi">16GB</option>
+                    <option value="32768Mi">32GB</option>
+                    <option value="65536Mi">64GB</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="max_ram">Maximum RAM *</label>
+                <select id="max_ram" name="max_ram" required>
+                    <option value="1024Mi">1GB</option>
+                    <option value="2048Mi">2GB</option>
+                    <option value="4096Mi">4GB</option>
+                    <option value="8192Mi">8GB</option>
+                    <option value="16384Mi" selected>16GB</option>
+                    <option value="32768Mi">32GB</option>
+                    <option value="65536Mi">64GB</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="is_public" id="is_public">
+                Make this configuration public
+            </label>
+        </div>
+
+        <div class="form-group" id="user-access-group" style="display: none;">
+            <label>User Access</label>
+            <div class="user-list">
+                {% for user in users %}
+                <label class="checkbox-label">
+                    <input type="checkbox" name="allowed_users" value="{{ user.username }}">
+                    {{ user.username }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button">Create Configuration</button>
+            <a href="{{ url_for('desktop_configurations.list_configurations') }}" class="button secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('is_public').addEventListener('change', function() {
+    const userAccessGroup = document.getElementById('user-access-group');
+    userAccessGroup.style.display = this.checked ? 'none' : 'block';
+});
+</script>
+
+{% endblock %}

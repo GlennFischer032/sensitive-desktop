@@ -68,10 +68,13 @@ spec:
             value: {{ printf "https://%s/guacamole" (include "guacamole.hostname" .) | quote }}
           - name: SECRET_KEY
             value: {{ .Values.common.credentials.secretKey | quote }}
-          - name: ADMIN_USERNAME
-            value: {{ .Values.common.credentials.desktopAdmin.username | quote }}
-          - name: ADMIN_PASSWORD
-            value: {{ .Values.common.credentials.desktopAdmin.password | quote }}
+          # Admin authentication now uses OIDC sub instead of username/password
+          # - name: ADMIN_USERNAME
+          #   value: {{ .Values.common.credentials.desktopAdmin.username | quote }}
+          # - name: ADMIN_PASSWORD
+          #   value: {{ .Values.common.credentials.desktopAdmin.password | quote }}
+          - name: ADMIN_OIDC_SUB
+            value: {{ .Values.common.credentials.desktopAdmin.oidcSub | quote }}
           - name: RANCHER_API_URL
             value: {{ .Values.common.rancher.apiUrl | quote }}
           - name: RANCHER_CLUSTER_ID

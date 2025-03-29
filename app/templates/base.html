@@ -47,6 +47,7 @@
                 {% if session.get('is_admin') %}
                 <a href="{{ url_for('users.dashboard') }}">Dashboard</a>
                 <a href="{{ url_for('users.view_users') }}">Users</a>
+                <a href="{{ url_for('desktop_configurations.list_configurations') }}">Configurations</a>
                 {% endif %}
                 <a href="{{ url_for('connections.view_connections') }}">Connections</a>
                 <a href="{{ url_for('connections.guacamole_dashboard') }}" target="_blank">Guacamole</a>

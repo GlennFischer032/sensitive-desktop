@@ -54,6 +54,53 @@ CREATE TABLE IF NOT EXISTS pkce_state (
 CREATE INDEX idx_state ON pkce_state(state);
 CREATE INDEX idx_expires ON pkce_state(expires_at);
 
+-- Desktop Configurations table
+CREATE TABLE IF NOT EXISTS desktop_configurations (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    image VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(255),
+    is_public BOOLEAN DEFAULT FALSE,
+    min_cpu INTEGER DEFAULT 1,
+    max_cpu INTEGER DEFAULT 4,
+    min_ram VARCHAR(10) DEFAULT '4096Mi',
+    max_ram VARCHAR(10) DEFAULT '16384Mi',
+    FOREIGN KEY (created_by) REFERENCES users(username)
+);
+
+-- Desktop Configuration Access table for user permissions
+CREATE TABLE IF NOT EXISTS desktop_configuration_access (
+    id SERIAL PRIMARY KEY,
+    desktop_configuration_id INT NOT NULL,
+    username VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (desktop_configuration_id) REFERENCES desktop_configurations(id) ON DELETE CASCADE,
+    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
+    UNIQUE (desktop_configuration_id, username)
+);
+
+-- Create admin user if it doesn't exist
+INSERT INTO users (username, email, is_admin, name, email_verified)
+VALUES ('admin', 'admin@example.com', TRUE, 'System Administrator', TRUE)
+ON CONFLICT (username) DO NOTHING;
+
+-- Insert default desktop configuration
+INSERT INTO desktop_configurations (name, description, image, is_public, created_by, min_cpu, max_cpu, min_ram, max_ram)
+VALUES (
+    'Ubuntu XFCE',
+    'Default Ubuntu XFCE desktop environment',
+    'cerit.io/desktops/ubuntu-xfce:22.04-user',
+    TRUE,
+    'admin',
+    2,
+    4,
+    '4096Mi',
+    '16384Mi'
+)
+ON CONFLICT (name) DO NOTHING;
+
 -- Connections table
 CREATE TABLE IF NOT EXISTS connections (
     id SERIAL PRIMARY KEY,
@@ -61,9 +108,9 @@ CREATE TABLE IF NOT EXISTS connections (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by VARCHAR(255),
     guacamole_connection_id VARCHAR(255) NOT NULL,
-    target_host VARCHAR(255),
-    target_port INTEGER,
-    password VARCHAR(255),
-    protocol VARCHAR(50) DEFAULT 'vnc',
-    FOREIGN KEY (created_by) REFERENCES users(username)
+    is_stopped BOOLEAN DEFAULT FALSE,
+    persistent_home BOOLEAN DEFAULT TRUE,
+    desktop_configuration_id INT,
+    FOREIGN KEY (created_by) REFERENCES users(username),
+    FOREIGN KEY (desktop_configuration_id) REFERENCES desktop_configurations(id)
 );

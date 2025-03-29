@@ -9,8 +9,10 @@ from flask import Flask, jsonify, redirect, render_template, request, session, u
 from flask_cors import CORS
 from flask_session import Session
 
+from app.desktop_configurations import desktop_config_bp
 from auth import auth_bp
 from config.config import Config
+from configurations import configurations_bp
 from connections import connections_bp
 from middleware.security import init_security, rate_limiter
 from users import users_bp
@@ -168,6 +170,8 @@ def create_app(config_class=Config):
     app.register_blueprint(auth_bp)
     app.register_blueprint(connections_bp)
     app.register_blueprint(users_bp)
+    app.register_blueprint(configurations_bp)
+    app.register_blueprint(desktop_config_bp)
 
     # Error handlers
     @app.errorhandler(404)

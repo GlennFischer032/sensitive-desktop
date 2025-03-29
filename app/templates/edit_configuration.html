@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Configuration - Desktop Manager{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h2>Edit Configuration</h2>
+    <form method="POST" class="form">
+        <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" value="{{ configuration.name }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" rows="3">{{ configuration.description }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="image">Docker Image</label>
+            <input type="text" id="image" name="image" value="{{ configuration.image }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="min_cpu">Minimum CPU Cores</label>
+            <input type="number" id="min_cpu" name="min_cpu" value="{{ configuration.min_cpu }}" min="1" max="16" required>
+        </div>
+
+        <div class="form-group">
+            <label for="max_cpu">Maximum CPU Cores</label>
+            <input type="number" id="max_cpu" name="max_cpu" value="{{ configuration.max_cpu }}" min="1" max="16" required>
+        </div>
+
+        <div class="form-group">
+            <label for="min_ram">Minimum RAM (GB)</label>
+            <input type="number" id="min_ram" name="min_ram" value="{{ configuration.min_ram }}" min="1" max="32" required>
+        </div>
+
+        <div class="form-group">
+            <label for="max_ram">Maximum RAM (GB)</label>
+            <input type="number" id="max_ram" name="max_ram" value="{{ configuration.max_ram }}" min="1" max="32" required>
+        </div>
+
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" id="is_public" name="is_public" {% if configuration.is_public %}checked{% endif %}>
+                Make this configuration public
+            </label>
+        </div>
+
+        <div id="user_access_section" class="form-group" {% if configuration.is_public %}style="display: none;"{% endif %}>
+            <label>User Access</label>
+            <div class="user-list">
+                {% for user in all_users %}
+                <label class="checkbox-label">
+                    <input type="checkbox" name="allowed_users" value="{{ user.id }}"
+                           {% if user.id in allowed_user_ids %}checked{% endif %}>
+                    {{ user.username }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button">Save Changes</button>
+            <a href="{{ url_for('configurations.configuration_detail', config_id=configuration.id) }}" class="button secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('is_public').addEventListener('change', function() {
+    const userAccessSection = document.getElementById('user_access_section');
+    userAccessSection.style.display = this.checked ? 'none' : 'block';
+});
+</script>
+{% endblock %}

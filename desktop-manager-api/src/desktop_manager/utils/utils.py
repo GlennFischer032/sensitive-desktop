@@ -25,10 +25,18 @@ def sanitize_name(name):
     return name
 
 
-def generate_unique_connection_name(base_name, db_session=None):
-    unique_suffix = uuid.uuid4().hex[:8]
+def generate_unique_connection_name(base_name, username):
+    """Generate a deterministic connection name using username as suffix.
+
+    Args:
+        base_name: Base name for the connection
+        username: Username to use as suffix
+
+    Returns:
+        str: Generated connection name in format base_name-username
+    """
     # Ensure the total length does not exceed 53 characters
-    max_base_length = 53 - len(unique_suffix) - 1  # Subtract length of suffix and hyphen
+    max_base_length = 53 - len(username) - 1  # Subtract length of suffix and hyphen
     base_name = base_name[:max_base_length]
-    name = f"{base_name}-{unique_suffix}"
+    name = f"{base_name}-{username}"
     return name

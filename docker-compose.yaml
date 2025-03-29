@@ -131,6 +131,8 @@ services:
       - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
       - OIDC_PROVIDER_URL=https://login.e-infra.cz/oidc
       - OIDC_REDIRECT_URI=http://localhost:5001/auth/oidc/callback
+      # Debug settings
+      - DEBUG_LOGIN_ENABLED=${DEBUG_LOGIN_ENABLED}
     depends_on:
       desktop-api:
         condition: service_healthy

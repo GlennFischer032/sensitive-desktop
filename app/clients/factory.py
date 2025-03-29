@@ -1,59 +1,83 @@
-"""Client factory for API interactions."""
+"""Client factory for API clients."""
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from flask import current_app
 
 from .auth import AuthClient
+from .base import BaseClient
 from .connections import ConnectionsClient
+from .desktop_configurations import DesktopConfigurationsClient
 from .users import UsersClient
 
 
 class ClientFactory:
     """Factory for creating API clients."""
 
-    def __init__(self, base_url: Optional[str] = None):
-        """Initialize the client factory.
+    def __init__(self):
+        """Initialize factory with empty client cache."""
+        self._clients: Dict[str, Any] = {}
 
-        Args:
-            base_url: Base URL for API requests. If None, uses API_URL from config.
-        """
-        self.base_url = base_url
-
-    def get_base_url(self) -> str:
-        """Get the base URL for API requests.
+    def get_base_client(self) -> BaseClient:
+        """Get a base client instance.
 
         Returns:
-            str: Base URL for API requests
+            BaseClient: The base client
         """
-        if self.base_url:
-            return self.base_url
-        return current_app.config["API_URL"]
+        if "base" not in self._clients:
+            self._clients["base"] = BaseClient(
+                base_url=current_app.config["API_URL"],
+            )
+        return self._clients["base"]
 
     def get_auth_client(self) -> AuthClient:
-        """Get the authentication client.
+        """Get an auth client instance.
 
         Returns:
-            AuthClient: Authentication client
+            AuthClient: The auth client
         """
-        return AuthClient(base_url=self.get_base_url())
+        if "auth" not in self._clients:
+            self._clients["auth"] = AuthClient(
+                base_url=current_app.config["API_URL"],
+            )
+        return self._clients["auth"]
 
     def get_connections_client(self) -> ConnectionsClient:
-        """Get the connections client.
+        """Get a connections client instance.
 
         Returns:
-            ConnectionsClient: Connections client
+            ConnectionsClient: The connections client
         """
-        return ConnectionsClient(base_url=self.get_base_url())
+        if "connections" not in self._clients:
+            self._clients["connections"] = ConnectionsClient(
+                base_url=current_app.config["API_URL"],
+            )
+        return self._clients["connections"]
 
     def get_users_client(self) -> UsersClient:
-        """Get the users client.
+        """Get a users client instance.
 
         Returns:
-            UsersClient: Users client
+            UsersClient: The users client
         """
-        return UsersClient(base_url=self.get_base_url())
+        if "users" not in self._clients:
+            self._clients["users"] = UsersClient(
+                base_url=current_app.config["API_URL"],
+            )
+        return self._clients["users"]
+
+    def get_desktop_configurations_client(self) -> DesktopConfigurationsClient:
+        """Get a desktop configurations client instance.
+
+        Returns:
+            DesktopConfigurationsClient: The desktop configurations client
+        """
+        if "desktop_configurations" not in self._clients:
+            self._clients["desktop_configurations"] = DesktopConfigurationsClient(
+                base_url=current_app.config["API_URL"],
+            )
+        return self._clients["desktop_configurations"]
 
 
-# Global client factory instance
+# Factory instance
 client_factory = ClientFactory()

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}{{ configuration.name }} - Desktop Manager{% endblock %}
+
+{% block content %}
+<div class="detail-container">
+    <div class="header-with-button">
+        <h2>{{ configuration.name }}</h2>
+        <a href="{{ url_for('configurations.edit_configuration', config_id=configuration.id) }}" class="button">Edit Configuration</a>
+    </div>
+
+    <div class="detail-card">
+        <div class="detail-section">
+            <h3>Basic Information</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Description</label>
+                    <p>{{ configuration.description or 'No description' }}</p>
+                </div>
+                <div class="detail-item">
+                    <label>Docker Image</label>
+                    <p>{{ configuration.image }}</p>
+                </div>
+                <div class="detail-item">
+                    <label>Created By</label>
+                    <p>{{ configuration.created_by }}</p>
+                </div>
+                <div class="detail-item">
+                    <label>Created At</label>
+                    <p>{{ configuration.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h3>Resource Limits</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>CPU Cores</label>
+                    <p>{{ configuration.min_cpu }}-{{ configuration.max_cpu }}</p>
+                </div>
+                <div class="detail-item">
+                    <label>RAM</label>
+                    <p>{{ configuration.min_ram }}-{{ configuration.max_ram }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h3>Access Control</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Access Type</label>
+                    <p>
+                        {% if configuration.is_public %}
+                        <span class="public-badge">Public</span>
+                        {% else %}
+                        <span class="private-badge">Private</span>
+                        {% endif %}
+                    </p>
+                </div>
+                {% if not configuration.is_public %}
+                <div class="detail-item">
+                    <label>Allowed Users</label>
+                    <div class="user-list">
+                        {% for user in allowed_users %}
+                        <span class="user-badge">{{ user.username }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h3>Active Connections</h3>
+            {% if active_connections %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Created By</th>
+                            <th>Created At</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for conn in active_connections %}
+                        <tr>
+                            <td>{{ conn.name }}</td>
+                            <td>{{ conn.created_by }}</td>
+                            <td>{{ conn.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>
+                                {% if conn.is_stopped %}
+                                <span class="status-badge stopped">Stopped</span>
+                                {% else %}
+                                <span class="status-badge active">Active</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="empty-state">No active connections using this configuration.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

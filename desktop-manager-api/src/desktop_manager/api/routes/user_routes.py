@@ -497,3 +497,50 @@ def update_user(username: str) -> Tuple[Dict[str, Any], int]:
             jsonify({"error": "Failed to update user", "details": str(e)}),
             HTTPStatus.INTERNAL_SERVER_ERROR,
         )
+
+
+@users_bp.route("/verify", methods=["GET"])
+def verify_user_by_sub() -> Tuple[Dict[str, Any], int]:
+    """Verify if a user with the given sub exists.
+
+    This endpoint is used by the debug login feature to verify if a user with
+    the provided sub exists in the database.
+
+    Returns:
+        tuple: A tuple containing:
+            - Dict with verification result
+            - HTTP status code
+    """
+    try:
+        sub = request.args.get("sub")
+        if not sub:
+            return (
+                jsonify({"error": "Missing sub parameter"}),
+                HTTPStatus.BAD_REQUEST,
+            )
+
+        # Get database client
+        db_client = client_factory.get_database_client()
+
+        # Check if user exists with the provided sub
+        query = "SELECT id, username FROM users WHERE sub = :sub"
+        users, count = db_client.execute_query(query, {"sub": sub})
+
+        if count == 0:
+            return (
+                jsonify({"exists": False, "message": "User not found"}),
+                HTTPStatus.NOT_FOUND,
+            )
+
+        user = users[0]
+        return (
+            jsonify({"exists": True, "user_id": user["id"], "username": user["username"]}),
+            HTTPStatus.OK,
+        )
+
+    except Exception as e:
+        logging.error("Error verifying user by sub: %s", str(e))
+        return (
+            jsonify({"error": "Failed to verify user", "details": str(e)}),
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+        )

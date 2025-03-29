@@ -27,6 +27,18 @@
                 Sign in with e-INFRA CZ
             </a>
         </div>
+
+        {% if config.DEBUG_LOGIN_ENABLED %}
+        <div class="login-option">
+            <h3>Debug Login</h3>
+            <p class="login-description">
+                For development and testing purposes only.
+            </p>
+            <a href="{{ url_for('auth.debug_login') }}" class="button debug-button">
+                Development Debug Login
+            </a>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -125,6 +137,24 @@
 
 .button:hover {
     background: #004494;
+}
+
+.debug-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.85rem;
+    background: #dc3545;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    font-size: 1.1rem;
+}
+
+.debug-button:hover {
+    background: #bd2130;
 }
 </style>
 {% endblock %}

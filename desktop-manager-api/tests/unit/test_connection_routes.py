@@ -511,35 +511,17 @@ def test_scale_up_success(
 ):
     """Test successful connection scale up."""
     # Create a test connection
-    connection_name = f"test-conn-{str(uuid.uuid4())[:8]}"
-    connection = Connection(
-        name=connection_name,
-        created_by=test_user.username,
-        guacamole_connection_id="test_guac_id",
-    )
-    test_db.add(connection)
-    test_db.commit()
-    test_db.refresh(connection)
-
-    # Debug logging
-    logging.info(f"TEST: Created connection with name: {connection_name}")
-    logging.info(f"TEST: Connection ID: {connection.id}")
-    logging.info(f"TEST: Connection created_by: {connection.created_by}")
+    base_name = "test-conn"
+    expected_name = f"{base_name}-{test_user.username}"
 
     # Create auth token
     token = create_auth_token(test_user)
 
-    # Verify connection is in test_db
-    conn_check = test_db.query(Connection).filter_by(name=connection_name).first()
-    logging.info(f"TEST: Connection check from test_db: {conn_check}")
-    if conn_check:
-        logging.info(f"TEST: Connection exists in test_db with ID: {conn_check.id}")
-
     # Make request
-    logging.info(f"TEST: Making request to scale up connection: {connection_name}")
+    logging.info(f"TEST: Making request to scale up connection: {base_name}")
     response = test_client.post(
         "/api/connections/scaleup",
-        data=json.dumps({"name": connection_name}),
+        data=json.dumps({"name": base_name}),
         content_type="application/json",
         headers={"Authorization": f"Bearer {token}"}
     )
@@ -553,9 +535,9 @@ def test_scale_up_success(
     response_data = json.loads(response.data)
     assert "message" in response_data
 
-    # The scaled name will be based on the original name but not necessarily identical
+    # The scaled name should be in the format base_name-username
     scaled_name = response_data["connection"]["name"]
-    assert connection_name in scaled_name
+    assert scaled_name == expected_name
 
     # Verify message contains the scaled name
     assert scaled_name in response_data["message"]

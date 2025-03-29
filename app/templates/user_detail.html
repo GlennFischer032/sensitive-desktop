@@ -101,33 +101,43 @@
         </div>
     </div>
 
-    {% if user_connections %}
     <div class="detail-section">
         <h3>User Connections</h3>
         <div class="connections-list">
+            {% if user_connections %}
             <table>
                 <thead>
                     <tr>
                         <th>Connection Name</th>
-                        <th>Protocol</th>
-                        <th>Host</th>
+                        <th>Desktop Configuration</th>
                         <th>Created</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for connection in user_connections %}
                     <tr>
                         <td>{{ connection.name }}</td>
-                        <td>{{ connection.protocol|upper }}</td>
-                        <td>{{ connection.target_host }}:{{ connection.target_port }}</td>
+                        <td>{{ connection.desktop_configuration_name or "Default" }}</td>
                         <td>{{ connection.created_at|datetime }}</td>
+                        <td>
+                            {% if connection.is_stopped %}
+                            <span class="status-badge stopped">Stopped</span>
+                            {% else %}
+                            <span class="status-badge active">Active</span>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No connections found for this user.</p>
+            </div>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
 </div>
 
 <style>
@@ -212,6 +222,34 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.status-badge.active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-badge.stopped {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.empty-state {
+    padding: 2rem;
+    text-align: center;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    color: #6c757d;
+    font-style: italic;
 }
 </style>
 
