@@ -21,3 +21,12 @@ repos:
       - id: check-merge-conflict
       - id: mixed-line-ending
         args: ['--fix=lf']
+
+  - repo: local
+    hooks:
+      - id: check-sass-compiled
+        name: Check if SASS files have been compiled to CSS
+        entry: python app/scripts/check_sass_compiled.py
+        language: system
+        pass_filenames: false
+        files: ^app/scss/.*\.scss$

@@ -5,7 +5,7 @@
 {% block content %}
 <div class="header-with-button">
     <h2>Desktop Configurations</h2>
-    <a href="{{ url_for('configurations.add_configuration') }}" class="button">Add Configuration</a>
+    <a href="{{ url_for('configurations.create_configuration') }}" class="button">Add Configuration</a>
 </div>
 
 <div class="table-container">
@@ -14,10 +14,7 @@
         <thead>
             <tr>
                 <th>Name</th>
-                <th>Description</th>
                 <th>Image</th>
-                <th>CPU</th>
-                <th>RAM</th>
                 <th>Access</th>
                 <th>Actions</th>
             </tr>
@@ -26,21 +23,18 @@
             {% for config in configurations %}
             <tr id="config-{{ config.id }}">
                 <td>{{ config.name }}</td>
-                <td>{{ config.description or 'No description' }}</td>
                 <td>{{ config.image }}</td>
-                <td>{{ config.min_cpu }}-{{ config.max_cpu }} cores</td>
-                <td>{{ config.min_ram }}-{{ config.max_ram }}</td>
                 <td>
                     {% if config.is_public %}
-                    <span class="public-badge">Public</span>
+                    <span class="badge badge-success">Public</span>
                     {% else %}
-                    <span class="private-badge">Private</span>
+                    <span class="badge badge-info">Private</span>
                     {% endif %}
                 </td>
                 <td class="action-buttons">
-                    <a href="{{ url_for('configurations.configuration_detail', config_id=config.id) }}" class="action-button view-button">View Details</a>
+                    <a href="{{ url_for('configurations.edit_configuration', config_id=config.id) }}" class="button small view-details-btn">Edit</a>
                     <form action="{{ url_for('configurations.delete_configuration', config_id=config.id) }}" method="post" onsubmit="handleDelete(event, '{{ config.id }}')">
-                        <button type="submit" class="action-button delete-button">Delete</button>
+                        <button type="submit" class="button small danger delete-btn">Delete</button>
                     </form>
                 </td>
             </tr>
@@ -122,7 +116,7 @@ async function handleDelete(event, configId) {
     } catch (error) {
         actionButtons.innerHTML = `
             <span class="error-text">Error: ${error.message}</span>
-            <button onclick="location.reload()" class="action-button">Retry</button>
+            <button onclick="location.reload()" class="button small retry-btn">Retry</button>
         `;
     }
 }

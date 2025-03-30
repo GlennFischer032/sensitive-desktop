@@ -1,0 +1,132 @@
+// Heading Styles
+h1 {
+  font-size: 2.25rem;
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 1.875rem;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+
+h4 {
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+h5 {
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+h6 {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+// Paragraph
+p {
+  margin-bottom: $spacing-md;
+  line-height: $line-height-base;
+}
+
+// Text styles
+.text-muted {
+  color: $text-light;
+}
+
+.text-primary {
+  color: $primary-color;
+}
+
+.text-success {
+  color: $success-color;
+}
+
+.text-danger {
+  color: $danger-color;
+}
+
+.text-warning {
+  color: $warning-color;
+}
+
+.text-info {
+  color: $info-color;
+}
+
+// Font weights
+.font-light {
+  font-weight: 300;
+}
+
+.font-normal {
+  font-weight: 400;
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.font-bold {
+  font-weight: 600;
+}
+
+.font-extrabold {
+  font-weight: 700;
+}
+
+// Text alignment
+.text-center {
+  text-align: center;
+}
+
+.text-left {
+  text-align: left;
+}
+
+.text-right {
+  text-align: right;
+}
+
+// Text transforms
+.text-uppercase {
+  text-transform: uppercase;
+}
+
+.text-lowercase {
+  text-transform: lowercase;
+}
+
+.text-capitalize {
+  text-transform: capitalize;
+}
+
+// Monospaced text
+.text-mono {
+  font-family: monospace;
+  background: $bg-light;
+  padding: 0.2rem 0.4rem;
+  border-radius: $border-radius;
+  font-size: 0.9em;
+}
+
+// Responsive typography
+@include respond-to(sm) {
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+  }
+}

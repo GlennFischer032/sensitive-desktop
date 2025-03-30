@@ -1,0 +1,189 @@
+// Form container
+.form-container {
+  max-width: 800px;
+  width: 100%;
+  margin: 0 auto;
+  padding: $spacing-xl;
+}
+
+// Form group
+.form-group {
+  margin-bottom: $spacing-lg;
+
+  label {
+    display: block;
+    margin-bottom: $spacing-sm;
+    color: $text-dark;
+    font-weight: 500;
+
+    &.required:after {
+      content: " *";
+      color: $danger-color;
+    }
+  }
+
+  // Form inputs
+  input,
+  select,
+  textarea {
+    width: 100%;
+    padding: $spacing-sm;
+    border: 1px solid $border-color;
+    border-radius: $border-radius;
+    font-size: $font-size-base;
+    transition: border-color $transition-fast, box-shadow $transition-fast, background-color $transition-fast;
+    font-family: inherit;
+
+    &:focus {
+      outline: none;
+      border-color: $primary-color;
+      box-shadow: 0 0 0 2px rgba($primary-color, 0.2);
+    }
+
+    &::placeholder {
+      color: $secondary-color;
+      opacity: 1;
+    }
+
+    &:disabled {
+      background-color: $bg-light;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+  }
+
+  // Textarea
+  textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+}
+
+// Validation states
+.form-group {
+  &.has-error {
+    input,
+    select,
+    textarea {
+      border-color: $danger-color;
+      background-color: rgba($danger-color, 0.05);
+    }
+
+    .error-message {
+      display: block;
+      color: $danger-color;
+      font-size: $font-size-sm;
+      margin-top: $spacing-xs;
+    }
+  }
+
+  &.has-success {
+    input,
+    select,
+    textarea {
+      border-color: $success-color;
+      background-color: rgba($success-color, 0.05);
+    }
+  }
+}
+
+// Form helper text
+.form-text,
+.form-help {
+  display: block;
+  margin-top: $spacing-xs;
+  font-size: $font-size-sm;
+  color: $text-light;
+}
+
+// Form row (horizontal layout)
+.form-row {
+  @include flex(row, flex-start, stretch, nowrap);
+  gap: $spacing-xl;
+  margin-bottom: $spacing-xl;
+
+  .form-group {
+    flex: 1;
+    margin-bottom: 0;
+  }
+
+  @include respond-to(sm) {
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+}
+
+// Checkbox and radio styles
+.checkbox-label,
+.radio-label {
+  @include flex(row, flex-start, flex-start);
+  font-weight: normal;
+  cursor: pointer;
+  margin-bottom: $spacing-sm;
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    margin-right: $spacing-sm;
+    margin-top: 3px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+}
+
+// Form actions
+.form-actions {
+  @include flex(row, flex-start, center);
+  gap: $spacing-md;
+  margin-top: $spacing-xl * 1.5;
+
+  @include respond-to(sm) {
+    flex-direction: column;
+    width: 100%;
+
+    .button {
+      width: 100%;
+    }
+  }
+}
+
+// Special input layouts
+.size-input-container {
+  @include flex(row, flex-start, center);
+  gap: $spacing-md;
+
+  input[type="number"] {
+    flex: 1;
+    min-width: 80px;
+  }
+
+  select {
+    width: 150px;
+  }
+
+  @include respond-to(sm) {
+    flex-direction: row;
+
+    input[type="number"],
+    select {
+      flex: 1;
+    }
+  }
+}
+
+// Login form
+.login-form {
+  @include flex(column);
+  gap: $spacing-md;
+
+  .form-group {
+    @include flex(column);
+    gap: $spacing-sm;
+  }
+
+  .button-container {
+    text-align: center;
+    margin-top: $spacing-xl;
+  }
+}

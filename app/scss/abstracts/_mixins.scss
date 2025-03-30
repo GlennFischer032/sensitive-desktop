@@ -1,0 +1,87 @@
+// Flexbox mixins
+@mixin flex($direction: row, $justify: flex-start, $align: stretch, $wrap: nowrap) {
+  display: flex;
+  flex-direction: $direction;
+  justify-content: $justify;
+  align-items: $align;
+  flex-wrap: $wrap;
+}
+
+// Media query mixins
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == xs {
+    @media (max-width: $breakpoint-xs) { @content; }
+  }
+  @else if $breakpoint == sm {
+    @media (max-width: $breakpoint-sm) { @content; }
+  }
+  @else if $breakpoint == md {
+    @media (max-width: $breakpoint-md) { @content; }
+  }
+  @else if $breakpoint == lg {
+    @media (max-width: $breakpoint-lg) { @content; }
+  }
+}
+
+// Button mixin
+@mixin button-variant($bg-color, $text-color: white, $hover-color: darken($bg-color, 10%)) {
+  background-color: $bg-color;
+  color: $text-color;
+
+  &:hover {
+    background-color: $hover-color;
+    box-shadow: $shadow-sm;
+  }
+
+  &:active {
+    transform: translateY(1px);
+    box-shadow: none;
+  }
+}
+
+// Shadow mixins
+@mixin box-shadow($level: 1) {
+  @if $level == 1 {
+    box-shadow: $shadow-sm;
+  } @else if $level == 2 {
+    box-shadow: $shadow-md;
+  } @else if $level == 3 {
+    box-shadow: $shadow-lg;
+  }
+}
+
+// Card mixin
+@mixin card($padding: $spacing-md, $bg-color: $bg-white, $shadow: 1) {
+  background-color: $bg-color;
+  padding: $padding;
+  border-radius: $border-radius-lg;
+  @include box-shadow($shadow);
+}
+
+// Truncate text with ellipsis
+@mixin text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Focus state styles
+@mixin focus-outline($color: $primary-color) {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba($color, 0.3);
+}
+
+// Animation mixin
+@mixin animate($animation, $duration: 1s, $timing: ease, $delay: 0s) {
+  animation: $animation $duration $timing $delay;
+}
+
+// Badge mixin
+@mixin badge($bg-color: $primary-color, $color: white) {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  background-color: $bg-color;
+  color: $color;
+}

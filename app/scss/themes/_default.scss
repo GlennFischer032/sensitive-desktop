@@ -1,0 +1,32 @@
+// Default theme
+// This file is for theme-specific overrides and will be useful for theming in the future
+
+// Print styles
+@media print {
+  body {
+    background-color: white;
+    font-size: 12pt;
+  }
+
+  .container {
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    max-width: 100%;
+  }
+
+  .nav-container,
+  .action-buttons,
+  .button,
+  .form-actions {
+    display: none !important;
+  }
+
+  table, th, td {
+    border: 1px solid $border-color;
+  }
+
+  @page {
+    margin: 1.5cm;
+  }
+}

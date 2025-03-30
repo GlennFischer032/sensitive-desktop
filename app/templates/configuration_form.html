@@ -97,7 +97,7 @@
       <button type="button" id="submitBtn" class="button">
         {% if configuration %}Save Changes{% else %}Create Configuration{% endif %}
       </button>
-      <a href="{{ url_for('desktop_configurations.list_configurations') }}" class="button secondary">Cancel</a>
+      <a href="{{ url_for('configurations.list_configurations') }}" class="button secondary">Cancel</a>
     </div>
   </form>
 </div>
@@ -181,7 +181,7 @@ document.getElementById('submitBtn').addEventListener('click', function(e) {
             alert('Error: ' + data.error);
         } else if (data && data.success) {
             // Redirect to configurations list on success
-            window.location.href = "{{ url_for('desktop_configurations.list_configurations') }}";
+            window.location.href = "{{ url_for('configurations.list_configurations') }}";
         }
     })
     .catch(error => {

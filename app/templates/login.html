@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% set hide_nav = true %}
+{% set body_class = "login-page" %}
 
 {% block title %}Login - Desktop Manager{% endblock %}
 
@@ -23,7 +24,7 @@
                 Use your e-INFRA CZ account to access the Desktop Manager.
             </p>
             <a href="{{ url_for('auth.oidc_login') }}" class="button oidc-button">
-                <img src="{{ url_for('static', filename='images/e-infra-logo.png') }}" alt="e-INFRA CZ" class="oidc-logo">
+                <img src="{{ url_for('static', filename='images/e-infra-logo.png') }}" alt="e-INFRA CZ" class="oidc-logo" width="60">
                 Sign in with e-INFRA CZ
             </a>
         </div>

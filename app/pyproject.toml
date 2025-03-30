@@ -40,6 +40,17 @@ test = [
     "freezegun>=1.2.0"
 ]
 
+dev = [
+    "sass>=1.0.0"
+]
+
+# NPM script replacement for Python projects
+[tool.npm-scripts]
+sass-compile = "pysassc app/scss/main.scss app/static/style.css"
+sass-watch = "python app/scripts/sass_watch.py"
+sass-compressed = "pysassc -t compressed app/scss/main.scss app/static/style.css"
+build = "pysassc -t compressed app/scss/main.scss app/static/style.css"
+
 [tool.setuptools]
 packages = [
     "auth",
@@ -133,6 +144,7 @@ ignore = [
     "B904",     # Within an except clause, raise exceptions with raise ... from err
     "SIM102",   # Use a single if statement instead of nested if statements
     "E722",     # Do not use bare except
+    "S603",     # Subprocess call with potential shell injection
 ]
 unfixable = ["F401"]  # Don't auto-remove unused imports
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"

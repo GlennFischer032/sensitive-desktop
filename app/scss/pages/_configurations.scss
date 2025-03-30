@@ -1,0 +1,29 @@
+// Configuration page styles
+// Add configuration-specific styles here that aren't general components
+
+// Configuration form
+.configuration-form {
+  width: 100%;
+  background-color: $bg-white;
+  padding: $spacing-xl;
+  border-radius: $border-radius-lg;
+  @include box-shadow(1);
+}
+
+// User list in configuration form
+.user-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid $border-color;
+  border-radius: $border-radius;
+  padding: $spacing-md;
+}
+
+// User access controls
+.user-access-group {
+  display: none;
+
+  &.visible {
+    display: block;
+  }
+}

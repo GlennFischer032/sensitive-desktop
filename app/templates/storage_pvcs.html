@@ -22,7 +22,7 @@
 
 <div class="table-container">
     {% if pvcs %}
-    <table class="config-table">
+    <table>
         <thead>
             <tr>
                 <th>Name</th>
@@ -30,7 +30,6 @@
                 <th>Size</th>
                 <th>Status</th>
                 <th>Created By</th>
-                <th>Created At</th>
                 <th>Access</th>
                 <th>Actions</th>
             </tr>
@@ -47,7 +46,6 @@
                     </span>
                 </td>
                 <td>{{ pvc.created_by }}</td>
-                <td>{{ pvc.created_at|datetime }}</td>
                 <td>
                     {% if pvc.is_public %}
                     <span class="badge badge-success">Public</span>
@@ -55,14 +53,12 @@
                     <span class="badge badge-info">Private</span>
                     {% endif %}
                 </td>
-                <td class="actions">
-                    <div class="action-buttons">
-                        <button class="button small view-connections-btn" data-pvc-id="{{ pvc.id }}">View Connections</button>
-                        {% if is_admin or pvc.created_by == session.username %}
-                        <button class="button small manage-access-btn" data-pvc-id="{{ pvc.id }}" data-pvc-name="{{ pvc.name }}">Manage Access</button>
-                        <button class="button small danger delete-btn" data-pvc-name="{{ pvc.name }}">Delete</button>
-                        {% endif %}
-                    </div>
+                <td class="action-buttons">
+                    <button class="button small view-connections-btn" data-pvc-id="{{ pvc.id }}">View Connections</button>
+                    {% if is_admin or pvc.created_by == session.username %}
+                    <button class="button small manage-access-btn" data-pvc-id="{{ pvc.id }}" data-pvc-name="{{ pvc.name }}">Manage Access</button>
+                    <button class="button small danger delete-btn" data-pvc-name="{{ pvc.name }}">Delete</button>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

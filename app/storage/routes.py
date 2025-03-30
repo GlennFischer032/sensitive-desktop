@@ -81,6 +81,7 @@ def get_pvc_access(pvc_id):
 
 
 @storage_bp.route("/pvcs/<int:pvc_id>/access", methods=["POST"])
+@admin_required
 @login_required
 def update_pvc_access(pvc_id):
     """Update access control for a PVC."""
@@ -126,6 +127,7 @@ def get_pvc(pvc_id):
 
 
 @storage_bp.route("/pvcs", methods=["POST"])
+@admin_required
 @login_required
 def create_pvc():
     """Create a new storage PVC."""
@@ -205,6 +207,7 @@ def get_users_list():
 
 
 @storage_bp.route("/api/pvc/<string:pvc_name>", methods=["DELETE"])
+@admin_required
 @login_required
 def delete_pvc(pvc_name):
     """Delete a PVC by name."""

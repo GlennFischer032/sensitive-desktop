@@ -31,15 +31,15 @@
                 <td>{{ conn.desktop_configuration_name or "Default" }}</td>
                 <td class="action-buttons">
                     {% if not conn.is_stopped %}
-                    <a href="{{ url_for('connections.direct_connect', connection_id=conn.id) }}" target="_blank" class="action-button connect-button">Connect</a>
+                    <a href="{{ url_for('connections.direct_connect', connection_id=conn.id) }}" target="_blank" class="button small connect-btn">Connect</a>
                     <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post"
                           onsubmit="handleDelete(event, '{{ conn.name }}')">
-                        <button type="submit" class="action-button delete-button">Stop</button>
+                        <button type="submit" class="button small danger delete-btn">Stop</button>
                     </form>
                     {% else %}
                     <form action="{{ url_for('connections.resume_connection', connection_name=conn.name) }}" method="post"
                           onsubmit="handleResume(event, '{{ conn.name }}')">
-                        <button type="submit" class="action-button resume-button">Resume</button>
+                        <button type="submit" class="button small success resume-btn">Resume</button>
                     </form>
                     {% endif %}
                 </td>
@@ -113,7 +113,7 @@ async function handleDelete(event, connectionName) {
     } catch (error) {
         actionButtons.innerHTML = `
             <span class="error-text">Error: ${error.message}</span>
-            <button onclick="location.reload()" class="action-button">Retry</button>
+            <button onclick="location.reload()" class="button small retry-btn">Retry</button>
         `;
     }
 }
@@ -189,7 +189,7 @@ async function handleResume(event, connectionName) {
         console.error('Resume error:', error);
         actionButtons.innerHTML = `
             <span class="error-text">Error: ${error.message}</span>
-            <button onclick="location.reload()" class="action-button">Retry</button>
+            <button onclick="location.reload()" class="button small retry-btn">Retry</button>
         `;
     }
 }

@@ -1,0 +1,146 @@
+// Basic card
+.card {
+  @include card($spacing-md, $bg-white, 1);
+  margin-bottom: $spacing-lg;
+}
+
+// Dashboard card
+.dashboard-card {
+  @include card($spacing-xl, $bg-white, 1);
+  transition: transform $transition-fast, box-shadow $transition-fast;
+
+  &:hover {
+    transform: translateY(-2px);
+    @include box-shadow(2);
+  }
+}
+
+// Detail section
+.detail-section {
+  background-color: $bg-white;
+  border-radius: $border-radius-lg;
+  @include box-shadow(1);
+  padding: $spacing-lg;
+  margin-bottom: $spacing-xl;
+
+  h3 {
+    margin-top: 0;
+    color: $text-dark;
+    border-bottom: 1px solid $border-color;
+    padding-bottom: $spacing-sm;
+    margin-bottom: $spacing-lg;
+  }
+}
+
+// Detail grid
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: $spacing-lg;
+}
+
+// Detail item
+.detail-item {
+  @include flex(column);
+  margin-bottom: 10px;
+  overflow: hidden;
+
+  .detail-label {
+    font-weight: 600;
+    color: $text-light;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+  }
+
+  .detail-value {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    font-size: 1.1rem;
+  }
+}
+
+// Login container
+.login-container {
+  max-width: 400px;
+  margin: $spacing-xl auto;
+  padding: $spacing-xl;
+  background: $bg-white;
+  border-radius: $border-radius-lg;
+  @include box-shadow(1);
+
+  .login-header {
+    text-align: center;
+    margin-top: 0;
+  }
+}
+
+// Login options
+.login-options {
+  @include flex(column);
+  gap: $spacing-lg;
+}
+
+// Login option card
+.login-option {
+  padding: $spacing-lg;
+  background: $bg-light;
+  border-radius: $border-radius;
+  text-align: center;
+
+  h3 {
+    margin: 0 0 $spacing-md;
+    font-size: 1.3rem;
+    color: $text-dark;
+  }
+
+  .login-description {
+    margin-bottom: $spacing-lg;
+    color: $text-light;
+    line-height: 1.5;
+  }
+}
+
+// Error container
+.error-container {
+  @include flex(row, center, center);
+  min-height: 80vh;
+  padding: $spacing-xl;
+
+  .error-content {
+    background: $bg-white;
+    padding: $spacing-xl;
+    border-radius: $border-radius-lg;
+    @include box-shadow(1);
+    text-align: center;
+    max-width: 500px;
+    width: 100%;
+
+    h1 {
+      color: $text-dark;
+      margin-bottom: $spacing-lg;
+      font-size: 2rem;
+    }
+  }
+
+  .error-message {
+    margin-bottom: $spacing-xl;
+    color: $text-dark;
+
+    p {
+      margin-bottom: $spacing-md;
+    }
+  }
+
+  .error-details {
+    font-family: monospace;
+    background: $bg-light;
+    padding: $spacing-md;
+    border-radius: $border-radius;
+    margin-top: $spacing-md;
+  }
+
+  .retry-info {
+    color: $danger-color;
+    font-weight: bold;
+  }
+}

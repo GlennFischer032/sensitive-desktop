@@ -1,0 +1,75 @@
+// Base badge
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 75%;
+  font-weight: 500;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: 12px;
+}
+
+// Badge variants
+.badge-primary {
+  @include badge($primary-color);
+}
+
+.badge-secondary {
+  @include badge($secondary-color);
+}
+
+.badge-success {
+  @include badge($success-color);
+}
+
+.badge-danger {
+  @include badge($danger-color);
+}
+
+.badge-warning {
+  @include badge($warning-color);
+}
+
+.badge-info {
+  @include badge($info-color);
+}
+
+// Custom badges
+.public-badge {
+  @include badge($success-color);
+}
+
+.private-badge {
+  @include badge($secondary-color);
+}
+
+.user-badge {
+  @include badge($primary-color);
+}
+
+// Status badges
+.status-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+
+  &.active {
+    @include badge($success-color);
+  }
+
+  &.stopped {
+    @include badge($danger-color);
+  }
+}
+
+// OIDC ID
+.oidc-id {
+  font-family: monospace;
+  background: $bg-light;
+  padding: 0.2rem 0.4rem;
+  border-radius: $border-radius;
+  font-size: 0.9rem;
+  word-break: break-all;
+}
