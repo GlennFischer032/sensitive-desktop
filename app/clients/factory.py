@@ -8,6 +8,7 @@ from .auth import AuthClient
 from .base import BaseClient
 from .connections import ConnectionsClient
 from .desktop_configurations import DesktopConfigurationsClient
+from .storage import StorageClient
 from .users import UsersClient
 
 
@@ -77,6 +78,18 @@ class ClientFactory:
                 base_url=current_app.config["API_URL"],
             )
         return self._clients["desktop_configurations"]
+
+    def get_storage_client(self) -> StorageClient:
+        """Get a storage client instance.
+
+        Returns:
+            StorageClient: The storage client
+        """
+        if "storage" not in self._clients:
+            self._clients["storage"] = StorageClient(
+                base_url=current_app.config["API_URL"],
+            )
+        return self._clients["storage"]
 
 
 # Factory instance

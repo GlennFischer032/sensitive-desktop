@@ -114,3 +114,44 @@ CREATE TABLE IF NOT EXISTS connections (
     FOREIGN KEY (created_by) REFERENCES users(username),
     FOREIGN KEY (desktop_configuration_id) REFERENCES desktop_configurations(id)
 );
+
+-- Storage PVCs table
+CREATE TABLE IF NOT EXISTS storage_pvcs (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    namespace VARCHAR(255) NOT NULL,
+    size VARCHAR(20) NOT NULL,  -- e.g. "10Gi"
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'Pending',
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_public BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (created_by) REFERENCES users(username)
+);
+
+-- Storage PVC Access table for user permissions
+CREATE TABLE IF NOT EXISTS storage_pvc_access (
+    id SERIAL PRIMARY KEY,
+    pvc_id INT NOT NULL,
+    username VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (pvc_id) REFERENCES storage_pvcs(id) ON DELETE CASCADE,
+    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
+    UNIQUE (pvc_id, username)
+);
+
+-- Connection to PVC mapping table
+CREATE TABLE IF NOT EXISTS connection_pvcs (
+    id SERIAL PRIMARY KEY,
+    connection_id INT NOT NULL,
+    pvc_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (connection_id) REFERENCES connections(id) ON DELETE CASCADE,
+    FOREIGN KEY (pvc_id) REFERENCES storage_pvcs(id) ON DELETE CASCADE,
+    UNIQUE (connection_id, pvc_id)
+);
+
+CREATE INDEX idx_pvc_name ON storage_pvcs(name);
+CREATE INDEX idx_pvc_namespace ON storage_pvcs(namespace);
+CREATE INDEX idx_pvc_access ON storage_pvc_access(pvc_id, username);
+CREATE INDEX idx_connection_pvc ON connection_pvcs(connection_id, pvc_id);

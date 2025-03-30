@@ -71,6 +71,7 @@ class ConnectionsClient(BaseClient):
         max_cpu: Optional[int] = None,
         min_ram: Optional[str] = None,
         max_ram: Optional[str] = None,
+        external_pvc: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Add a new connection.
 
@@ -83,6 +84,7 @@ class ConnectionsClient(BaseClient):
             max_cpu: Optional maximum number of CPU cores.
             min_ram: Optional minimum RAM allocation.
             max_ram: Optional maximum RAM allocation.
+            external_pvc: Optional name of external PVC to use.
 
         Returns:
             Dict[str, Any]: Response data
@@ -114,6 +116,9 @@ class ConnectionsClient(BaseClient):
 
         if max_ram is not None:
             payload["max_ram"] = max_ram
+
+        if external_pvc is not None:
+            payload["external_pvc"] = external_pvc
 
         try:
             data, _ = self.post(

@@ -46,6 +46,19 @@
             <small class="form-text">Select a desktop configuration to use for this connection.</small>
         </div>
 
+        {% if is_admin and storage_pvcs %}
+        <div class="form-group">
+            <label for="external_pvc">Storage PVC:</label>
+            <select id="external_pvc" name="external_pvc">
+                <option value="">No external storage</option>
+                {% for pvc in storage_pvcs %}
+                <option value="{{ pvc.name }}">{{ pvc.name }} ({{ pvc.size }})</option>
+                {% endfor %}
+            </select>
+            <small class="form-text">Select a persistent volume claim to attach to this desktop for additional storage.</small>
+        </div>
+        {% endif %}
+
         <div class="button-container">
             <button type="submit" class="button" id="submit-button">Create Connection</button>
         </div>

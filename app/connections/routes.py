@@ -67,6 +67,15 @@ def add_connection():
             # Get persistent home setting
             persistent_home = bool(request.form.get("persistent_home"))
 
+            # Get external PVC if specified (admin only)
+            external_pvc = request.form.get("external_pvc")
+            if external_pvc and not session.get("is_admin", False):
+                current_app.logger.warning("Non-admin user attempted to use external PVC")
+                external_pvc = None  # Clear it for non-admins
+
+            if external_pvc:
+                current_app.logger.info(f"Using external PVC: {external_pvc}")
+
             # Create connection
             connections_client = client_factory.get_connections_client()
             connection_data = {
@@ -84,6 +93,10 @@ def add_connection():
                         "max_ram": desktop_configuration.get("max_ram"),
                     }
                 )
+
+            # Add external PVC if specified
+            if external_pvc:
+                connection_data["external_pvc"] = external_pvc
 
             connections_client.add_connection(**connection_data)
             flash("Connection created successfully", "success")
@@ -103,7 +116,32 @@ def add_connection():
         current_app.logger.error(f"Error fetching desktop configurations: {str(e)}")
         desktop_configurations = []
 
-    return render_template("add_connection.html", desktop_configurations=desktop_configurations)
+    # Fetch storage PVCs for admin users
+    storage_pvcs = []
+    is_admin = session.get("is_admin", False)
+    if is_admin:
+        try:
+            token = session.get("token")
+            if token:
+                api_url = f"{current_app.config['API_URL']}/api/storage-pvcs/list"
+                response = requests.get(
+                    api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    storage_pvcs = data.get("pvcs", [])
+                    current_app.logger.info(f"Retrieved {len(storage_pvcs)} storage PVCs")
+        except Exception as e:
+            current_app.logger.error(f"Error fetching storage PVCs: {str(e)}")
+            # Continue without PVCs
+
+    return render_template(
+        "add_connection.html",
+        desktop_configurations=desktop_configurations,
+        storage_pvcs=storage_pvcs,
+        is_admin=is_admin,
+    )
 
 
 @connections_bp.route("/delete/<connection_name>", methods=["POST"])

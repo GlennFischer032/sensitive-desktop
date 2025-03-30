@@ -462,12 +462,16 @@ def update_user(username: str) -> Tuple[Dict[str, Any], int]:
             return jsonify({"error": "No fields to update provided"}), HTTPStatus.BAD_REQUEST
 
         # Build and execute update query
-        update_query = f"""
+        update_query = (
+            """
         UPDATE users SET
-            {", ".join(update_fields)},
+        """
+            + ", ".join(update_fields)
+            + """,
             updated_at = :updated_at
         WHERE id = :user_id
         """
+        )
 
         params["updated_at"] = datetime.utcnow()
 

@@ -8,7 +8,14 @@ from sqlalchemy import text
 from werkzeug.security import generate_password_hash
 
 from desktop_manager.api.models.user import SocialAuthAssociation, User
-from desktop_manager.api.routes import auth_bp, connections_bp, desktop_config_bp, oidc_bp, users_bp
+from desktop_manager.api.routes import (
+    auth_bp,
+    connections_bp,
+    desktop_config_bp,
+    oidc_bp,
+    storage_pvc_bp,
+    users_bp,
+)
 from desktop_manager.clients.factory import client_factory
 from desktop_manager.config.settings import get_settings
 from desktop_manager.core.database import init_db
@@ -82,6 +89,7 @@ def create_app() -> Flask:
     app.register_blueprint(connections_bp, url_prefix="/api/connections")
     app.register_blueprint(desktop_config_bp, url_prefix="/api/desktop-config")
     app.register_blueprint(users_bp, url_prefix="/api/users")
+    app.register_blueprint(storage_pvc_bp, url_prefix="/api/storage-pvcs")
     app.register_blueprint(oidc_bp, url_prefix="/api")  # OIDC routes
 
     # Initialize admin user

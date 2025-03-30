@@ -57,6 +57,49 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             # Get persistent_home parameter (default to True if not provided)
             persistent_home = data.get("persistent_home", True)
 
+            # Get external_pvc parameter (default to None if not provided)
+            external_pvc = data.get("external_pvc")
+
+            # If external_pvc is provided, verify it exists and user has access
+            if external_pvc:
+                logging.info("External PVC specified: %s", external_pvc)
+                try:
+                    # Get PVC from database
+                    pvc_query = """
+                    SELECT id, name, namespace, created_by
+                    FROM storage_pvcs
+                    WHERE name = :name
+                    """
+                    pvc_result, pvc_count = db_client.execute_query(
+                        pvc_query,
+                        {"name": external_pvc},
+                    )
+
+                    if pvc_count == 0:
+                        return (
+                            jsonify({"error": f"PVC '{external_pvc}' not found"}),
+                            HTTPStatus.NOT_FOUND,
+                        )
+
+                    # Check if user has permission to use this PVC
+                    pvc = pvc_result[0]
+                    if (
+                        not request.current_user.is_admin
+                        and pvc["created_by"] != request.current_user.username
+                    ):
+                        return (
+                            jsonify({"error": "You do not have permission to use this PVC"}),
+                            HTTPStatus.FORBIDDEN,
+                        )
+
+                    logging.info("PVC access verified")
+                except Exception as e:
+                    logging.error("Error verifying PVC: %s", str(e))
+                    return (
+                        jsonify({"error": f"Error verifying PVC: {e!s}"}),
+                        HTTPStatus.INTERNAL_SERVER_ERROR,
+                    )
+
             # Get desktop_configuration_id (default to 1 if not provided)
             desktop_configuration_id = data.get("desktop_configuration_id")
 
@@ -167,10 +210,16 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                 maxcpu=max_cpu,
                 minram=min_ram,
                 maxram=max_ram,
+                external_pvc=external_pvc,  # Set external PVC if provided
             )
 
             # Configure storage with persistent_home setting
             desktop_values.storage.persistenthome = persistent_home
+
+            # Enable storage if external PVC is provided
+            if external_pvc:
+                desktop_values.storage.enable = True
+                logging.info("Enabled storage with external PVC: %s", external_pvc)
 
             logging.info("Created desktop values with persistent_home=%s", persistent_home)
 
@@ -229,58 +278,76 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                 # Re-raise the original error
                 raise guac_error
 
-            # Store in database
-            insert_query = """
-            INSERT INTO connections (name, created_by, guacamole_connection_id, persistent_home, desktop_configuration_id)
-            VALUES (:name, :created_by, :guacamole_connection_id, :persistent_home, :desktop_configuration_id)
-            RETURNING id, name, created_at, created_by, guacamole_connection_id
+            # Save connection to database
+            connection_id_query = """
+            INSERT INTO connections (
+                name,
+                created_by,
+                guacamole_connection_id,
+                is_stopped,
+                persistent_home,
+                desktop_configuration_id
+            )
+            VALUES (
+                :name,
+                :created_by,
+                :guacamole_connection_id,
+                FALSE,
+                :persistent_home,
+                :desktop_configuration_id
+            )
+            RETURNING id
             """
 
-            connection_data = {
+            conn_results, _ = db_client.execute_query(
+                connection_id_query,
+                {
+                    "name": name,
+                    "created_by": current_user.username,
+                    "guacamole_connection_id": guacamole_connection_id,
+                    "persistent_home": persistent_home,
+                    "desktop_configuration_id": desktop_configuration_id,
+                },
+            )
+
+            connection_id = conn_results[0]["id"]
+            logging.info("Created connection with ID: %s", connection_id)
+
+            # If external PVC was used, map it to the connection
+            if external_pvc:
+                try:
+                    # Get PVC ID
+                    pvc_query = "SELECT id FROM storage_pvcs WHERE name = :name"
+                    pvc_result, _ = db_client.execute_query(pvc_query, {"name": external_pvc})
+                    pvc_id = pvc_result[0]["id"]
+
+                    # Map connection to PVC
+                    mapping_id = db_client.map_connection_to_pvc(connection_id, pvc_id)
+                    logging.info(
+                        "Mapped connection %s to PVC %s with mapping ID %s",
+                        connection_id,
+                        pvc_id,
+                        mapping_id,
+                    )
+                except Exception as e:
+                    logging.error("Error mapping connection to PVC: %s", str(e))
+                    # Continue even if mapping fails
+
+            # Return connection details
+            response_data = {
                 "name": name,
                 "created_by": current_user.username,
-                "guacamole_connection_id": guacamole_connection_id,
+                "is_stopped": False,
                 "persistent_home": persistent_home,
                 "desktop_configuration_id": desktop_configuration_id,
+                "status": status,
+                "vnc_password": vnc_password,
+                "guacamole_connection_id": guacamole_connection_id,
+                "external_pvc": external_pvc,  # Include PVC info in response
             }
 
-            result, _ = db_client.execute_query(insert_query, connection_data)
-            connection = result[0]
-            logging.info("Stored connection in database: %s", name)
-
-            # Get the configuration name if it exists
-            config_name = None
-            if desktop_configuration_id:
-                config_name_query = """
-                SELECT name FROM desktop_configurations WHERE id = :config_id
-                """
-                config_name_result, config_name_count = db_client.execute_query(
-                    config_name_query, {"config_id": desktop_configuration_id}
-                )
-                if config_name_count > 0:
-                    config_name = config_name_result[0]["name"]
-
             return (
-                jsonify(
-                    {
-                        "message": f"Connection {name} scaled up successfully",
-                        "connection": {
-                            "name": connection["name"],
-                            "id": connection["id"],
-                            "created_at": (
-                                connection["created_at"].isoformat()
-                                if connection["created_at"]
-                                else None
-                            ),
-                            "created_by": connection["created_by"],
-                            "guacamole_connection_id": connection["guacamole_connection_id"],
-                            "status": status,
-                            "persistent_home": persistent_home,
-                            "desktop_configuration_id": desktop_configuration_id,
-                            "desktop_configuration_name": config_name,
-                        },
-                    }
-                ),
+                jsonify(response_data),
                 HTTPStatus.OK,
             )
 
@@ -1037,37 +1104,39 @@ def guacamole_dashboard():
 def resume_connection() -> Tuple[Dict[str, Any], int]:
     """Resume a previously deleted connection.
 
-    This endpoint restores a soft-deleted connection by:
-    1. Reinstalling the Rancher deployment
-    2. Recreating the Guacamole connection
-    3. Marking the connection as active
+    This endpoint brings back a stopped desktop connection by:
+    1. Validating the connection exists and is stopped
+    2. Creating a new Rancher deployment
+    3. Updating the connection status in the database
 
     Returns:
-        tuple: A tuple containing:
-            - Dict with success/error message
+        Tuple[Dict[str, Any], int]: A tuple containing:
+            - Dict with connection details or error message
             - HTTP status code
     """
+    logging.info("=== Received request to /resume ===")
+    logging.info("Request path: %s", request.path)
+    logging.info("Request method: %s", request.method)
+    logging.info("Request headers: %s", request.headers)
+
+    current_user = request.current_user
+    if current_user is None:
+        return (
+            jsonify({"error": "Authentication error: No user found"}),
+            HTTPStatus.UNAUTHORIZED,
+        )
+
     try:
+        # Extract connection name from request
         data = request.get_json()
-        if not data or not data.get("name"):
+        if not data or "name" not in data:
             return (
                 jsonify({"error": "Missing required field: name"}),
                 HTTPStatus.BAD_REQUEST,
             )
 
-        connection_name = data.get("name")
-        logging.info("Processing resume for connection: %s", connection_name)
-
-        # Get the current user
-        current_user = request.current_user
-        if current_user is None:
-            logging.error("No authenticated user found")
-            return (
-                jsonify({"error": "Authentication error: No user found"}),
-                HTTPStatus.UNAUTHORIZED,
-            )
-
-        logging.info("Current user: %s", current_user.username)
+        connection_name = data["name"]
+        logging.info("Resuming connection: %s", connection_name)
 
         # Get database client
         db_client = client_factory.get_database_client()
@@ -1106,6 +1175,22 @@ def resume_connection() -> Tuple[Dict[str, Any], int]:
             rancher_client = client_factory.get_rancher_client()
             logging.info("Created Rancher client")
 
+            # Check if connection has an associated PVC
+            pvc_query = """
+            SELECT p.name
+            FROM storage_pvcs p
+            JOIN connection_pvcs cp ON p.id = cp.pvc_id
+            WHERE cp.connection_id = :connection_id
+            """
+            pvc_result, pvc_count = db_client.execute_query(
+                pvc_query, {"connection_id": connection["id"]}
+            )
+
+            external_pvc = None
+            if pvc_count > 0:
+                external_pvc = pvc_result[0]["name"]
+                logging.info("Found associated PVC: %s", external_pvc)
+
             # Create desktop values with CPU and RAM from configuration
             desktop_values = DesktopValues(
                 desktop=settings.DESKTOP_IMAGE,
@@ -1115,10 +1200,16 @@ def resume_connection() -> Tuple[Dict[str, Any], int]:
                 maxcpu=connection.get("max_cpu", 4),
                 minram=connection.get("min_ram", "4096Mi"),
                 maxram=connection.get("max_ram", "16384Mi"),
+                external_pvc=external_pvc,  # Set external PVC if found
             )
 
             # Configure storage with persistent_home setting
             desktop_values.storage.persistenthome = connection.get("persistent_home", True)
+
+            # Enable storage if external PVC is used
+            if external_pvc:
+                desktop_values.storage.enable = True
+                logging.info("Enabled storage with external PVC: %s", external_pvc)
 
             logging.info(
                 "Created desktop values with persistent_home=%s",

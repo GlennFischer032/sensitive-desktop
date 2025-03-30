@@ -1466,3 +1466,30 @@ tr.active {
     box-sizing: border-box;
     line-height: normal;
 }
+
+/* Size input container for PVC creation */
+.size-input-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.size-input-container input[type="number"] {
+    flex: 1;
+    min-width: 80px;
+}
+
+.size-input-container select {
+    width: 150px;
+}
+
+@media (max-width: 768px) {
+    .size-input-container {
+        flex-direction: row;
+    }
+
+    .size-input-container input[type="number"],
+    .size-input-container select {
+        flex: 1;
+    }
+}

@@ -39,6 +39,14 @@ class Storage:
         if self.externalpvc is None:
             self.externalpvc = {"enable": False, "name": ""}
 
+    def use_external_pvc(self, pvc_name: str):
+        """Configure storage to use an external PVC.
+
+        Args:
+            pvc_name: Name of the PVC to use
+        """
+        self.externalpvc = {"enable": True, "name": pvc_name}
+
 
 @dataclass
 class DesktopValues:
@@ -59,6 +67,7 @@ class DesktopValues:
     display: str = "VNC"
     storage: Storage = None
     vnc_password: str = None
+    external_pvc: Optional[str] = None  # New field for external PVC name
 
     def __post_init__(self):
         if self.webrtcimages is None:
@@ -67,6 +76,10 @@ class DesktopValues:
             self.storage = Storage()
         if self.image is None:
             self.image = self.desktop
+
+        # If external_pvc is provided, configure storage to use it
+        if self.external_pvc:
+            self.storage.use_external_pvc(self.external_pvc)
 
     def to_dict(self) -> dict:
         values = {
@@ -484,5 +497,159 @@ class RancherClient(BaseClient):
             raise APIError(error_message, status_code=500)
         except Exception as e:
             error_message = f"Unexpected error getting release: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def create_pvc(
+        self,
+        name: str,
+        namespace: Optional[str] = None,
+        size: str = "10Gi",
+    ) -> Dict[str, Any]:
+        """Create a Persistent Volume Claim (PVC) via Rancher API.
+
+        Args:
+            name: PVC name
+            namespace: Kubernetes namespace (defaults to the client's namespace)
+            size: Storage size (e.g. '10Gi')
+
+        Returns:
+            Dict[str, Any]: Response data
+
+        Raises:
+            APIError: If PVC creation fails
+        """
+        try:
+            # Always use ReadWriteMany access mode
+            access_modes = ["ReadWriteMany"]
+
+            namespace_to_use = namespace or self.namespace
+
+            # URL for creating PVCs via Rancher API
+            url = f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/persistentvolumeclaims"
+
+            # Payload for PVC creation
+            pvc_data = {
+                "type": "persistentvolumeclaim",
+                "metadata": {"namespace": namespace_to_use, "name": name},
+                "spec": {
+                    "accessModes": access_modes,
+                    "volumeName": "",
+                    "resources": {"requests": {"storage": size}},
+                },
+                "accessModes": access_modes,  # This is required for the Rancher UI
+            }
+
+            self.logger.info(
+                "Creating PVC via Rancher API: %s (namespace: %s, size: %s)",
+                name,
+                namespace_to_use,
+                size,
+            )
+            response = requests.post(url, headers=self.headers, json=pvc_data, timeout=30)
+
+            if response.status_code >= 400:
+                error_message = f"Failed to create PVC: {response.text}"
+                self.logger.error(error_message)
+                raise APIError(error_message, status_code=response.status_code)
+
+            self.logger.info("PVC creation response: %s", response.status_code)
+            return response.json() if response.text else {}
+        except requests.RequestException as e:
+            error_message = f"Failed to create PVC: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+        except Exception as e:
+            error_message = f"Unexpected error creating PVC: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def get_pvc(self, name: str, namespace: Optional[str] = None) -> Dict[str, Any]:
+        """Get a Persistent Volume Claim (PVC) via Rancher API.
+
+        Args:
+            name: PVC name
+            namespace: Kubernetes namespace (defaults to the client's namespace)
+
+        Returns:
+            Dict[str, Any]: PVC data
+
+        Raises:
+            APIError: If PVC retrieval fails
+        """
+        try:
+            namespace_to_use = namespace or self.namespace
+
+            # URL for getting PVC via Rancher API
+            url = (
+                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/persistentvolumeclaims/"
+                f"{namespace_to_use}/{name}"
+            )
+
+            self.logger.info(
+                "Getting PVC via Rancher API: %s (namespace: %s)",
+                name,
+                namespace_to_use,
+            )
+            response = requests.get(url, headers=self.headers, timeout=10)
+
+            if response.status_code >= 400:
+                error_message = f"Failed to get PVC: {response.text}"
+                self.logger.error(error_message)
+                raise APIError(error_message, status_code=response.status_code)
+
+            self.logger.info("Got PVC: %s", name)
+            return response.json()
+        except requests.RequestException as e:
+            error_message = f"Failed to get PVC: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+        except Exception as e:
+            error_message = f"Unexpected error getting PVC: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def delete_pvc(self, name: str, namespace: Optional[str] = None) -> Dict[str, Any]:
+        """Delete a Persistent Volume Claim (PVC) via Rancher API.
+
+        Args:
+            name: PVC name
+            namespace: Kubernetes namespace (defaults to the client's namespace)
+
+        Returns:
+            Dict[str, Any]: Response data
+
+        Raises:
+            APIError: If PVC deletion fails
+        """
+        try:
+            namespace_to_use = namespace or self.namespace
+
+            # URL for deleting PVC via Rancher API
+            url = (
+                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/persistentvolumeclaims/"
+                f"{namespace_to_use}/{name}"
+            )
+
+            self.logger.info(
+                "Deleting PVC via Rancher API: %s (namespace: %s)",
+                name,
+                namespace_to_use,
+            )
+            response = requests.delete(url, headers=self.headers, timeout=30)
+
+            if response.status_code >= 400:
+                error_message = f"Failed to delete PVC: {response.text}"
+                self.logger.error(error_message)
+                raise APIError(error_message, status_code=response.status_code)
+
+            self.logger.info("PVC deletion response: %s", response.status_code)
+            return response.json() if response.text else {}
+        except requests.RequestException as e:
+            error_message = f"Failed to delete PVC: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+        except Exception as e:
+            error_message = f"Unexpected error deleting PVC: {e!s}"
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500)
