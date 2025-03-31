@@ -11,7 +11,7 @@ from sqlalchemy.pool import QueuePool, StaticPool
 from desktop_manager.config.settings import get_settings
 
 
-__all__ = ["get_db", "get_session_factory", "init_db"]
+__all__ = ["get_session_factory", "init_db"]
 
 logging.basicConfig(level=logging.INFO)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -31,6 +31,8 @@ def create_db_engine(db_url: Optional[str] = None, retries: int = 5, delay: int 
     """Create database engine with retry logic."""
     if db_url is None:
         db_url = get_database_url()
+
+    logger.info("Database URL: %s", db_url)
 
     for attempt in range(retries):
         try:
@@ -81,25 +83,16 @@ def get_session_factory() -> sessionmaker:
     return _session_factory
 
 
-def get_db() -> Generator[Session, None, None]:
-    """Get database session."""
-    factory = get_session_factory()
-    db: Session = factory()
-    try:
-        yield db
-    except Exception as e:
-        logger.error("Database session error: %s", str(e))
-        raise
-    finally:
-        db.close()
-
-
 def init_db() -> None:
     """Initialize the database by creating all tables."""
     logger.info("Initializing database...")
     try:
+        # Import all models to ensure they're registered with SQLAlchemy
         from desktop_manager.api.models.base import Base
+        from desktop_manager.api.models.desktop_configuration import DesktopConfiguration
+        from desktop_manager.api.models.user import User
 
+        # Create all tables
         Base.metadata.create_all(bind=get_engine())
         logger.info("Database initialized successfully")
     except Exception as e:

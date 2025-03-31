@@ -3,15 +3,17 @@
 from .auth import AuthClient
 from .base import APIError, BaseClient
 from .connections import ConnectionsClient
+from .desktop_configurations import DesktopConfigurationsClient
 from .factory import ClientFactory, client_factory
 from .users import UsersClient
 
 __all__ = [
     "APIError",
-    "AuthClient",
     "BaseClient",
+    "AuthClient",
     "ClientFactory",
     "ConnectionsClient",
     "UsersClient",
     "client_factory",
+    "DesktopConfigurationsClient",
 ]

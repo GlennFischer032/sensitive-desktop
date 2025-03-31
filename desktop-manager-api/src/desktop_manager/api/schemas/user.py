@@ -8,7 +8,7 @@ class UserBase(BaseModel):
     """Base schema for user data."""
 
     username: str = Field(..., description="Unique username", min_length=3, max_length=255)
-    email: EmailStr = Field(..., description="User's email address")
+    email: Optional[EmailStr] = Field(None, description="User's email address")
     organization: Optional[str] = Field(None, description="User's organization")
     is_admin: bool = Field(default=False, description="Whether the user has admin privileges")
 
@@ -19,6 +19,7 @@ class OIDCUserInfo(BaseModel):
     sub: str = Field(..., description="OIDC subject identifier")
     given_name: Optional[str] = Field(None, description="User's given name")
     family_name: Optional[str] = Field(None, description="User's family name")
+    name: Optional[str] = Field(None, description="User's full name")
     locale: Optional[str] = Field(None, description="User's locale preference")
     email_verified: bool = Field(default=False, description="Whether email has been verified")
     email: EmailStr = Field(..., description="User's email address")
@@ -51,27 +52,8 @@ class PKCEState(BaseModel):
 class UserCreate(UserBase):
     """Schema for creating a new user."""
 
-    password: Optional[str] = Field(
-        None,
-        description="User's password (optional for OIDC users)",
-        min_length=8,
-        max_length=255,
-    )
-    sub: Optional[str] = Field(None, description="OIDC subject identifier")
+    sub: str = Field(..., description="OIDC subject identifier")
     oidc_data: Optional[OIDCUserInfo] = Field(None, description="OIDC user information")
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, v):
-        """Validate password strength if provided."""
-        if v is not None:
-            if not any(char.isupper() for char in v):
-                raise ValueError("Password must contain at least one uppercase letter")
-            if not any(char.islower() for char in v):
-                raise ValueError("Password must contain at least one lowercase letter")
-            if not any(char.isdigit() for char in v):
-                raise ValueError("Password must contain at least one number")
-        return v
 
 
 class UserResponse(UserBase):
@@ -82,6 +64,7 @@ class UserResponse(UserBase):
     sub: Optional[str] = Field(None, description="OIDC subject identifier")
     given_name: Optional[str] = Field(None, description="User's given name")
     family_name: Optional[str] = Field(None, description="User's family name")
+    name: Optional[str] = Field(None, description="User's full name")
     locale: Optional[str] = Field(None, description="User's locale preference")
     email_verified: bool = Field(default=False, description="Whether email has been verified")
     last_login: Optional[datetime] = Field(None, description="Last login timestamp")
@@ -99,10 +82,9 @@ class UserList(BaseModel):
 
 
 class UserLogin(BaseModel):
-    """Schema for user login."""
+    """Schema for user login (deprecated - OIDC login is now required)."""
 
     username: str = Field(..., description="Username for login")
-    password: str = Field(..., description="Password for login")
 
 
 class UserUpdate(BaseModel):
@@ -111,24 +93,8 @@ class UserUpdate(BaseModel):
     username: Optional[str] = Field(None, min_length=3, max_length=255)
     email: Optional[EmailStr] = Field(None, description="User's email address")
     organization: Optional[str] = Field(None, description="User's organization")
-    password: Optional[str] = Field(None, min_length=8)
     is_admin: Optional[bool] = None
     oidc_data: Optional[OIDCUserInfo] = None
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, v):
-        """Validate password strength if provided."""
-        if v is not None:
-            if len(v) < 8:
-                raise ValueError("Password must be at least 8 characters long")
-            if not any(char.isupper() for char in v):
-                raise ValueError("Password must contain at least one uppercase letter")
-            if not any(char.islower() for char in v):
-                raise ValueError("Password must contain at least one lowercase letter")
-            if not any(char.isdigit() for char in v):
-                raise ValueError("Password must contain at least one number")
-        return v
 
 
 class TokenResponse(BaseModel):
@@ -147,10 +113,10 @@ class UserInDB(UserBase):
 
     id: int
     created_at: datetime
-    password_hash: Optional[str]
     sub: Optional[str] = None
     given_name: Optional[str] = None
     family_name: Optional[str] = None
+    name: Optional[str] = None
     locale: Optional[str] = None
     email_verified: bool = False
     last_login: Optional[datetime] = None

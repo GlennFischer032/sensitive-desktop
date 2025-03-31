@@ -79,12 +79,12 @@ class User(Base):
         username (str): Unique username for the user
         email (str): Unique email address for the user
         organization (str): User's organization
-        password_hash (str): Hashed password for authentication (optional for OIDC users)
         is_admin (bool): Whether the user has administrator privileges
         created_at (datetime): Timestamp of when the user was created
         sub (str): OIDC subject identifier
         given_name (str): User's given name from OIDC
         family_name (str): User's family name from OIDC
+        name (str): User's full name, typically combined from given_name and family_name
         locale (str): User's locale preference
         email_verified (bool): Whether email has been verified by OIDC provider
         last_login (datetime): Last login timestamp
@@ -98,7 +98,6 @@ class User(Base):
     username: str = Column(String(255), unique=True, index=True, nullable=False)
     email: str = Column(String(255), unique=True, index=True, nullable=False)
     organization: str = Column(String(255), nullable=True)
-    password_hash: str = Column(String(255), nullable=True)
     is_admin: bool = Column(Boolean, default=False)
     created_at: datetime = Column(DateTime, server_default=func.now())
 
@@ -106,6 +105,7 @@ class User(Base):
     sub: str = Column(String(255), unique=True, nullable=True)
     given_name: str = Column(String(255), nullable=True)
     family_name: str = Column(String(255), nullable=True)
+    name: str = Column(String(255), nullable=True)
     locale: str = Column(String(10), nullable=True)
     email_verified: bool = Column(Boolean, default=False)
     last_login: datetime = Column(DateTime, nullable=True)
@@ -114,6 +114,10 @@ class User(Base):
     connections = relationship("Connection", back_populates="creator", cascade="all, delete-orphan")
     social_auth = relationship(
         "SocialAuthAssociation", back_populates="user", cascade="all, delete-orphan"
+    )
+    desktop_configurations = relationship("DesktopConfiguration", back_populates="creator")
+    desktop_configuration_access = relationship(
+        "DesktopConfigurationAccess", back_populates="user", cascade="all, delete-orphan"
     )
 
     __table_args__ = {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"}

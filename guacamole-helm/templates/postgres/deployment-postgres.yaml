@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-guacamole
+  labels:
+    app: postgres-guacamole
+    {{- include "guacamole.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-guacamole
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: postgres-guacamole
+    spec:
+      securityContext:
+        {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
+      containers:
+      - name: postgres
+        securityContext:
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        image: {{ .Values.postgres.image }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: {{ .Values.common.ports.postgres }}
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          value: {{ .Values.common.database.user }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.common.database.password }}
+        - name: POSTGRES_DB
+          value: {{ .Values.common.database.database }}
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        - name: POSTGRES_HOST_AUTH_METHOD
+          value: trust
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+          subPath: pgdata
+        {{- if .Values.postgres.healthcheck.enabled }}
+        livenessProbe:
+          exec:
+            command: ["/bin/sh", "-c", "pg_isready -U $(POSTGRES_USER) -d $(POSTGRES_DB)"]
+          initialDelaySeconds: {{ .Values.postgres.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.postgres.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.postgres.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.postgres.healthcheck.failureThreshold }}
+        readinessProbe:
+          exec:
+            command: ["/bin/sh", "-c", "pg_isready -U $(POSTGRES_USER) -d $(POSTGRES_DB)"]
+          initialDelaySeconds: {{ .Values.postgres.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.postgres.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.postgres.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.postgres.healthcheck.failureThreshold }}
+        {{- end }}
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+      volumes:
+      - name: postgres-data
+        {{- if .Values.postgres.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: postgres-guacamole-pvc
+        {{- else }}
+        emptyDir: {}
+        {{- end }}

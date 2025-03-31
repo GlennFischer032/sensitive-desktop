@@ -15,15 +15,17 @@ from sqlalchemy.sql import text
 def get_test_settings() -> Settings:
     """Get test settings with SQLite configuration."""
     return Settings(
-        MYSQL_HOST=os.getenv("MYSQL_HOST", "localhost"),
-        MYSQL_PORT=int(os.getenv("MYSQL_PORT", "3306")),
-        MYSQL_DATABASE=os.getenv("MYSQL_DATABASE", "test_db"),
-        MYSQL_USER=os.getenv("MYSQL_USER", "test_user"),
-        MYSQL_PASSWORD=os.getenv("MYSQL_PASSWORD", "test_pass"),
+        # Use in-memory SQLite by default for isolated testing
+        database_url=os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:"),
+        POSTGRES_HOST=os.getenv("POSTGRES_HOST", "localhost"),
+        POSTGRES_PORT=int(os.getenv("POSTGRES_PORT", "5432")),
+        POSTGRES_DB=os.getenv("POSTGRES_DB", "test_db"),
+        POSTGRES_USER=os.getenv("POSTGRES_USER", "test_user"),
+        POSTGRES_PASSWORD=os.getenv("POSTGRES_PASSWORD", "test_pass"),
         SECRET_KEY="test_secret_key",
         ADMIN_USERNAME="test_admin",
         ADMIN_PASSWORD="test_admin_pass",
-        GUACAMOLE_API_URL="http://test-guacamole:8080",
+        GUACAMOLE_URL="http://test-guacamole:8080/guacamole",
         GUACAMOLE_USERNAME="test_guac",
         GUACAMOLE_PASSWORD="test_guac_pass",
         OIDC_PROVIDER_URL="http://test-oidc",
@@ -35,19 +37,19 @@ def get_test_settings() -> Settings:
 def pytest_addoption(parser):
     """Add custom pytest command line options."""
     parser.addoption(
-        "--use-mysql",
+        "--use-postgres",
         action="store_true",
         default=False,
-        help="Run tests against MySQL container instead of SQLite",
+        help="Run tests against PostgreSQL container instead of SQLite",
     )
 
 
 @pytest.fixture(scope="session")
 def database_url(request):
     """Get database URL based on test configuration."""
-    if request.config.getoption("--use-mysql"):
+    if request.config.getoption("--use-postgres"):
         settings = get_test_settings()
-        return f"mysql://{settings.MYSQL_USER}:{settings.MYSQL_PASSWORD}@{settings.MYSQL_HOST}:{settings.MYSQL_PORT}/{settings.MYSQL_DATABASE}"
+        return f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
     return "sqlite:///:memory:"
 
 
@@ -115,10 +117,10 @@ def convert_mysql_to_sqlite(sql: str) -> str:
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_db(database_url):
     """Configure the database for testing."""
-    is_mysql = "mysql" in database_url
+    is_postgres = "postgresql" in database_url
 
-    if is_mysql:
-        # Create test database if using MySQL
+    if is_postgres:
+        # Create test database if using PostgreSQL
         engine = create_engine(database_url.rsplit("/", 1)[0])
         database_name = database_url.rsplit("/", 1)[1]
 
@@ -141,7 +143,7 @@ def setup_test_db(database_url):
         configure_db_for_tests(database_url)
         engine = get_engine()
 
-        if not is_mysql:
+        if not is_postgres:
             # SQLite specific configuration
             event.listen(engine, "connect", sqlite_on_connect)
 
@@ -162,6 +164,7 @@ def setup_test_db(database_url):
                         sub TEXT UNIQUE,
                         given_name TEXT,
                         family_name TEXT,
+                        name TEXT,
                         locale TEXT,
                         email_verified INTEGER DEFAULT 0,
                         last_login DATETIME
@@ -250,7 +253,7 @@ def setup_test_db(database_url):
     yield database_url
 
     # Clean up after tests
-    if is_mysql:
+    if is_postgres:
         engine = create_engine(database_url.rsplit("/", 1)[0])
         with engine.connect() as conn:
             conn.execute(text(f"DROP DATABASE IF EXISTS {database_name}"))
@@ -322,3 +325,185 @@ def mock_guacamole_client(mocker):
     mock = mocker.Mock()
     # Add common mock methods here
     return mock
+
+
+@pytest.fixture(autouse=True)
+def mock_database_client(monkeypatch, test_db):
+    """Mock the database client to use the test_db session.
+
+    This fixture replaces the real database client with a mock implementation
+    that uses the test_db session for all operations.
+    """
+    from tests.mocks import MockDatabaseClient
+
+    # Create a mock database client that uses the test_db session
+    mock_client = MockDatabaseClient(session=test_db)
+
+    # Patch the client_factory's _database_client attribute
+    monkeypatch.setattr(
+        "desktop_manager.clients.factory.client_factory._database_client",
+        mock_client
+    )
+
+    # Patch the factory method to return our mock client
+    monkeypatch.setattr(
+        "desktop_manager.clients.factory.client_factory.get_database_client",
+        lambda: mock_client
+    )
+
+    # Patch the direct factory function to return our mock client
+    monkeypatch.setattr(
+        "desktop_manager.clients.factory.get_database_client",
+        lambda: mock_client
+    )
+
+    return mock_client
+
+
+@pytest.fixture(autouse=True)
+def mock_auth_decorators(monkeypatch, test_db):
+    """Mock authentication decorators to avoid real database connections.
+
+    This fixture replaces the token_required and admin_required decorators
+    with versions that use the test_db session directly.
+    """
+    from functools import wraps
+    from flask import jsonify, request
+    import jwt
+    from desktop_manager.api.models.user import User
+
+    class MockUser:
+        """Simple user class for testing that mimics the User model."""
+        def __init__(self, id, username, is_admin):
+            self.id = id
+            self.username = username
+            self.is_admin = is_admin
+            self.email = f"{username}@example.com"
+            self.organization = "Test Org"
+
+        def __repr__(self):
+            return f"<MockUser id={self.id} username={self.username} is_admin={self.is_admin}>"
+
+    def mock_token_required(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            print("DEBUG: Executing mock_token_required decorator")
+            try:
+                token = None
+                auth_header = request.headers.get("Authorization")
+
+                if auth_header and auth_header.startswith("Bearer "):
+                    token = auth_header.split(" ")[1]
+
+                if not token:
+                    print("DEBUG: No token found in request")
+                    return jsonify({"message": "Token is missing!"}), 401
+
+                try:
+                    # First attempt: Try decoding token as JWT
+                    payload = jwt.decode(token, "test_secret_key", algorithms=["HS256"])
+                    print(f"DEBUG TOKEN PAYLOAD: {payload}")
+
+                    user_id = payload.get('user_id', 999)
+                    username = payload.get('username', "unknown")
+                    is_admin = bool(payload.get('is_admin', False))
+
+                    # Create mock user
+                    current_user = MockUser(id=user_id, username=username, is_admin=is_admin)
+                    print(f"DEBUG: Created user from JWT: {current_user}")
+
+                    # Set user on request
+                    request.current_user = current_user
+                except jwt.InvalidTokenError:
+                    # Second attempt: Mock OIDC token validation
+                    print("DEBUG: JWT validation failed, trying OIDC token validation")
+
+                    # Mock the userinfo response with a valid 'sub' field
+                    # This simulates the userinfo endpoint for OIDC
+                    userinfo = {
+                        'success': True,
+                        'sub': '123',  # Add the missing 'sub' field
+                        'email': 'test@example.com',
+                        'name': 'Test User',
+                        'username': 'testuser'
+                    }
+
+                    print(f"DEBUG: Mocked userinfo response: {userinfo}")
+
+                    # Extract user ID from JWT payload if possible
+                    try:
+                        raw_payload = jwt.decode(token, options={"verify_signature": False})
+                        user_id = raw_payload.get('user_id', 999)
+                        username = raw_payload.get('username', 'testuser')
+                        is_admin = bool(raw_payload.get('is_admin', False))
+                    except:
+                        # Default values if JWT decoding fails completely
+                        user_id = 999
+                        username = 'testuser'
+                        is_admin = False
+
+                    # Create mock user for OIDC
+                    current_user = MockUser(id=user_id, username=username, is_admin=is_admin)
+                    print(f"DEBUG: Created user from OIDC: {current_user}")
+
+                    # Set user on request
+                    request.current_user = current_user
+
+                print(f"DEBUG: Set current_user on request with is_admin={request.current_user.is_admin}")
+                return f(*args, **kwargs)
+            except Exception as e:
+                print(f"DEBUG: Exception in mock_token_required: {str(e)}")
+                return jsonify({"message": "Token is invalid!"}), 401
+
+        return decorated
+
+    def mock_admin_required(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            print("DEBUG: Executing mock_admin_required decorator")
+
+            # Get current_user from request
+            current_user = getattr(request, "current_user", None)
+            if not current_user:
+                print("DEBUG: No current_user found on request!")
+                return jsonify({"message": "Authentication required!"}), 401
+
+            print(f"DEBUG: User in admin_required: {current_user}")
+            print(f"DEBUG: is_admin value: {current_user.is_admin}")
+
+            # Check if user is admin
+            if not current_user.is_admin:
+                print(f"DEBUG: User {current_user.username} is not an admin")
+                return jsonify({"message": "Admin privilege required!"}), 403
+
+            print(f"DEBUG: User {current_user.username} is admin, proceeding")
+            return f(*args, **kwargs)
+
+        return decorated
+
+    # Patch all instances of the authentication decorators
+    # Core module patches
+    print("\nDEBUG PATCHING: Patching core auth decorators")
+    monkeypatch.setattr("desktop_manager.core.auth.token_required", mock_token_required)
+    monkeypatch.setattr("desktop_manager.core.auth.admin_required", mock_admin_required)
+
+    # Route-specific patches
+    print("DEBUG PATCHING: Patching user_routes decorators")
+    monkeypatch.setattr("desktop_manager.api.routes.user_routes.token_required", mock_token_required)
+    monkeypatch.setattr("desktop_manager.api.routes.user_routes.admin_required", mock_admin_required)
+
+    print("DEBUG PATCHING: Patching connection_routes decorators")
+    monkeypatch.setattr("desktop_manager.api.routes.connection_routes.token_required", mock_token_required)
+    # Don't patch admin_required for connection_routes since it doesn't use this decorator
+
+    # Auth routes
+    print("DEBUG PATCHING: Patching auth_routes decorators")
+    monkeypatch.setattr("desktop_manager.api.routes.auth_routes.token_required", mock_token_required)
+    monkeypatch.setattr("desktop_manager.api.routes.auth_routes.admin_required", mock_admin_required)
+
+    # Return the mock decorators for potential use in tests
+    print("DEBUG PATCHING: Patching finished")
+    return {
+        "token_required": mock_token_required,
+        "admin_required": mock_admin_required
+    }

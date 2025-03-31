@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% set hide_nav = true %}
+
+{% block title %}Debug Login - Desktop Manager{% endblock %}
+
+{% block content %}
+<div class="login-container">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="message {{ category }}">
+        <p>{{ message }}</p>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="debug-warning">
+        <strong>WARNING:</strong> This is a development-only login method. Do not use in production!
+    </div>
+
+    <div class="debug-info">
+        Enter the Sub ID of an existing user. The username and admin status will be automatically
+        fetched from the database. Other fields will be used for additional OIDC information.
+    </div>
+
+    <div id="errorMessage" class="message error" style="display: none;"></div>
+
+    <form id="debugLoginForm" onsubmit="submitForm(event)">
+        <div class="form-group">
+            <label for="sub">User Sub (ID) <span class="required">*</span></label>
+            <input type="text" id="sub" name="sub" required placeholder="Enter user sub from database">
+            <small class="form-help">This must match an existing user's Sub in the database</small>
+        </div>
+        <div class="form-group">
+            <label for="username">Username (automatically determined)</label>
+            <input type="text" id="username" name="username" placeholder="Will be fetched from database" disabled>
+            <small class="form-help">This will be automatically fetched based on the Sub</small>
+        </div>
+        <div class="form-group">
+            <label for="email">Email <span class="required">*</span></label>
+            <input type="email" id="email" name="email" required placeholder="Enter email">
+        </div>
+        <div class="form-group">
+            <label for="given_name">Given Name</label>
+            <input type="text" id="given_name" name="given_name" placeholder="Enter given name">
+        </div>
+        <div class="form-group">
+            <label for="family_name">Family Name</label>
+            <input type="text" id="family_name" name="family_name" placeholder="Enter family name">
+        </div>
+        <div class="form-group">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" name="name" placeholder="Enter full name (optional)">
+        </div>
+        <div class="form-group">
+            <label for="organization">Organization</label>
+            <input type="text" id="organization" name="organization" placeholder="Enter organization (optional)">
+        </div>
+        <div class="form-group">
+            <label for="locale">Locale</label>
+            <input type="text" id="locale" name="locale" placeholder="Enter locale (e.g. en-US)" value="en-US">
+        </div>
+        <div class="form-group form-checkbox">
+            <input type="checkbox" id="email_verified" name="email_verified" checked>
+            <label for="email_verified">Email Verified</label>
+        </div>
+        <div class="form-group form-checkbox disabled">
+            <input type="checkbox" id="is_admin" name="is_admin" disabled>
+            <label for="is_admin">Is Admin (determined by database)</label>
+            <small class="form-help">Admin status is determined by the user's record in the database</small>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="button debug-button">Debug Login</button>
+            <a href="{{ url_for('auth.login') }}" class="button cancel-button">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script nonce="{{ csp_nonce() }}">
+function submitForm(event) {
+    event.preventDefault();
+
+    // Clear previous error messages
+    const errorEl = document.getElementById('errorMessage');
+    errorEl.style.display = 'none';
+    errorEl.textContent = '';
+
+    // Get form values - only include the sub and other editable fields
+    const formData = {
+        sub: document.getElementById('sub').value,
+        email: document.getElementById('email').value,
+        given_name: document.getElementById('given_name').value,
+        family_name: document.getElementById('family_name').value,
+        name: document.getElementById('name').value || null,
+        organization: document.getElementById('organization').value || null,
+        locale: document.getElementById('locale').value || null,
+        email_verified: document.getElementById('email_verified').checked
+        // username and is_admin are not included as they are determined by the server
+    };
+
+    // Send as JSON
+    fetch('{{ url_for("auth.debug_login") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => {
+        if (response.redirected) {
+            window.location.href = response.url;
+        } else {
+            return response.json().then(data => {
+                if (!response.ok) {
+                    // Display error in the UI
+                    errorEl.textContent = data.error || 'Debug login failed';
+                    errorEl.style.display = 'block';
+                    throw new Error(data.error || 'Debug login failed');
+                }
+                // Handle successful response with redirect URL
+                if (data.redirect) {
+                    window.location.href = data.redirect;
+                } else {
+                    // Fallback redirect
+                    window.location.href = "{{ url_for('connections.view_connections') }}";
+                }
+            });
+        }
+    })
+    .catch(error => {
+        // Display error in the UI if not already displayed
+        if (!errorEl.textContent) {
+            errorEl.textContent = error.message || 'An unexpected error occurred';
+            errorEl.style.display = 'block';
+        }
+        console.error('Debug login error:', error);
+    });
+}
+</script>
+
+{% endblock %}

@@ -1,0 +1,124 @@
+// Responsive visibility classes
+.d-none {
+  display: none !important;
+}
+
+.d-block {
+  display: block !important;
+}
+
+// Hide elements at specific breakpoints
+@each $breakpoint, $width in (
+  'xs': $breakpoint-xs,
+  'sm': $breakpoint-sm,
+  'md': $breakpoint-md,
+  'lg': $breakpoint-lg
+) {
+  @media (max-width: $width) {
+    .d-#{$breakpoint}-none {
+      display: none !important;
+    }
+
+    .d-#{$breakpoint}-block {
+      display: block !important;
+    }
+
+    .d-#{$breakpoint}-flex {
+      display: flex !important;
+    }
+  }
+
+  @media (min-width: $width) {
+    .d-#{$breakpoint}-up-none {
+      display: none !important;
+    }
+
+    .d-#{$breakpoint}-up-block {
+      display: block !important;
+    }
+
+    .d-#{$breakpoint}-up-flex {
+      display: flex !important;
+    }
+  }
+}
+
+// Responsive text alignment
+@each $breakpoint, $width in (
+  'xs': $breakpoint-xs,
+  'sm': $breakpoint-sm,
+  'md': $breakpoint-md,
+  'lg': $breakpoint-lg
+) {
+  @media (max-width: $width) {
+    .text-#{$breakpoint}-left {
+      text-align: left !important;
+    }
+
+    .text-#{$breakpoint}-center {
+      text-align: center !important;
+    }
+
+    .text-#{$breakpoint}-right {
+      text-align: right !important;
+    }
+  }
+}
+
+// Table responsiveness enhancement
+@media (max-width: $breakpoint-sm) {
+  .table-responsive {
+    .config-table,
+    .connections-list table {
+      display: block;
+      width: 100%;
+
+      thead {
+        display: none;
+      }
+
+      tbody,
+      tr,
+      td {
+        display: block;
+        width: 100%;
+      }
+
+      tr {
+        margin-bottom: $spacing-md;
+        border: 1px solid $border-color;
+        border-radius: $border-radius;
+        padding: $spacing-sm;
+      }
+
+      td {
+        padding: $spacing-sm;
+        text-align: right;
+        border-bottom: none;
+        position: relative;
+        padding-left: 45%;
+
+        &:before {
+          position: absolute;
+          left: $spacing-sm;
+          width: 40%;
+          text-align: left;
+          font-weight: bold;
+          content: attr(data-label);
+        }
+
+        &:last-child {
+          border-bottom: none;
+        }
+      }
+    }
+  }
+}
+
+// Improved scrollbar for mobile
+@media (max-width: $breakpoint-sm) {
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}

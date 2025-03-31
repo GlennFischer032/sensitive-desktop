@@ -1,0 +1,25 @@
+// Connections page styles
+// Add connection-specific styles here that aren't general components
+
+// Connection actions
+.connection-actions {
+  @include flex(row, flex-start, center);
+  gap: $spacing-sm;
+}
+
+// Special button colors
+.button.small.connect-button,
+.button.connect-button,
+a.button.small.connect-button {
+  background-color: $success-color;
+  color: white;
+
+  &:hover {
+    background-color: $success-dark;
+  }
+}
+
+// Stopped connection styles
+.stopped-connection {
+  opacity: 0.7;
+}

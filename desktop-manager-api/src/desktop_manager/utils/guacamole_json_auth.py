@@ -21,15 +21,19 @@ from desktop_manager.config.settings import get_settings
 class GuacamoleJsonAuth:
     """Utility class for generating Guacamole JSON authentication tokens."""
 
-    def __init__(self, secret_key: Optional[str] = None):
+    def __init__(self, secret_key: Optional[str] = None, guacamole_url: Optional[str] = None):
         """Initialize the GuacamoleJsonAuth utility.
 
         Args:
             secret_key: The secret key to use for signing and encrypting the JSON.
                         If not provided, it will be retrieved from settings.
+            guacamole_url: The base URL of the Guacamole server.
+                          If not provided, it will be retrieved from settings.
         """
         self.settings = get_settings()
         self.secret_key = secret_key or self.settings.GUACAMOLE_JSON_SECRET_KEY
+        self.guacamole_url = guacamole_url or self.settings.GUACAMOLE_URL
+
         if not self.secret_key:
             raise ValueError("No JSON secret key provided or found in settings")
 
@@ -87,45 +91,3 @@ class GuacamoleJsonAuth:
 
         # Base64 encode
         return base64.b64encode(encrypted_data).decode("utf-8")
-
-    def format_connection_params(
-        self, connection_data: Dict[str, Any]
-    ) -> Dict[str, Dict[str, Any]]:
-        """Format connection parameters for Guacamole JSON authentication.
-
-        Args:
-            connection_data: Dictionary containing connection information
-
-        Returns:
-            Dictionary formatted for Guacamole JSON auth
-        """
-        connections = {}
-
-        for conn_name, conn_info in connection_data.items():
-            # Handle basic connection parameters
-            if "protocol" in conn_info:
-                connections[conn_name] = {
-                    "protocol": conn_info["protocol"],
-                    "parameters": {
-                        # Convert all values to strings as required by Guacamole
-                        k: str(v)
-                        for k, v in conn_info.get("parameters", {}).items()
-                    },
-                }
-
-                # Add connection ID if provided (needed for sharing/shadowing)
-                if "id" in conn_info:
-                    connections[conn_name]["id"] = conn_info["id"]
-
-            # Handle connection joining (for sharing/shadowing)
-            elif "join" in conn_info:
-                connections[conn_name] = {
-                    "join": conn_info["join"],
-                    "parameters": {k: str(v) for k, v in conn_info.get("parameters", {}).items()},
-                }
-
-                # Add connection ID if provided
-                if "id" in conn_info:
-                    connections[conn_name]["id"] = conn_info["id"]
-
-        return connections

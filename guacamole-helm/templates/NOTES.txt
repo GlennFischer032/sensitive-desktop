@@ -15,9 +15,8 @@ This chart deploys two main components:
 
 Database Information:
 --------------------
-MySQL Host: mysql-{{ .Release.Name }}
-Guacamole Database: {{ .Values.mysql.database }}
-Desktop Manager Database: desktop_manager
+PostgreSQL Host: postgres-guacamole
+Database: {{ .Values.common.database.database }}
 
 Next Steps:
 ----------

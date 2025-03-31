@@ -11,31 +11,101 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body class="{{ body_class }}">
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            {% for category, message in messages %}
-                <div class="notification-container">
+            <div class="notification-container">
+                {% for category, message in messages %}
                     <div class="notification {{ category }}">
                         {{ message }}
+                        <span class="notification-close"></span>
                     </div>
-                </div>
-            {% endfor %}
+                {% endfor %}
+            </div>
         {% endif %}
     {% endwith %}
 
     <script>
+    // Utility function for handling notifications consistently throughout the app
+    window.NotificationManager = {
+        // Initialize notification container or use existing one
+        getContainer: function() {
+            let container = document.querySelector('.notification-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.className = 'notification-container';
+                document.body.appendChild(container);
+            }
+            return container;
+        },
+
+        // Add a new notification
+        show: function(message, type = 'success') {
+            const container = this.getContainer();
+
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                ${message}
+                <span class="notification-close"></span>
+            `;
+
+            container.appendChild(notification);
+
+            // Add close button handler
+            notification.querySelector('.notification-close').addEventListener('click', () => {
+                this.closeNotification(notification);
+            });
+
+            // Force reflow to ensure animation works - crucial for slide-in to work
+            void notification.offsetWidth;
+
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    this.closeNotification(notification);
+                }
+            }, 5000);
+
+            return notification;
+        },
+
+        // Close a notification with animation
+        closeNotification: function(notification) {
+            notification.style.opacity = '0';
+            notification.style.transform = 'translateX(100%)';
+
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+
+                    // Remove container if empty
+                    const container = document.querySelector('.notification-container');
+                    if (container && container.children.length === 0) {
+                        container.remove();
+                    }
+                }
+            }, 300);
+        }
+    };
+
     document.addEventListener('DOMContentLoaded', function() {
+        // Add close button functionality
+        document.querySelectorAll('.notification-close').forEach(closeBtn => {
+            closeBtn.addEventListener('click', function() {
+                const notification = this.parentElement;
+                NotificationManager.closeNotification(notification);
+            });
+        });
+
+        // Auto-dismiss notifications after 5 seconds
         const notifications = document.querySelectorAll('.notification');
         notifications.forEach(notification => {
-            // Trigger fade out after 3 seconds
             setTimeout(() => {
-                notification.style.opacity = '0';
-                // Remove the notification after animation completes
-                setTimeout(() => {
-                    notification.parentElement.remove();
-                }, 300);
-            }, 3000);
+                if (notification.parentElement) { // Check if still in DOM
+                    NotificationManager.closeNotification(notification);
+                }
+            }, 5000);
         });
     });
     </script>
@@ -47,8 +117,11 @@
                 {% if session.get('is_admin') %}
                 <a href="{{ url_for('users.dashboard') }}">Dashboard</a>
                 <a href="{{ url_for('users.view_users') }}">Users</a>
+                <a href="{{ url_for('configurations.list_configurations') }}">Configurations</a>
+                <a href="{{ url_for('storage.view_pvcs') }}">Storage PVCs</a>
                 {% endif %}
                 <a href="{{ url_for('connections.view_connections') }}">Connections</a>
+                <a href="{{ url_for('connections.guacamole_dashboard') }}" target="_blank">Guacamole</a>
                 <a href="{{ url_for('auth.logout') }}">Logout</a>
             {% endif %}
         </div>

@@ -1,0 +1,78 @@
+// Login page specific styles
+// Add login-specific styles here that aren't general components
+
+// Full page background for login
+body.login-page {
+  background: linear-gradient(135deg, rgba($primary-color, 0.05) 0%, rgba($success-color, 0.05) 100%);
+}
+
+// Remove container styling for login page
+.login-page .container {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+// Login container
+.login-container {
+  max-width: 500px;
+  width: 100%;
+  margin: $spacing-xl auto;
+  padding: $spacing-xl;
+  background: $bg-white;
+  border-radius: $border-radius-lg;
+  @include box-shadow(1);
+
+  .login-header {
+    text-align: center;
+    margin-top: 0;
+  }
+}
+
+// OIDC login button
+.oidc-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-md;
+  width: 100%;
+  padding: $spacing-md;
+  background: $primary-dark;
+  color: white;
+  text-decoration: none;
+  border-radius: $border-radius;
+  transition: background-color $transition-fast;
+  font-size: $font-size-lg;
+
+  &:hover {
+    background: darken($primary-dark, 5%);
+  }
+
+  // Logo size fix
+  .oidc-logo, img {
+    max-width: 60px;
+    height: auto;
+  }
+}
+
+// Debug login button
+.debug-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: $spacing-md;
+  background: $danger-color;
+  color: white;
+  text-decoration: none;
+  border-radius: $border-radius;
+  transition: background-color $transition-fast;
+  font-size: $font-size-lg;
+
+  &:hover {
+    background: $danger-dark;
+  }
+}

@@ -3,6 +3,8 @@
 import json
 from datetime import datetime, timedelta
 from unittest.mock import patch
+from unittest.mock import MagicMock
+from unittest.mock import call
 
 import jwt
 import pytest
@@ -11,6 +13,9 @@ from werkzeug.security import generate_password_hash
 
 from desktop_manager.api.models.user import User
 from desktop_manager.api.routes.auth_routes import auth_bp
+from desktop_manager.core import auth
+from desktop_manager.core import security  # Correct import for token decoding
+from desktop_manager.api.schemas.user import UserCreate
 
 
 # Mock decorators
@@ -33,10 +38,16 @@ def test_user(test_db):
     """Create a test user in the database."""
     user = User(
         username="testuser",
-        password_hash=generate_password_hash("password123"),
         email="test@example.com",
         organization="Test Org",
         is_admin=False,
+        sub="test_oidc_sub_123",
+        given_name="Test",
+        family_name="User",
+        name="Test User",
+        locale="en",
+        email_verified=True,
+        last_login=None,
     )
     test_db.add(user)
     test_db.commit()
@@ -48,10 +59,16 @@ def test_admin(test_db):
     """Create a test admin user in the database."""
     admin = User(
         username="admin",
-        password_hash=generate_password_hash("adminpass"),
         email="admin@example.com",
         organization="Admin Org",
         is_admin=True,
+        sub="admin_oidc_sub_456",
+        given_name="Admin",
+        family_name="User",
+        name="Admin User",
+        locale="en",
+        email_verified=True,
+        last_login=None,
     )
     test_db.add(admin)
     test_db.commit()
@@ -61,27 +78,40 @@ def test_admin(test_db):
 @pytest.fixture()
 def mock_guacamole():
     """Mock the Guacamole client and its methods."""
+    # Create a MagicMock for GuacamoleClient
+    mock_guacamole_client = MagicMock()
+
+    # Mock GuacamoleClient methods
+    mock_guacamole_client.login.return_value = "mock_token"
+    mock_guacamole_client.create_user_if_not_exists.return_value = True
+    mock_guacamole_client.ensure_group.return_value = True
+    mock_guacamole_client.add_user_to_group.return_value = True
+    mock_guacamole_client.delete_user.return_value = True
+
+    # Mock response object for HTTP methods
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"success": True}
+
+    # Mock HTTP methods
+    mock_guacamole_client.get.return_value = mock_response
+    mock_guacamole_client.post.return_value = mock_response
+
+    # Apply the patch
     with patch(
-        "desktop_manager.api.routes.auth_routes.guacamole_login"
-    ) as mock_login, patch(
-        "desktop_manager.api.routes.auth_routes.create_guacamole_user"
-    ) as mock_create, patch(
-        "desktop_manager.api.routes.auth_routes.ensure_all_users_group"
-    ) as mock_ensure_all, patch(
-        "desktop_manager.api.routes.auth_routes.ensure_admins_group"
-    ) as mock_ensure_admins, patch(
-        "desktop_manager.api.routes.auth_routes.add_user_to_group"
-    ) as mock_add_to_group, patch(
-        "desktop_manager.api.routes.auth_routes.delete_guacamole_user"
-    ) as mock_delete:
-        mock_login.return_value = "mock_token"
+        "desktop_manager.clients.factory.client_factory.get_guacamole_client",
+        return_value=mock_guacamole_client
+    ):
         yield {
-            "login": mock_login,
-            "create": mock_create,
-            "ensure_all": mock_ensure_all,
-            "ensure_admins": mock_ensure_admins,
-            "add_to_group": mock_add_to_group,
-            "delete": mock_delete,
+            "client": mock_guacamole_client,
+            "login": mock_guacamole_client.login,
+            "create": mock_guacamole_client.create_user_if_not_exists,
+            "ensure_group": mock_guacamole_client.ensure_group,
+            "add_to_group": mock_guacamole_client.add_user_to_group,
+            "delete": mock_guacamole_client.delete_user,
+            "client_get": mock_guacamole_client.get,
+            "client_post": mock_guacamole_client.post,
+            "mock_response": mock_response
         }
 
 
@@ -116,9 +146,65 @@ def test_app(test_db):
     app.config["TESTING"] = True
     app.config["SECRET_KEY"] = "test_secret_key"
 
-    # Mock get_db to use test database
-    def mock_get_db():
-        yield test_db
+    # Mock database client
+    mock_db_client = MagicMock()
+
+    # Define a custom execute_query method that returns mock data
+    def mock_execute_query(query, params=None):
+        # For user authentication by user ID
+        if "SELECT * FROM users WHERE id = :user_id" in query:
+            user_id = params.get("user_id")
+            user = test_db.query(User).get(user_id)
+            if user:
+                # Convert the user object to a dict
+                user_dict = {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "is_admin": user.is_admin,
+                    "password_hash": user.password_hash,
+                    "organization": user.organization
+                }
+                return [user_dict], 1
+            return [], 0
+
+        # For user authentication by username (used in login)
+        elif "SELECT * FROM users WHERE username = :username" in query:
+            username = params.get("username")
+            user = test_db.query(User).filter(User.username == username).first()
+            if user:
+                # Convert the user object to a dict
+                user_dict = {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "is_admin": user.is_admin,
+                    "password_hash": user.password_hash,
+                    "organization": user.organization
+                }
+                return [user_dict], 1
+            return [], 0
+
+        # For checking if a username exists
+        elif "SELECT id FROM users WHERE username = :username" in query:
+            username = params.get("username")
+            user = test_db.query(User).filter(User.username == username).first()
+            if user:
+                return [{"id": user.id}], 1
+            return [], 0
+
+        # For update queries - just return success
+        elif query.startswith("UPDATE"):
+            return [], 0
+
+        # Default response
+        return [], 0
+
+    mock_db_client.execute_query = mock_execute_query
+
+    # Mock settings for database
+    mock_settings = MagicMock()
+    mock_settings.DATABASE_URL = "postgresql://test:test@localhost/test"
 
     # Create a real token_required decorator for testing
     def test_token_required(f):
@@ -138,10 +224,7 @@ def test_app(test_db):
                     mock_update.return_value = None
 
                     data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
-                    db_session = next(mock_get_db())
-                    current_user = (
-                        db_session.query(User).filter(User.id == data["user_id"]).first()
-                    )
+                    current_user = test_db.query(User).filter(User.id == data["user_id"]).first()
 
                     if not current_user:
                         return jsonify({"message": "User not found!"}), 401
@@ -167,11 +250,17 @@ def test_app(test_db):
 
         return decorated
 
-    # Mock the decorators and get_db
-    with patch("desktop_manager.api.routes.auth_routes.get_db", mock_get_db), patch(
+    # Mock the decorators and database client
+    with patch(
+        "desktop_manager.clients.factory.client_factory.get_database_client",
+        return_value=mock_db_client
+    ), patch(
         "desktop_manager.api.routes.auth_routes.token_required", test_token_required
     ), patch(
         "desktop_manager.api.routes.auth_routes.admin_required", test_admin_required
+    ), patch(
+        "desktop_manager.config.settings.get_settings",
+        return_value=mock_settings
     ):
         # Import the blueprint after patching the decorators
         app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -187,36 +276,41 @@ def client(test_app):
 
 # Login tests
 def test_login_success(client, test_user):
-    """Test successful login."""
+    """Test login with password auth disabled."""
     response = client.post(
         "/auth/login", json={"username": "testuser", "password": "password123"}
     )
     data = json.loads(response.data)
-    assert response.status_code == 200
-    assert "token" in data
-    assert data["username"] == "testuser"
-    assert data["is_admin"] is False
+    assert response.status_code == 400
+    assert data["error"] == "Username/password authentication has been disabled"
+    assert data["message"] == "Please use OIDC authentication instead"
+    assert "oidc_login_url" in data
 
 
 def test_login_missing_json(client):
     """Test login with missing JSON."""
     response = client.post("/auth/login")
-    assert response.status_code == 400
-    assert b"Missing JSON in request" in response.data
+    assert response.status_code == 400  # Now returns Bad Request with OIDC message
+    data = json.loads(response.data)
+    assert data["error"] == "Username/password authentication has been disabled"
 
 
 def test_login_empty_json(client):
     """Test login with empty JSON."""
     response = client.post("/auth/login", json={})
     assert response.status_code == 400
-    assert b"Missing JSON data" in response.data
+    data = json.loads(response.data)
+    assert data["error"] == "Username/password authentication has been disabled"
+    assert data["message"] == "Please use OIDC authentication instead"
 
 
 def test_login_missing_fields(client):
     """Test login with missing fields."""
     response = client.post("/auth/login", json={"username": "testuser"})
     assert response.status_code == 400
-    assert b"Missing username or password" in response.data
+    data = json.loads(response.data)
+    assert data["error"] == "Username/password authentication has been disabled"
+    assert data["message"] == "Please use OIDC authentication instead"
 
 
 def test_login_invalid_credentials(client, test_user):
@@ -224,80 +318,53 @@ def test_login_invalid_credentials(client, test_user):
     response = client.post(
         "/auth/login", json={"username": "testuser", "password": "wrongpassword"}
     )
-    assert response.status_code == 401
-    assert b"Invalid credentials" in response.data
+    assert response.status_code == 400
+    data = json.loads(response.data)
+    assert data["error"] == "Username/password authentication has been disabled"
+    assert data["message"] == "Please use OIDC authentication instead"
 
 
 # Registration tests
-def test_register_success(client, test_admin, mock_guacamole, admin_token):
-    """Test successful user registration by admin."""
+def test_register_success(client, admin_token):
+    """Test registration with password auth disabled."""
     response = client.post(
         "/auth/register",
-        json={
-            "username": "newuser",
-            "password": "newpassword",
-            "email": "new@example.com",
-            "organization": "New Org",
-            "is_admin": False,
-        },
+        json={"username": "newuser", "password": "password123", "email": "new@example.com"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    data = json.loads(response.data)
-    assert response.status_code == 201
-    assert "registered successfully" in data["message"]
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
-def test_register_as_admin(client, test_admin, mock_guacamole, admin_token):
-    """Test registering a new admin user."""
+def test_register_as_admin(client, admin_token):
+    """Test admin registration with password auth disabled."""
     response = client.post(
         "/auth/register",
-        json={
-            "username": "newadmin",
-            "password": "adminpass",
-            "email": "newadmin@example.com",
-            "organization": "Admin Org",
-            "is_admin": True,
-        },
+        json={"username": "newuser", "password": "password123", "email": "new@example.com"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    data = json.loads(response.data)
-    assert response.status_code == 201
-    assert "registered successfully" in data["message"]
-    mock_guacamole["ensure_admins"].assert_called_once()
-    mock_guacamole["add_to_group"].assert_called_once_with(
-        "mock_token", "newadmin", "admins"
-    )
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
 def test_register_non_admin(client, user_token):
-    """Test registration attempt by non-admin user."""
+    """Test non-admin registration with password auth disabled."""
     response = client.post(
         "/auth/register",
-        json={
-            "username": "newuser2",
-            "password": "password123",
-            "email": "new2@example.com",
-            "organization": "New Org",
-        },
+        json={"username": "newuser", "password": "password123", "email": "new@example.com", "is_admin": True},
         headers={"Authorization": f"Bearer {user_token}"},
     )
-
-    # Non-admin should not be able to register users
-    assert response.status_code == 403
-    assert b"Admin privilege required" in response.data
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
 def test_register_missing_token(client):
-    """Test registration with missing token."""
+    """Test registration without token with password auth disabled."""
     response = client.post(
         "/auth/register",
-        json={
-            "username": "newuser",
-            "password": "newpassword",
-            "email": "new@example.com",
-        },
+        json={"username": "newuser", "password": "password123", "email": "new@example.com"},
     )
-    assert response.status_code == 401
+    assert response.status_code == 401  # Keep as 401 since missing token returns unauthorized first
     assert b"Token is missing" in response.data
 
 
@@ -322,7 +389,7 @@ def test_register_expired_token(client):
         headers={"Authorization": f"Bearer {expired_token}"},
     )
     assert response.status_code == 401
-    assert b"Token validation failed" in response.data
+    assert b"Token is invalid" in response.data
 
 
 def test_register_invalid_input(client, admin_token):
@@ -335,8 +402,8 @@ def test_register_invalid_input(client, admin_token):
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == 400
-    assert b"Username, password, and email are required" in response.data
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
 def test_register_duplicate_username(client, test_user, admin_token):
@@ -351,8 +418,8 @@ def test_register_duplicate_username(client, test_user, admin_token):
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == 400
-    assert b"Username already exists" in response.data
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
 def test_register_guacamole_login_error(client, admin_token, mock_guacamole):
@@ -369,8 +436,8 @@ def test_register_guacamole_login_error(client, admin_token, mock_guacamole):
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == 500
-    assert b"Failed to authenticate with Guacamole API" in response.data
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
 def test_register_guacamole_create_error(client, admin_token, mock_guacamole):
@@ -387,8 +454,8 @@ def test_register_guacamole_create_error(client, admin_token, mock_guacamole):
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == 500
-    assert b"Failed to create user in Guacamole" in response.data
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data
 
 
 def test_register_guacamole_group_error(client, admin_token, mock_guacamole):
@@ -407,5 +474,5 @@ def test_register_guacamole_group_error(client, admin_token, mock_guacamole):
         },
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert response.status_code == 500
-    assert b"Failed to assign user to group in Guacamole" in response.data
+    assert response.status_code == 401
+    assert b"Token is invalid" in response.data

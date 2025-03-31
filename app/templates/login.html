@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% set hide_nav = true %}
+{% set body_class = "login-page" %}
 
 {% block title %}Login - Desktop Manager{% endblock %}
 
 {% block content %}
 <div class="login-container">
-    <h2 class="login-header">Login</h2>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -20,175 +20,26 @@
     <div class="login-options">
         <div class="login-option">
             <h3>Login with e-INFRA CZ</h3>
+            <p class="login-description">
+                Use your e-INFRA CZ account to access the Desktop Manager.
+            </p>
             <a href="{{ url_for('auth.oidc_login') }}" class="button oidc-button">
-                <img src="{{ url_for('static', filename='images/e-infra-logo.png') }}" alt="e-INFRA CZ" class="oidc-logo">
+                <img src="{{ url_for('static', filename='images/e-infra-logo.png') }}" alt="e-INFRA CZ" class="oidc-logo" width="60">
                 Sign in with e-INFRA CZ
             </a>
         </div>
 
-        <div class="login-divider">
-            <span>or</span>
-        </div>
-
+        {% if config.DEBUG_LOGIN_ENABLED %}
         <div class="login-option">
-            <h3>Login with Username</h3>
-            <form method="post" action="{{ url_for('auth.login') }}" class="login-form">
-                <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" name="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-                <div class="button-container">
-                    <button type="submit" class="button">Login</button>
-                </div>
-            </form>
+            <h3>Debug Login</h3>
+            <p class="login-description">
+                For development and testing purposes only.
+            </p>
+            <a href="{{ url_for('auth.debug_login') }}" class="button debug-button">
+                Development Debug Login
+            </a>
         </div>
+        {% endif %}
     </div>
 </div>
-
-<style>
-.login-container {
-    max-width: 500px;
-    margin: 2rem auto;
-    padding: 2rem;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.login-header {
-    text-align: center;
-    margin-bottom: 2rem;
-    color: #333;
-}
-
-.login-options {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.login-option {
-    padding: 1rem;
-    background: #f8f9fa;
-    border-radius: 6px;
-}
-
-.login-option h3 {
-    margin: 0 0 1rem;
-    font-size: 1.1rem;
-    color: #495057;
-    text-align: center;
-}
-
-.login-divider {
-    position: relative;
-    text-align: center;
-    margin: 1rem 0;
-}
-
-.login-divider::before,
-.login-divider::after {
-    content: "";
-    position: absolute;
-    top: 50%;
-    width: 45%;
-    height: 1px;
-    background: #dee2e6;
-}
-
-.login-divider::before {
-    left: 0;
-}
-
-.login-divider::after {
-    right: 0;
-}
-
-.login-divider span {
-    background: white;
-    padding: 0 1rem;
-    color: #6c757d;
-    font-size: 0.9rem;
-}
-
-.oidc-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.75rem;
-    background: #0056b3;
-    color: white;
-    text-decoration: none;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-}
-
-.oidc-button:hover {
-    background: #004494;
-}
-
-.oidc-logo {
-    height: 24px;
-    width: auto;
-}
-
-.message {
-    padding: 1rem;
-    margin-bottom: 1rem;
-    border-radius: 4px;
-}
-
-.message.error {
-    background: #fee;
-    border: 1px solid #fcc;
-    color: #c00;
-}
-
-.message.success {
-    background: #efe;
-    border: 1px solid #cfc;
-    color: #0c0;
-}
-
-.form-group {
-    margin-bottom: 1rem;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: #495057;
-}
-
-.form-group input {
-    width: 100%;
-    padding: 0.5rem;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-}
-
-.button-container {
-    text-align: center;
-}
-
-.button {
-    padding: 0.5rem 1rem;
-    font-size: 1rem;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    background: #0056b3;
-    color: white;
-}
-
-.button:hover {
-    background: #004494;
-}
-</style>
 {% endblock %}

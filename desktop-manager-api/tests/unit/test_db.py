@@ -22,6 +22,13 @@ def test_create_tables(test_db):
             username=TEST_USER["username"],
             email=TEST_USER["email"],
             organization=TEST_USER["organization"],
+            sub=TEST_USER["sub"],
+            given_name=None,
+            family_name=None,
+            name=None,
+            locale=None,
+            email_verified=False,
+            last_login=None,
         )
         test_db.add(user)
         test_db.commit()
@@ -32,6 +39,7 @@ def test_create_tables(test_db):
         )
         assert created_user is not None
         assert created_user.email == TEST_USER["email"]
+        assert created_user.sub == TEST_USER["sub"]
 
         # Test foreign key relationship
         connection = Connection(

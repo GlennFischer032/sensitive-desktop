@@ -14,9 +14,9 @@ A comprehensive solution for managing and accessing remote desktops in a secure,
    ```env
    # Database Configuration
    MYSQL_ROOT_PASSWORD=your_root_password
-   MYSQL_DATABASE=guacamole_db
-   MYSQL_USER=guacamole_user
-   MYSQL_PASSWORD=your_password
+   POSTGRES_DB=guacamole_db
+   POSTGRES_USER=guacamole_user
+   POSTGRES_PASSWORD=your_password
 
    # Guacamole Admin Credentials
    GUACAMOLE_USERNAME=guacadmin

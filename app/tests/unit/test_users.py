@@ -153,10 +153,8 @@ def test_add_user_success(client: FlaskClient, responses_mock) -> None:
             responses_mock.matchers.json_params_matcher(
                 {
                     "username": "newuser",
-                    "email": "newuser@test.com",
-                    "organization": "Test Org",
                     "is_admin": False,
-                    "password": "testpass123",
+                    "sub": "user123456",
                 }
             ),
         ],
@@ -168,9 +166,7 @@ def test_add_user_success(client: FlaskClient, responses_mock) -> None:
         "/users/add",
         data={
             "username": "newuser",
-            "email": "newuser@test.com",
-            "organization": "Test Org",
-            "password": "testpass123",
+            "sub": "user123456",
             "is_admin": "false",
         },
         follow_redirects=True,
@@ -191,7 +187,7 @@ def test_add_user_missing_fields(client: FlaskClient) -> None:
 
     response = client.post("/users/add", data={}, follow_redirects=True)
     assert response.status_code == 200
-    assert b"Username and email are required" in response.data
+    assert b"Username and OIDC Subject Identifier are required" in response.data
 
 
 def test_add_user_validation_error(client: FlaskClient, responses_mock) -> None:
@@ -211,8 +207,7 @@ def test_add_user_validation_error(client: FlaskClient, responses_mock) -> None:
         json={
             "error": "Validation error",
             "details": {
-                "email": ["Invalid email format"],
-                "password": ["Password too short"],
+                "sub": ["Invalid subject identifier"],
             },
         },
         status=400,
@@ -222,15 +217,13 @@ def test_add_user_validation_error(client: FlaskClient, responses_mock) -> None:
         "/users/add",
         data={
             "username": "newuser",
-            "email": "invalid-email",
-            "password": "short",
+            "sub": "invalid-sub",
             "is_admin": "false",
         },
         follow_redirects=True,
     )
     assert response.status_code == 200
-    assert b"Email: Invalid email format" in response.data
-    assert b"Password: Password too short" in response.data
+    assert b"Sub: Invalid subject identifier" in response.data
 
 
 def test_add_user_network_error(client: FlaskClient, responses_mock) -> None:
@@ -254,14 +247,13 @@ def test_add_user_network_error(client: FlaskClient, responses_mock) -> None:
         "/users/add",
         data={
             "username": "newuser",
-            "email": "newuser@test.com",
-            "password": "testpass123",
+            "sub": "user123456",
             "is_admin": "false",
         },
         follow_redirects=True,
     )
     assert response.status_code == 200
-    assert b"Error:" in response.data
+    assert b"Error: Network error" in response.data
 
 
 def test_add_user_timeout(client: FlaskClient, responses_mock) -> None:
@@ -285,14 +277,13 @@ def test_add_user_timeout(client: FlaskClient, responses_mock) -> None:
         "/users/add",
         data={
             "username": "newuser",
-            "email": "newuser@test.com",
-            "password": "testpass123",
+            "sub": "user123456",
             "is_admin": "false",
         },
         follow_redirects=True,
     )
     assert response.status_code == 200
-    assert b"Request timed out after 10 seconds" in response.data
+    assert b"Failed to add user: Request timed out after 10 seconds" in response.data
 
 
 def test_delete_user_success(client: FlaskClient, responses_mock) -> None:
@@ -545,9 +536,8 @@ def test_add_user_without_password(client: FlaskClient, responses_mock) -> None:
             responses_mock.matchers.json_params_matcher(
                 {
                     "username": "oidcuser",
-                    "email": "oidcuser@test.com",
-                    "organization": "OIDC Org",
                     "is_admin": False,
+                    "sub": "oidc123456",
                 }
             ),
         ],
@@ -559,8 +549,7 @@ def test_add_user_without_password(client: FlaskClient, responses_mock) -> None:
         "/users/add",
         data={
             "username": "oidcuser",
-            "email": "oidcuser@test.com",
-            "organization": "OIDC Org",
+            "sub": "oidc123456",
             "is_admin": "false",
             # No password provided
         },

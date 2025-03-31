@@ -24,6 +24,41 @@
             <label for="name">Connection Name:</label>
             <input type="text" id="name" name="connection_name" required>
         </div>
+
+        <div class="form-group">
+            <div class="checkbox-wrapper">
+                <label class="checkbox-label" for="persistent_home">
+                    <input type="checkbox" id="persistent_home" name="persistent_home" checked>
+                    Persistent Home Directory
+                </label>
+            </div>
+            <small class="form-text">When enabled, your home directory contents will be preserved between sessions.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="desktop_configuration_id">Desktop Configuration:</label>
+            <select id="desktop_configuration_id" name="desktop_configuration_id">
+                <option value="">Default Configuration</option>
+                {% for config in desktop_configurations %}
+                <option value="{{ config.id }}">{{ config.name }}</option>
+                {% endfor %}
+            </select>
+            <small class="form-text">Select a desktop configuration to use for this connection.</small>
+        </div>
+
+        {% if is_admin and storage_pvcs %}
+        <div class="form-group">
+            <label for="external_pvc">Storage PVC:</label>
+            <select id="external_pvc" name="external_pvc">
+                <option value="">No external storage</option>
+                {% for pvc in storage_pvcs %}
+                <option value="{{ pvc.name }}">{{ pvc.name }} ({{ pvc.size }})</option>
+                {% endfor %}
+            </select>
+            <small class="form-text">Select a persistent volume claim to attach to this desktop for additional storage.</small>
+        </div>
+        {% endif %}
+
         <div class="button-container">
             <button type="submit" class="button" id="submit-button">Create Connection</button>
         </div>
@@ -45,6 +80,17 @@ function handleSubmit(event) {
 
     const form = document.getElementById('connection-form');
     const loadingContainer = document.getElementById('loading-container');
+
+    // Ensure the checkbox value is properly set (HTML forms only submit checked checkboxes)
+    const persistentHomeCheckbox = document.getElementById('persistent_home');
+    if (!persistentHomeCheckbox.checked) {
+        // Add a hidden field with value="off" to ensure the server receives the value
+        const hiddenField = document.createElement('input');
+        hiddenField.type = 'hidden';
+        hiddenField.name = 'persistent_home';
+        hiddenField.value = 'off';
+        form.appendChild(hiddenField);
+    }
 
     // Hide form and show loading animation
     form.style.display = 'none';

@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: desktop-frontend-{{ .Release.Name }}
+  labels:
+    {{- include "guacamole.labels" . | nindent 4 }}
+    component: desktop-frontend
+spec:
+  replicas: {{ .Values.desktopFrontend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "desktop-frontend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "desktop-frontend.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
+      initContainers:
+      - name: wait-for-redis
+        image: redis:7-alpine
+        command: ['sh', '-c', 'until redis-cli -h redis-{{ .Release.Name }} ping; do echo waiting for redis; sleep 2; done;']
+        securityContext:
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 1000
+      - name: wait-for-api
+        image: curlimages/curl:8.00.1
+        command: ['sh', '-c', 'until curl -s http://desktop-api-{{ .Release.Name }}/api/health > /dev/null 2>&1; do echo waiting for api; sleep 2; done;']
+        securityContext:
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 1000
+      containers:
+      - name: desktop-frontend
+        image: {{ .Values.desktopFrontend.image }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 1000
+          runAsGroup: 1000
+        env:
+          - name: SECRET_KEY
+            value: {{ .Values.common.credentials.secretKey | quote }}
+          - name: API_URL
+            value: "http://desktop-api-{{ .Release.Name }}"
+          - name: GUACAMOLE_URL
+            value: {{ printf "https://%s" (include "guacamole.hostname" .) | quote }}
+          - name: EXTERNAL_GUACAMOLE_URL
+            value: {{ printf "https://%s/guacamole" (include "guacamole.hostname" .) | quote }}
+          - name: FLASK_APP
+            value: "app.py"
+          - name: FLASK_ENV
+            value: "production"
+          - name: PYTHONUNBUFFERED
+            value: "1"
+          - name: REDIS_URL
+            value: "redis://redis-{{ .Release.Name }}:{{ .Values.common.ports.redis }}/0"
+          # OIDC Configuration
+          - name: OIDC_CLIENT_ID
+            value: {{ .Values.common.oidc.clientId | quote }}
+          - name: OIDC_CLIENT_SECRET
+            value: {{ .Values.common.oidc.clientSecret | quote }}
+          - name: OIDC_PROVIDER_URL
+            value: {{ .Values.common.oidc.providerUrl | quote }}
+          - name: OIDC_REDIRECT_URI
+            value: {{ .Values.common.oidc.redirectUri | quote }}
+        ports:
+        - containerPort: {{ .Values.desktopFrontend.containerPort }}
+          name: http
+        {{- if .Values.desktopFrontend.healthcheck.enabled }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.desktopFrontend.healthcheck.path }}
+            port: http
+          initialDelaySeconds: {{ .Values.desktopFrontend.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.desktopFrontend.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.desktopFrontend.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.desktopFrontend.healthcheck.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.desktopFrontend.healthcheck.path }}
+            port: http
+          initialDelaySeconds: {{ .Values.desktopFrontend.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.desktopFrontend.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.desktopFrontend.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.desktopFrontend.healthcheck.failureThreshold }}
+        {{- end }}

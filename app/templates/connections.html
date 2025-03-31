@@ -16,21 +16,32 @@
                 <th>Name</th>
                 <th>Created At</th>
                 <th>Created By</th>
+                <th>Persistent Home</th>
+                <th>Desktop Configuration</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for conn in connections %}
-            <tr id="connection-{{ conn.name }}">
-                <td>{{ conn.name }}</td>
+            <tr id="connection-{{ conn.name }}" class="{% if conn.is_stopped %}stopped-connection{% endif %}">
+                <td>{{ conn.name }}{% if conn.is_stopped %} (Stopped){% endif %}</td>
                 <td>{{ conn.created_at }}</td>
                 <td>{{ conn.created_by }}</td>
+                <td>{{ "Yes" if conn.persistent_home else "No" }}</td>
+                <td>{{ conn.desktop_configuration_name or "Default" }}</td>
                 <td class="action-buttons">
-                    <a href="{{ conn.auth_url }}" target="_blank" class="action-button connect-button">Connect</a>
+                    {% if not conn.is_stopped %}
+                    <a href="{{ url_for('connections.direct_connect', connection_id=conn.id) }}" target="_blank" class="button small connect-btn">Connect</a>
                     <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post"
                           onsubmit="handleDelete(event, '{{ conn.name }}')">
-                        <button type="submit" class="action-button delete-button">Delete</button>
+                        <button type="submit" class="button small danger delete-btn">Stop</button>
                     </form>
+                    {% else %}
+                    <form action="{{ url_for('connections.resume_connection', connection_name=conn.name) }}" method="post"
+                          onsubmit="handleResume(event, '{{ conn.name }}')">
+                        <button type="submit" class="button small success resume-btn">Resume</button>
+                    </form>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}
@@ -44,11 +55,10 @@
 </div>
 
 <script>
-
 async function handleDelete(event, connectionName) {
     event.preventDefault();
 
-    if (!confirm('Are you sure you want to delete this connection?')) {
+    if (!confirm('Are you sure you want to stop this connection?')) {
         return;
     }
 
@@ -58,7 +68,7 @@ async function handleDelete(event, connectionName) {
 
     // Replace buttons with loading animation
     actionButtons.innerHTML = `
-        <span class="deleting-text">Deleting</span>
+        <span class="deleting-text">Stopping</span>
         <div class="loading-dots">
             <div class="loading-dot"></div>
             <div class="loading-dot"></div>
@@ -66,7 +76,7 @@ async function handleDelete(event, connectionName) {
         </div>
     `;
 
-    row.classList.add('deleting-row');
+    row.classList.add('stopping-row');
 
     try {
         const response = await fetch(form.action, {
@@ -83,7 +93,7 @@ async function handleDelete(event, connectionName) {
             notificationContainer.className = 'notification-container';
             notificationContainer.innerHTML = `
                 <div class="notification success">
-                    Connection deleted successfully
+                    Connection stopped successfully
                 </div>
             `;
             document.body.appendChild(notificationContainer);
@@ -94,17 +104,8 @@ async function handleDelete(event, connectionName) {
                 setTimeout(() => notificationContainer.remove(), 300);
             }, 3000);
 
-            // Fade out and remove the row
-            row.style.transition = 'opacity 0.5s';
-            row.style.opacity = '0';
-            setTimeout(() => {
-                row.remove();
-                // If this was the last row, show the empty state
-                const tbody = document.querySelector('tbody');
-                if (!tbody.hasChildNodes()) {
-                    location.reload();
-                }
-            }, 500);
+            // Reload to show the stopped state properly
+            location.reload();
         } else {
             const error = await response.text();
             throw new Error(error);
@@ -112,11 +113,86 @@ async function handleDelete(event, connectionName) {
     } catch (error) {
         actionButtons.innerHTML = `
             <span class="error-text">Error: ${error.message}</span>
-            <button onclick="location.reload()" class="action-button">Retry</button>
+            <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+        `;
+    }
+}
+
+async function handleResume(event, connectionName) {
+    event.preventDefault();
+
+    if (!confirm('Are you sure you want to resume this connection?')) {
+        return;
+    }
+
+    const form = event.target;
+    const row = document.getElementById(`connection-${connectionName}`);
+    const actionButtons = row.querySelector('.action-buttons');
+
+    // Replace buttons with loading animation
+    actionButtons.innerHTML = `
+        <span class="resuming-text">Resuming</span>
+        <div class="loading-dots">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+        </div>
+    `;
+
+    row.classList.add('resuming-row');
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name: connectionName }),
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            // Show success notification
+            const notificationContainer = document.createElement('div');
+            notificationContainer.className = 'notification-container';
+            notificationContainer.innerHTML = `
+                <div class="notification success">
+                    Connection resumed successfully
+                </div>
+            `;
+            document.body.appendChild(notificationContainer);
+
+            // Remove notification after delay
+            setTimeout(() => {
+                notificationContainer.querySelector('.notification').style.opacity = '0';
+                setTimeout(() => notificationContainer.remove(), 300);
+            }, 3000);
+
+            // Reload the page to show updated connection
+            location.reload();
+        } else {
+            let errorMessage = 'Failed to resume connection';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch (e) {
+                try {
+                    errorMessage = await response.text();
+                } catch (e2) {
+                    console.error('Could not parse error response', e2);
+                }
+            }
+            throw new Error(errorMessage);
+        }
+    } catch (error) {
+        console.error('Resume error:', error);
+        actionButtons.innerHTML = `
+            <span class="error-text">Error: ${error.message}</span>
+            <button onclick="location.reload()" class="button small retry-btn">Retry</button>
         `;
     }
 }
 </script>
-
 
 {% endblock %}

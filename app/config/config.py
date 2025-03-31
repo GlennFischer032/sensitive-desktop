@@ -8,6 +8,9 @@ class Config:
     # Flask configuration
     SECRET_KEY = os.environ.get("SECRET_KEY", "")
 
+    # Debug options
+    DEBUG_LOGIN_ENABLED = os.environ.get("DEBUG_LOGIN_ENABLED", "false").lower() == "true"
+
     # API endpoints
     API_URL = os.environ.get("API_URL", "http://localhost:5000")
     GUACAMOLE_URL = os.environ.get("GUACAMOLE_URL", "http://guacamole:8080")

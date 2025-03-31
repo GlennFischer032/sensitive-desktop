@@ -4,7 +4,7 @@ This module provides a client for interacting with Apache Guacamole.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, NotRequired, Optional, TypedDict, Union
 
 import requests
 
@@ -12,12 +12,116 @@ from desktop_manager.clients.base import APIError, BaseClient
 from desktop_manager.config.settings import get_settings
 
 
-if TYPE_CHECKING:
-    from desktop_manager.core.guacamole import (
-        GuacamoleConnectionParameters,
-        GuacamoleUser,
-        GuacamoleUserAttributes,
-    )
+class GuacamoleUserAttributes(TypedDict, total=False):
+    """Type definition for Guacamole user attributes."""
+
+    guac_full_name: str
+    guac_organization: str
+    expired: str
+    disabled: str
+    access_window_start: str
+    access_window_end: str
+    valid_from: str
+    valid_until: str
+    timezone: Optional[str]
+
+
+class GuacamoleUser(TypedDict):
+    """Type definition for Guacamole user."""
+
+    username: str
+    password: str
+    attributes: GuacamoleUserAttributes
+
+
+class GuacamoleGroup(TypedDict):
+    """Type definition for Guacamole group."""
+
+    identifier: str
+    attributes: GuacamoleUserAttributes
+
+
+class GuacamoleConnectionParameters(TypedDict):
+    """Type definition for Guacamole connection parameters."""
+
+    hostname: str
+    port: str
+    password: str
+    enable_audio: str
+    read_only: NotRequired[str]
+    swap_red_blue: NotRequired[str]
+    cursor: NotRequired[str]
+    color_depth: NotRequired[str]
+    force_lossless: NotRequired[str]
+    clipboard_encoding: NotRequired[str]
+    disable_copy: NotRequired[str]
+    disable_paste: NotRequired[str]
+    dest_port: NotRequired[str]
+    recording_exclude_output: NotRequired[str]
+    recording_exclude_mouse: NotRequired[str]
+    recording_include_keys: NotRequired[str]
+    create_recording_path: NotRequired[str]
+    enable_sftp: NotRequired[str]
+    sftp_port: NotRequired[str]
+    sftp_server_alive_interval: NotRequired[str]
+    sftp_disable_download: NotRequired[str]
+    sftp_disable_upload: NotRequired[str]
+    wol_send_packet: NotRequired[str]
+    wol_udp_port: NotRequired[str]
+    wol_wait_time: NotRequired[str]
+
+
+class GuacamoleConnectionAttributes(TypedDict, total=False):
+    """Type definition for Guacamole connection attributes."""
+
+    max_connections: str
+    max_connections_per_user: str
+    weight: str
+    failover_only: str
+    guacd_hostname: str
+    guacd_port: str
+    guacd_encryption: str
+
+
+class GuacamoleConnection(TypedDict):
+    """Type definition for Guacamole connection."""
+
+    name: str
+    identifier: str
+    parentIdentifier: str
+    protocol: Literal["vnc"]
+    attributes: GuacamoleConnectionAttributes
+    activeConnections: int
+    lastActive: int
+    parameters: GuacamoleConnectionParameters
+
+
+class GuacamolePatchOperation(TypedDict):
+    """Type definition for Guacamole PATCH operation."""
+
+    op: Literal["add", "remove"]
+    path: str
+    value: Union[str, None]
+
+
+class GuacamoleAuthResponse(TypedDict):
+    """Type definition for Guacamole authentication response."""
+
+    authToken: str
+
+
+class GuacamoleConnectionResponse(TypedDict):
+    """Type definition for Guacamole connection response."""
+
+    identifier: str
+
+
+class GuacamoleUsersResponse(TypedDict):
+    """Type definition for Guacamole users response."""
+
+    username: str
+    lastActive: int
+    attributes: GuacamoleUserAttributes
 
 
 class GuacamoleClient(BaseClient):
@@ -33,7 +137,7 @@ class GuacamoleClient(BaseClient):
 
     def __init__(
         self,
-        api_url: Optional[str] = None,
+        guacamole_url: Optional[str] = None,
         username: Optional[str] = None,
         password: Optional[str] = None,
         data_source: str = "postgresql",
@@ -41,17 +145,19 @@ class GuacamoleClient(BaseClient):
         """Initialize GuacamoleClient.
 
         Args:
-            api_url: Guacamole API URL
+            guacamole_url: Guacamole base URL
             username: Guacamole admin username
             password: Guacamole admin password
             data_source: Guacamole data source
         """
         settings = get_settings()
-        self.api_url = api_url or settings.GUACAMOLE_API_URL
+        self.guacamole_url = guacamole_url or settings.GUACAMOLE_URL
         self.username = username or settings.GUACAMOLE_USERNAME
         self.password = password or settings.GUACAMOLE_PASSWORD
         self.data_source = data_source
-        super().__init__(base_url=self.api_url)
+        # Ensure the base URL doesn't end with a slash
+        base_url = self.guacamole_url.rstrip("/")
+        super().__init__(base_url=base_url)
         self.logger = logging.getLogger(self.__class__.__name__)
 
     def login(self) -> str:
@@ -64,18 +170,34 @@ class GuacamoleClient(BaseClient):
             APIError: If login fails
         """
         try:
-            response = requests.post(
-                f"{self.api_url}/api/tokens",
-                data={
-                    "username": self.username,
-                    "password": self.password,
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("authToken")
+            # Debug logging
+            self.logger.info("Guacamole URL: %s", self.guacamole_url)
+            self.logger.info("Guacamole username: %s", self.username)
+
+            # Construct the tokens URL
+            tokens_url = f"{self.guacamole_url}/api/tokens"
+            self.logger.info("Tokens URL: %s", tokens_url)
+
+            headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+            try:
+                response = requests.post(
+                    url=tokens_url,
+                    data={
+                        "username": self.username,
+                        "password": self.password,
+                    },
+                    headers=headers,
+                    timeout=self.timeout,
+                )
+                self.logger.info("Login response status: %s", response.status_code)
+                response.raise_for_status()
+                data = response.json()
+                self.logger.info("Successfully logged in to Guacamole")
+                return data.get("authToken")
+            except requests.exceptions.RequestException as e:
+                self.logger.error("Request error during login: %s", str(e))
+                raise APIError(f"Failed to login to Guacamole: {e!s}", status_code=401)
         except Exception as e:
             self.logger.error("Failed to login to Guacamole: %s", str(e))
             raise APIError(f"Failed to login to Guacamole: {e!s}", status_code=401)
@@ -92,18 +214,21 @@ class GuacamoleClient(BaseClient):
         Args:
             token: Authentication token
             username: Username
-            password: Password
+            password: Password (can be empty for OIDC users)
             attributes: User attributes
 
         Raises:
             APIError: If user creation fails
         """
         try:
-            user_data: GuacamoleUser = {
+            user_data: dict = {
                 "username": username,
-                "password": password,
                 "attributes": attributes or {},
             }
+
+            # Only include password if it's not empty
+            if password:
+                user_data["password"] = password
 
             endpoint = f"/api/session/data/{self.data_source}/users?token={token}"
             self.post(endpoint=endpoint, data=user_data)
@@ -417,22 +542,100 @@ class GuacamoleClient(BaseClient):
             APIError: If user update fails
         """
         try:
-            # Get current user data
             endpoint = f"/api/session/data/{self.data_source}/users/{username}?token={token}"
-            user_data, _ = self.get(endpoint=endpoint)
-
-            # Update attributes
-            if "attributes" not in user_data:
-                user_data["attributes"] = {}
-
-            user_data["attributes"].update(attributes)
-
-            # Send update request
-            self.put(endpoint=endpoint, data=user_data)
+            patch_data = [
+                {
+                    "op": "add",
+                    "path": "/attributes",
+                    "value": attributes,
+                }
+            ]
+            self.patch(endpoint=endpoint, data=patch_data)
             self.logger.info("Updated user %s in Guacamole", username)
         except APIError as e:
             self.logger.error("Failed to update user in Guacamole: %s", str(e))
             raise APIError(f"Failed to update user in Guacamole: {e!s}", status_code=e.status_code)
+
+    def get_user_permissions(
+        self,
+        token: str,
+        username: str,
+    ) -> Dict[str, Any]:
+        """Get a user's permissions in Guacamole.
+
+        Args:
+            token: Authentication token
+            username: Username
+
+        Returns:
+            Dict[str, Any]: Dictionary of user permissions
+
+        Raises:
+            APIError: If getting permissions fails
+        """
+        try:
+            endpoint = (
+                f"/api/session/data/{self.data_source}/users/{username}/permissions?token={token}"
+            )
+            data, _ = self.get(endpoint=endpoint)
+            self.logger.info("Retrieved permissions for user %s from Guacamole", username)
+            return data
+        except APIError as e:
+            self.logger.error("Failed to get user permissions from Guacamole: %s", str(e))
+            raise APIError(
+                f"Failed to get user permissions from Guacamole: {e!s}", status_code=e.status_code
+            )
+
+    def copy_user_permissions(
+        self,
+        token: str,
+        source_username: str,
+        target_username: str,
+    ) -> None:
+        """Copy permissions from one user to another in Guacamole.
+
+        Args:
+            token: Authentication token
+            source_username: Username to copy permissions from
+            target_username: Username to copy permissions to
+
+        Raises:
+            APIError: If copying permissions fails
+        """
+        try:
+            # Get source user's permissions
+            permissions = self.get_user_permissions(token, source_username)
+
+            # Extract connection permissions
+            connection_permissions = permissions.get("connectionPermissions", {})
+
+            # Apply each connection permission to the target user
+            for connection_id, permission in connection_permissions.items():
+                try:
+                    self.grant_permission(token, target_username, connection_id, permission)
+                    self.logger.info(
+                        "Copied %s permission for connection %s from user %s to user %s",
+                        permission,
+                        connection_id,
+                        source_username,
+                        target_username,
+                    )
+                except APIError as e:
+                    self.logger.error(
+                        "Failed to copy permission for connection %s: %s", connection_id, str(e)
+                    )
+
+            # Log completion
+            self.logger.info(
+                "Copied all available permissions from user %s to user %s",
+                source_username,
+                target_username,
+            )
+        except APIError as e:
+            self.logger.error("Failed to copy user permissions in Guacamole: %s", str(e))
+            raise APIError(
+                f"Failed to copy user permissions in Guacamole: {e!s}", status_code=e.status_code
+            )
 
     def create_user_if_not_exists(
         self,
@@ -453,14 +656,24 @@ class GuacamoleClient(BaseClient):
             APIError: If user creation fails
         """
         try:
-            # Check if user exists
+            # First try to get all users and check if the user exists
             try:
-                endpoint = f"/api/session/data/{self.data_source}/users/{username}?token={token}"
-                self.get(endpoint=endpoint)
-                self.logger.info("User %s already exists in Guacamole", username)
+                users_endpoint = f"/api/session/data/{self.data_source}/users?token={token}"
+                users_data, _ = self.get(endpoint=users_endpoint)
+
+                # Check if the user exists in the list of users
+                if username in users_data:
+                    self.logger.info("User %s already exists in Guacamole", username)
+                    return
+
+                # If we get here, the user doesn't exist, so create them
+                self.create_user(token, username, password, attributes)
             except APIError as e:
+                # If we can't get the list of users, try to create the user directly
                 if e.status_code == 404:
-                    # User doesn't exist, create them
+                    self.logger.warning(
+                        "Could not check if user exists, attempting to create: %s", str(e)
+                    )
                     self.create_user(token, username, password, attributes)
                 else:
                     raise
@@ -469,103 +682,3 @@ class GuacamoleClient(BaseClient):
             raise APIError(
                 f"Failed to check/create user in Guacamole: {e!s}", status_code=e.status_code
             )
-
-
-# Helper functions for backward compatibility
-
-
-def guacamole_login() -> str:
-    """Backward compatibility function for guacamole login."""
-    client = GuacamoleClient()
-    return client.login()
-
-
-def create_guacamole_user(
-    token: str,
-    username: str,
-    password: str,
-    attributes: Optional[Dict[str, Any]] = None,
-) -> None:
-    """Backward compatibility function for creating a user."""
-    client = GuacamoleClient()
-    client.create_user(token, username, password, attributes)
-
-
-def delete_guacamole_user(token: str, username: str) -> None:
-    """Backward compatibility function for deleting a user."""
-    client = GuacamoleClient()
-    client.delete_user(token, username)
-
-
-def ensure_all_users_group(token: str) -> None:
-    """Backward compatibility function for ensuring all_users group."""
-    client = GuacamoleClient()
-    client.ensure_group(token, "all_users")
-
-
-def ensure_admins_group(token: str) -> None:
-    """Backward compatibility function for ensuring admins group."""
-    client = GuacamoleClient()
-    client.ensure_group(token, "admins")
-
-
-def add_user_to_group(token: str, username: str, group_name: str) -> None:
-    """Backward compatibility function for adding user to group."""
-    client = GuacamoleClient()
-    client.add_user_to_group(token, username, group_name)
-
-
-def remove_user_from_group(token: str, username: str, group_name: str) -> None:
-    """Backward compatibility function for removing user from group."""
-    client = GuacamoleClient()
-    client.remove_user_from_group(token, username, group_name)
-
-
-def update_guacamole_user(token: str, username: str, attributes: Dict[str, Any]) -> None:
-    """Backward compatibility function for updating a user."""
-    client = GuacamoleClient()
-    client.update_user(token, username, attributes)
-
-
-def grant_group_permission_on_connection(
-    token: str, group_name: str, connection_id: str, data_source: str = "postgresql"
-) -> None:
-    """Backward compatibility function for granting group permission on connection."""
-    client = GuacamoleClient(data_source=data_source)
-    client.grant_group_permission(token, group_name, connection_id)
-
-
-def delete_guacamole_connection(
-    token: str, connection_id: str, data_source: str = "postgresql"
-) -> None:
-    """Backward compatibility function for deleting a connection."""
-    client = GuacamoleClient(data_source=data_source)
-    client.delete_connection(token, connection_id)
-
-
-def create_guacamole_user_if_not_exists(
-    token: str, username: str, password: str, data_source: str = "postgresql"
-) -> None:
-    """Backward compatibility function for creating a user if not exists."""
-    client = GuacamoleClient(data_source=data_source)
-    client.create_user_if_not_exists(token, username, password)
-
-
-def grant_user_permission_on_connection(
-    token: str, username: str, connection_id: str, data_source: str = "postgresql"
-) -> None:
-    """Backward compatibility function for granting user permission on connection."""
-    client = GuacamoleClient(data_source=data_source)
-    client.grant_permission(token, username, connection_id)
-
-
-def create_guacamole_connection(
-    token: str,
-    connection_name: str,
-    ip_address: str,
-    password: str,
-    data_source: str = "postgresql",
-) -> str:
-    """Backward compatibility function for creating a connection."""
-    client = GuacamoleClient(data_source=data_source)
-    return client.create_connection(token, connection_name, ip_address, password)

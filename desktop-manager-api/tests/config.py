@@ -6,6 +6,7 @@ TEST_USER = {
     "email": "test@example.com",
     "password": "Test@123",
     "organization": "Test Org",
+    "sub": "test_user_sub_123",
 }
 
 TEST_ADMIN = {
@@ -14,6 +15,7 @@ TEST_ADMIN = {
     "password": "Admin@123",
     "organization": "Admin Org",
     "is_admin": True,
+    "sub": "test_admin_sub_456",
 }
 
 # Test connection data

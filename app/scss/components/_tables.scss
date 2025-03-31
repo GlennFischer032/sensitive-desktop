@@ -1,0 +1,193 @@
+// Table container
+.table-container {
+  margin-top: $spacing-xl;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+// Basic table
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: $spacing-md;
+  border-radius: $border-radius;
+  overflow: hidden;
+  @include box-shadow(1);
+}
+
+// Table headers and cells
+th, td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid $border-color;
+  vertical-align: middle;
+  height: 60px;
+  box-sizing: border-box;
+}
+
+// Table headers
+th {
+  background-color: $bg-light;
+  font-weight: bold;
+  color: $text-dark;
+  height: 48px;
+}
+
+// Zebra striping for table rows
+tbody tr:nth-child(even) {
+  background-color: rgba($bg-light, 0.5);
+}
+
+// Table row hover effect
+tr {
+  transition: background-color $transition-fast;
+
+  &:hover {
+    background-color: rgba($primary-color, 0.05);
+  }
+}
+
+// Table row active state
+tr.active {
+  background-color: rgba($primary-color, 0.1);
+}
+
+// Generic button styling for consistency
+.button.small {
+  display: inline-block;
+  padding: 5px 10px;
+  font-size: 0.85rem;
+  min-width: 30px;
+  height: 30px;
+  text-align: center;
+  box-sizing: border-box;
+  line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 5px;
+  margin-bottom: 0;
+  vertical-align: middle;
+  text-decoration: none;
+}
+
+// Action buttons cell styling
+td.action-buttons {
+  padding: 12px;
+  text-align: left;
+  white-space: nowrap;
+  min-width: 200px;
+
+  form {
+    display: inline-block;
+    margin: 0;
+    vertical-align: middle;
+  }
+}
+
+// Specific button types in tables
+.view-details-btn,
+.view-connections-btn,
+.manage-access-btn,
+.delete-btn,
+.connect-btn,
+.resume-btn,
+.retry-btn {
+  // Common styles for all special buttons
+  &.button.small {
+    margin-right: 5px;
+  }
+}
+
+// Delete/resume states for rows
+.deleting-row,
+.stopping-row,
+.resuming-row {
+  td.action-buttons {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: $spacing-sm;
+    height: 60px;
+  }
+
+  .deleting-text,
+  .stopping-text,
+  .resuming-text {
+    color: $danger-color;
+    font-style: italic;
+    animation: fade 1.5s infinite;
+  }
+
+  .resuming-text {
+    color: $success-color;
+  }
+}
+
+// Loading dots animation
+.loading-dots {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: middle;
+
+  .loading-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background-color: $danger-color;
+    border-radius: 50%;
+    animation: bounce 0.5s infinite;
+    margin-right: 2px;
+
+    &:nth-child(2) {
+      animation-delay: 0.1s;
+    }
+
+    &:nth-child(3) {
+      animation-delay: 0.2s;
+    }
+  }
+}
+
+// For loading dots in resume state
+.resuming-row .loading-dots .loading-dot {
+  background-color: $success-color;
+}
+
+// Empty state for tables
+.empty-state {
+  text-align: center;
+  padding: $spacing-xl * 1.5;
+  color: $text-light;
+}
+
+// Connections list table (for modal)
+.connections-list {
+  table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid $bg-light;
+      height: 48px;
+    }
+
+    th {
+      background-color: $bg-light;
+      font-weight: 600;
+    }
+  }
+}
+
+// Table with fixed layout
+.table-fixed {
+  table-layout: fixed;
+
+  td, th {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

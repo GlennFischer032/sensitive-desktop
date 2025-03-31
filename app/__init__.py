@@ -1,5 +1,6 @@
 import logging
 import secrets
+from datetime import datetime
 from http import HTTPStatus
 
 import redis
@@ -8,11 +9,14 @@ from flask import Flask, jsonify, redirect, render_template, request, session, u
 from flask_cors import CORS
 from flask_session import Session
 
-from auth import auth_bp
+from app.auth import auth_bp
+from app.configurations import configurations_bp
+from app.connections import connections_bp
+from app.storage import storage_bp
+from app.users import users_bp
+from app.utils.security import ContentSecurityPolicyGenerator, generate_csrf_token
 from config.config import Config
-from connections import connections_bp
 from middleware.security import init_security, rate_limiter
-from users import users_bp
 from utils.decorators import login_required
 
 
@@ -167,6 +171,8 @@ def create_app(config_class=Config):
     app.register_blueprint(auth_bp)
     app.register_blueprint(connections_bp)
     app.register_blueprint(users_bp)
+    app.register_blueprint(configurations_bp)
+    app.register_blueprint(storage_bp)
 
     # Error handlers
     @app.errorhandler(404)
@@ -267,6 +273,32 @@ def create_app(config_class=Config):
     @app.route("/health")
     def health_check():
         return {"status": "healthy"}, 200
+
+    # Register custom template filters
+    @app.template_filter("datetime")
+    def format_datetime(value, date_format="%Y-%m-%d %H:%M:%S"):
+        """Format a datetime object or ISO string to a readable string format.
+
+        Args:
+            value: The datetime object or ISO format string
+            date_format: The output format string
+
+        Returns:
+            str: Formatted datetime string
+        """
+        if value is None:
+            return ""
+
+        if isinstance(value, str):
+            try:
+                value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                return value
+
+        if isinstance(value, datetime):
+            return value.strftime(date_format)
+
+        return value
 
     logger.info("=== Starting Frontend Application ===")
     return app

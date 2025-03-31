@@ -19,12 +19,19 @@ spec:
       securityContext:
         {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
       initContainers:
-      - name: wait-for-mysql
-        image: mysql:8.0
-        command: ['sh', '-c', 'until mysqladmin ping -h {{ .Values.common.database.host }} -u root -p{{ .Values.common.database.password }}; do echo waiting for mysql; sleep 2; done;']
+      - name: wait-for-postgres
+        image: postgres:16-alpine
+        command: ['sh', '-c', 'until PGPASSWORD=$POSTGRES_PASSWORD pg_isready -h {{ .Values.common.database.host }} -U $POSTGRES_USER -d $POSTGRES_DB; do echo waiting for postgres; sleep 2; done;']
         securityContext:
           {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
           runAsUser: 1000
+        env:
+          - name: POSTGRES_USER
+            value: {{ .Values.common.database.user | quote }}
+          - name: POSTGRES_PASSWORD
+            value: {{ .Values.common.database.password | quote }}
+          - name: POSTGRES_DB
+            value: {{ .Values.common.database.database | quote }}
       - name: wait-for-guacd
         image: busybox:1.36
         command: ['sh', '-c', 'until nc -z -w2 guacd-{{ .Release.Name }} {{ .Values.common.ports.guacd }}; do echo waiting for guacd; sleep 2; done;']
@@ -40,20 +47,30 @@ spec:
           runAsUser: 1000
           runAsGroup: 1000
         env:
-        - name: MYSQL_HOSTNAME
+        - name: POSTGRESQL_HOSTNAME
           value: {{ .Values.common.database.host | quote }}
-        - name: MYSQL_PORT
-          value: {{ .Values.common.ports.mysql | quote }}
-        - name: MYSQL_DATABASE
-          value: {{ .Values.common.database.guacamoleDb | quote }}
-        - name: MYSQL_USER
+        - name: POSTGRESQL_PORT
+          value: {{ .Values.common.ports.postgres | quote }}
+        - name: POSTGRESQL_DATABASE
+          value: {{ .Values.common.database.database | quote }}
+        - name: POSTGRESQL_USER
           value: {{ .Values.common.database.user | quote }}
-        - name: MYSQL_PASSWORD
+        - name: POSTGRESQL_PASSWORD
           value: {{ .Values.common.database.password | quote }}
         - name: GUACD_HOSTNAME
           value: {{ printf "guacd-%s" .Release.Name | quote }}
         - name: GUACD_PORT
           value: {{ .Values.common.ports.guacd | quote }}
+        # JSON Authentication configuration
+        - name: GUACAMOLE_EXTENSION_PRIORITY
+          value: {{ .Values.guacamole.extensionPriority | quote }}
+        - name: GUACAMOLE_JSON_SECRET_KEY
+          value: {{ .Values.common.credentials.guacamoleJsonSecretKey | quote }}
+        # Direct property mapping for Docker container
+        - name: JSON_SECRET_KEY
+          value: {{ .Values.common.credentials.guacamoleJsonSecretKey | quote }}
+        - name: EXTENSION_PRIORITY
+          value: {{ .Values.guacamole.extensionPriority | quote }}
         ports:
         - containerPort: {{ .Values.guacamole.containerPort }}
           name: http

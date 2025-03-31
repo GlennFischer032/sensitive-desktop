@@ -1,7 +1,11 @@
-FROM guacamole/guacamole:latest
+FROM postgres:16-alpine
 
+# Install necessary tools
 USER root
-RUN apt-get update \
-  && apt-get install -y mysql-client \
-  && rm -rf /var/lib/apt/lists/*
-USER 1000
+RUN apk add --no-cache bash
+
+# Copy initialization scripts
+COPY sql/*.sql /docker-entrypoint-initdb.d/
+
+# Switch to non-root user
+USER 999

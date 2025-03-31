@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.sql.elements import TextClause
 
 from desktop_manager.clients.base import APIError, BaseClient
 from desktop_manager.config.settings import get_settings
@@ -32,7 +33,7 @@ class DatabaseClient(BaseClient):
         super().__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
         settings = get_settings()
-        self.connection_string = connection_string or settings.DATABASE_URL
+        self.connection_string = connection_string or settings.database_url
         self._engine: Optional[Engine] = None
 
     @property
@@ -50,12 +51,12 @@ class DatabaseClient(BaseClient):
         return self._engine
 
     def execute_query(
-        self, query: str, params: Optional[Dict[str, Any]] = None
+        self, query: Union[str, "TextClause"], params: Optional[Dict[str, Any]] = None
     ) -> Tuple[List[Dict[str, Any]], int]:
         """Execute a SQL query.
 
         Args:
-            query: SQL query
+            query: SQL query string or TextClause object
             params: Query parameters
 
         Returns:
@@ -67,7 +68,24 @@ class DatabaseClient(BaseClient):
         try:
             self.logger.info("Executing query: %s with params: %s", query, params)
             with self.engine.connect() as connection:
-                result = connection.execute(text(query), params or {})
+                # For non-SELECT queries, use a transaction context to ensure commit
+                is_select = False
+                if isinstance(query, str):
+                    is_select = query.lstrip().upper().startswith("SELECT")
+                    query_obj = text(query)
+                else:
+                    # If it's already a TextClause, use it directly
+                    # We'll assume it's not a SELECT if it's already a TextClause
+                    query_obj = query
+
+                if not is_select:
+                    conn_with_autocommit = connection.execution_options(
+                        isolation_level="AUTOCOMMIT"
+                    )
+                    result = conn_with_autocommit.execute(query_obj, params or {})
+                else:
+                    result = connection.execute(query_obj, params or {})
+
                 if result.returns_rows:
                     # Convert result to list of dictionaries
                     rows = [dict(row._mapping) for row in result]
@@ -320,5 +338,342 @@ class DatabaseClient(BaseClient):
             raise
         except Exception as e:
             error_message = f"Failed to delete connection: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def create_storage_pvc(self, pvc_data: Dict[str, Any]) -> int:
+        """Create a new storage PVC record in the database.
+
+        Args:
+            pvc_data: PVC data including name, namespace, size, created_by, is_public
+
+        Returns:
+            int: PVC ID
+
+        Raises:
+            APIError: If PVC creation fails
+        """
+        try:
+            fields = []
+            values = {}
+            placeholders = []
+
+            for key, value in pvc_data.items():
+                if value is not None:
+                    fields.append(key)
+                    placeholders.append(f":{key}")
+                    values[key] = value
+
+            query = text(
+                """
+            INSERT INTO storage_pvcs ({})
+            VALUES ({})
+            RETURNING id
+            """.format(", ".join(fields), ", ".join(placeholders))
+            )
+
+            rows, _ = self.execute_query(query, values)
+            pvc_id = rows[0]["id"]
+            self.logger.info("Added new storage PVC with ID %d", pvc_id)
+            return pvc_id
+        except Exception as e:
+            error_message = f"Failed to create storage PVC: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def get_storage_pvc(self, pvc_id: int) -> Dict[str, Any]:
+        """Get storage PVC details from the database.
+
+        Args:
+            pvc_id: PVC ID
+
+        Returns:
+            Dict[str, Any]: PVC details
+
+        Raises:
+            APIError: If PVC retrieval fails
+        """
+        try:
+            query = """
+            SELECT id, name, namespace, size, created_at, created_by,
+                  status, last_updated, is_public
+            FROM storage_pvcs
+            WHERE id = :pvc_id
+            """
+            rows, count = self.execute_query(query, {"pvc_id": pvc_id})
+            if count == 0:
+                error_message = f"Storage PVC with ID {pvc_id} not found"
+                self.logger.error(error_message)
+                raise APIError(error_message, status_code=404)
+
+            self.logger.info("Retrieved storage PVC with ID %d", pvc_id)
+            return rows[0]
+        except APIError:
+            # Re-raise APIError
+            raise
+        except Exception as e:
+            error_message = f"Failed to get storage PVC: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def get_storage_pvc_by_name(self, name: str) -> Dict[str, Any]:
+        """Get storage PVC details by name from the database.
+
+        Args:
+            name: PVC name
+
+        Returns:
+            Dict[str, Any]: PVC details
+
+        Raises:
+            APIError: If PVC retrieval fails
+        """
+        try:
+            query = """
+            SELECT id, name, namespace, size, created_at, created_by,
+                  status, last_updated, is_public
+            FROM storage_pvcs
+            WHERE name = :name
+            """
+            rows, count = self.execute_query(query, {"name": name})
+            if count == 0:
+                error_message = f"Storage PVC with name '{name}' not found"
+                self.logger.error(error_message)
+                raise APIError(error_message, status_code=404)
+
+            self.logger.info("Retrieved storage PVC with name '%s'", name)
+            return rows[0]
+        except APIError:
+            # Re-raise APIError
+            raise
+        except Exception as e:
+            error_message = f"Failed to get storage PVC by name: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def list_storage_pvcs(self, created_by: Optional[str] = None) -> List[Dict[str, Any]]:
+        """List storage PVCs from the database.
+
+        Args:
+            created_by: Filter by creator username (optional)
+
+        Returns:
+            List[Dict[str, Any]]: List of PVCs
+
+        Raises:
+            APIError: If PVC listing fails
+        """
+        try:
+            query = """
+            SELECT id, name, namespace, size, created_at, created_by,
+                  status, last_updated, is_public
+            FROM storage_pvcs
+            """
+            params = {}
+
+            if created_by:
+                query += " WHERE created_by = :created_by"
+                params["created_by"] = created_by
+
+            query += " ORDER BY created_at DESC"
+
+            rows, _ = self.execute_query(query, params)
+            self.logger.info("Retrieved %d storage PVCs", len(rows))
+            return rows
+        except Exception as e:
+            error_message = f"Failed to list storage PVCs: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def update_storage_pvc(self, pvc_id: int, pvc_data: Dict[str, Any]) -> None:
+        """Update a storage PVC in the database.
+
+        Args:
+            pvc_id: PVC ID
+            pvc_data: PVC data to update
+
+        Raises:
+            APIError: If PVC update fails
+        """
+        try:
+            # Build the query dynamically based on the provided fields
+            set_clauses = []
+            values = {"id": pvc_id}
+
+            for key, value in pvc_data.items():
+                set_clauses.append(f"{key} = :{key}")
+                values[key] = value
+
+            query = text(
+                """
+            UPDATE storage_pvcs
+            SET {}
+            WHERE id = :id
+            """.format(", ".join(set_clauses))
+            )
+
+            _, affected_rows = self.execute_query(query, values)
+            if affected_rows == 0:
+                error_message = f"Storage PVC with ID {pvc_id} not found"
+                self.logger.error(error_message)
+                raise APIError(error_message, status_code=404)
+
+            self.logger.info("Updated storage PVC with ID %d", pvc_id)
+        except APIError:
+            # Re-raise APIError
+            raise
+        except Exception as e:
+            error_message = f"Failed to update storage PVC: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def delete_storage_pvc(self, pvc_id: int) -> None:
+        """Delete a storage PVC from the database.
+
+        Args:
+            pvc_id: PVC ID
+
+        Raises:
+            APIError: If PVC deletion fails
+        """
+        try:
+            query = """
+            DELETE FROM storage_pvcs
+            WHERE id = :pvc_id
+            """
+
+            _, affected_rows = self.execute_query(query, {"pvc_id": pvc_id})
+            if affected_rows == 0:
+                error_message = f"Storage PVC with ID {pvc_id} not found"
+                self.logger.error(error_message)
+                raise APIError(error_message, status_code=404)
+
+            self.logger.info("Deleted storage PVC with ID %d", pvc_id)
+        except APIError:
+            # Re-raise APIError
+            raise
+        except Exception as e:
+            error_message = f"Failed to delete storage PVC: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def map_connection_to_pvc(self, connection_id: int, pvc_id: int) -> int:
+        """Map a connection to a storage PVC.
+
+        Args:
+            connection_id: Connection ID
+            pvc_id: PVC ID
+
+        Returns:
+            int: Mapping ID
+
+        Raises:
+            APIError: If mapping creation fails
+        """
+        try:
+            query = """
+            INSERT INTO connection_pvcs (connection_id, pvc_id)
+            VALUES (:connection_id, :pvc_id)
+            RETURNING id
+            """
+
+            rows, _ = self.execute_query(query, {"connection_id": connection_id, "pvc_id": pvc_id})
+            mapping_id = rows[0]["id"]
+            self.logger.info(
+                "Mapped connection ID %d to PVC ID %d with mapping ID %d",
+                connection_id,
+                pvc_id,
+                mapping_id,
+            )
+            return mapping_id
+        except Exception as e:
+            error_message = f"Failed to map connection to PVC: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def get_connection_pvcs(self, connection_id: int) -> List[Dict[str, Any]]:
+        """Get PVCs mapped to a connection.
+
+        Args:
+            connection_id: Connection ID
+
+        Returns:
+            List[Dict[str, Any]]: List of PVCs
+
+        Raises:
+            APIError: If PVC retrieval fails
+        """
+        try:
+            query = """
+            SELECT p.id, p.name, p.namespace, p.size, p.created_at, p.created_by,
+                  p.status, p.last_updated, p.is_public, cp.id AS mapping_id
+            FROM storage_pvcs p
+            JOIN connection_pvcs cp ON p.id = cp.pvc_id
+            WHERE cp.connection_id = :connection_id
+            """
+
+            rows, _ = self.execute_query(query, {"connection_id": connection_id})
+            self.logger.info("Retrieved %d PVCs for connection ID %d", len(rows), connection_id)
+            return rows
+        except Exception as e:
+            error_message = f"Failed to get connection PVCs: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def unmap_connection_pvc(self, mapping_id: int) -> None:
+        """Remove a connection to PVC mapping.
+
+        Args:
+            mapping_id: Mapping ID
+
+        Raises:
+            APIError: If mapping deletion fails
+        """
+        try:
+            query = """
+            DELETE FROM connection_pvcs
+            WHERE id = :mapping_id
+            """
+
+            _, affected_rows = self.execute_query(query, {"mapping_id": mapping_id})
+            if affected_rows == 0:
+                error_message = f"Connection PVC mapping with ID {mapping_id} not found"
+                self.logger.error(error_message)
+                raise APIError(error_message, status_code=404)
+
+            self.logger.info("Deleted connection PVC mapping with ID %d", mapping_id)
+        except APIError:
+            # Re-raise APIError
+            raise
+        except Exception as e:
+            error_message = f"Failed to unmap connection PVC: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500)
+
+    def create_storage_pvc_access(self, pvc_id: int, username: str) -> int:
+        """Create a storage PVC access record in the database.
+
+        Args:
+            pvc_id: PVC ID
+            username: Username to grant access
+
+        Returns:
+            int: Access record ID
+
+        Raises:
+            APIError: If access record creation fails
+        """
+        try:
+            query = """
+            INSERT INTO storage_pvc_access (pvc_id, username)
+            VALUES (:pvc_id, :username)
+            RETURNING id
+            """
+            rows, _ = self.execute_query(query, {"pvc_id": pvc_id, "username": username})
+            access_id = rows[0]["id"]
+            self.logger.info("Added storage PVC access for PVC ID %d and user %s", pvc_id, username)
+            return access_id
+        except Exception as e:
+            error_message = f"Failed to create storage PVC access: {e!s}"
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500)

@@ -82,7 +82,7 @@ guacamole_client.add_user_to_group(token, "username", "group_name")
 
 ```python
 from desktop_manager.clients import client_factory
-from desktop_manager.core.rancher import DesktopValues
+from desktop_manager.clients.rancher import DesktopValues
 
 # Get a RancherClient instance
 rancher_client = client_factory.get_rancher_client()

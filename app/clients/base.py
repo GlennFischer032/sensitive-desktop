@@ -6,7 +6,8 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import requests
 from flask import current_app
-from requests.exceptions import ConnectionError, RequestException, Timeout
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import RequestException, Timeout
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +133,10 @@ class BaseClient:
 
         self.logger.debug(f"Making {method} request to {url}")
         try:
+            # Ensure we have the right Content-Type header
+            if method.upper() in ["POST", "PUT"] and data is not None:
+                request_headers["Content-Type"] = "application/json"
+
             response = requests.request(
                 method=method,
                 url=url,
@@ -147,7 +152,7 @@ class BaseClient:
                 message=f"Request timed out after {request_timeout} seconds",
                 status_code=HTTPStatus.GATEWAY_TIMEOUT,
             )
-        except ConnectionError as e:
+        except RequestsConnectionError as e:
             self.logger.error(f"Connection error to {url}: {str(e)}")
             raise APIError(
                 message=f"Connection error: {str(e)}",

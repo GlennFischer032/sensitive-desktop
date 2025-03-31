@@ -1,0 +1,38 @@
+// Convert px to rem
+@function rem($px) {
+  @return ($px / 16) * 1rem;
+}
+
+// Calculate responsive sizes
+@function fluid-size($min-size, $max-size, $min-width: 768, $max-width: 1200) {
+  @return calc(#{$min-size}px + (#{$max-size} - #{$min-size}) * ((100vw - #{$min-width}px) / (#{$max-width} - #{$min-width})));
+}
+
+// Lighten color by percentage
+@function lighten-color($color, $percentage) {
+  @return lighten($color, $percentage);
+}
+
+// Darken color by percentage
+@function darken-color($color, $percentage) {
+  @return darken($color, $percentage);
+}
+
+// Get color from palette
+@function get-color($color-name) {
+  @if $color-name == 'primary' {
+    @return $primary-color;
+  } @else if $color-name == 'secondary' {
+    @return $secondary-color;
+  } @else if $color-name == 'success' {
+    @return $success-color;
+  } @else if $color-name == 'danger' {
+    @return $danger-color;
+  } @else if $color-name == 'warning' {
+    @return $warning-color;
+  } @else if $color-name == 'info' {
+    @return $info-color;
+  } @else {
+    @return $color-name;
+  }
+}

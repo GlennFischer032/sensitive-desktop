@@ -5,23 +5,26 @@ from flask import current_app, jsonify, request
 import jwt
 import requests
 
-from desktop_manager.api.models.base import get_db
 from desktop_manager.api.models.user import User
-from desktop_manager.clients.guacamole import (
-    add_user_to_group,
-    create_guacamole_user,
-    ensure_all_users_group,
-    guacamole_login,
-)
+from desktop_manager.clients.factory import client_factory
 
 
 def token_required(f):
+    """Decorator to validate JWT token.
+
+    Args:
+        f: Function to decorate
+
+    Returns:
+        Decorated function
+    """
+
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
-        # JWT is passed in the request header
-        if "Authorization" in request.headers:
-            auth_header = request.headers["Authorization"]
+        # Get token from Authorization header
+        auth_header = request.headers.get("Authorization")
+        if auth_header:
             if auth_header.startswith("Bearer "):
                 token = auth_header[7:]  # Remove 'Bearer ' prefix
         if not token:
@@ -30,8 +33,14 @@ def token_required(f):
             # First try to validate as JWT token
             try:
                 data = jwt.decode(token, current_app.config["SECRET_KEY"], algorithms=["HS256"])
-                db_session = next(get_db())
-                current_user = db_session.query(User).filter(User.id == data["user_id"]).first()
+                db_client = client_factory.get_database_client()
+                query = "SELECT * FROM users WHERE id = :user_id"
+                users, count = db_client.execute_query(query, {"user_id": int(data["sub"])})
+
+                if count == 0:
+                    return jsonify({"message": "User not found!"}), 401
+
+                current_user = users[0]
             except jwt.InvalidTokenError:
                 # If JWT validation fails, try OIDC token validation
                 current_app.logger.info("JWT validation failed, trying OIDC token validation")
@@ -54,105 +63,96 @@ def token_required(f):
                     current_app.logger.info("Found sub in userinfo: %s", sub)
 
                     # Find user by sub
-                    db_session = next(get_db())
-                    current_user = db_session.query(User).filter(User.sub == sub).first()
-                    if current_user:
-                        current_app.logger.info("Found user: %s", current_user.username)
+                    db_client = client_factory.get_database_client()
+                    query = "SELECT * FROM users WHERE sub = :sub"
+                    users, count = db_client.execute_query(query, {"sub": sub})
 
-                        # Update user information if needed
-                        updated = False
-                        if userinfo.get("email") and current_user.email != userinfo.get("email"):
-                            current_user.email = userinfo.get("email")
-                            updated = True
+                    if count == 0:
+                        return jsonify({"message": "User not found!"}), 401
 
-                        if userinfo.get("given_name") and current_user.given_name != userinfo.get(
-                            "given_name"
-                        ):
-                            current_user.given_name = userinfo.get("given_name")
-                            updated = True
+                    current_user = users[0]
+                    current_app.logger.info("Found user: %s", current_user["username"])
 
-                        if userinfo.get("family_name") and current_user.family_name != userinfo.get(
-                            "family_name"
-                        ):
-                            current_user.family_name = userinfo.get("family_name")
-                            updated = True
+                    # Update user information if needed
+                    update_fields = {}
+                    if userinfo.get("email") and current_user["email"] != userinfo.get("email"):
+                        update_fields["email"] = userinfo.get("email")
 
-                        if userinfo.get(
-                            "organization"
-                        ) and current_user.organization != userinfo.get("organization"):
-                            current_user.organization = userinfo.get("organization")
-                            updated = True
+                    if userinfo.get("given_name") and current_user.get(
+                        "given_name"
+                    ) != userinfo.get("given_name"):
+                        update_fields["given_name"] = userinfo.get("given_name")
 
-                        if userinfo.get(
-                            "preferred_username"
-                        ) and current_user.username != userinfo.get("preferred_username"):
-                            current_user.username = userinfo.get("preferred_username")
-                            updated = True
+                    if userinfo.get("family_name") and current_user.get(
+                        "family_name"
+                    ) != userinfo.get("family_name"):
+                        update_fields["family_name"] = userinfo.get("family_name")
 
-                        if updated:
-                            current_user.last_login = datetime.utcnow()
-                            db_session.commit()
-                            current_app.logger.info(
-                                "Updated user information for: %s", current_user.username
-                            )
+                    if userinfo.get("organization") and current_user.get(
+                        "organization"
+                    ) != userinfo.get("organization"):
+                        update_fields["organization"] = userinfo.get("organization")
 
-                            # Try to update Guacamole user as well
-                            try:
-                                # Prepare Guacamole attributes
-                                guacamole_attributes = {
-                                    "guac-full-name": f"{current_user.given_name or ''} {current_user.family_name or ''}".strip()
-                                    or current_user.username,
-                                    "guac-email-address": current_user.email,
-                                    "guac-organization": current_user.organization or "",
-                                }
+                    if userinfo.get("preferred_username") and current_user[
+                        "username"
+                    ] != userinfo.get("preferred_username"):
+                        update_fields["username"] = userinfo.get("preferred_username")
 
-                                # Update user in Guacamole
-                                from desktop_manager.core.guacamole import (
-                                    update_guacamole_user,
-                                )
+                    if update_fields:
+                        # Add last_login to update
+                        update_fields["last_login"] = datetime.utcnow()
 
-                                update_guacamole_user(
-                                    token, current_user.username, guacamole_attributes
-                                )
-                                current_app.logger.info(
-                                    "Updated user %s in Guacamole", current_user.username
-                                )
-                            except Exception as e:
-                                current_app.logger.error(
-                                    "Failed to update user in Guacamole: %s", str(e)
-                                )
-                                # Continue with authentication even if Guacamole update fails
-                    else:
-                        current_app.logger.error("No user found for sub: %s", sub)
-                except requests.exceptions.RequestException as e:
-                    current_app.logger.error("Failed to get userinfo: %s", str(e))
-                    raise jwt.InvalidTokenError("Failed to get userinfo") from e
+                        # Create SET clauses
+                        set_clauses = ", ".join([f"{field} = :{field}" for field in update_fields])
+
+                        # Add user_id for WHERE clause
+                        update_fields["user_id"] = current_user["id"]
+
+                        # Execute update query
+                        update_query = f"UPDATE users SET {set_clauses} WHERE id = :user_id"  # noqa: S608
+                        db_client.execute_query(update_query, update_fields)
+
+                        current_app.logger.info("Updated user information")
+
+                        # Refresh user data
+                        users, _ = db_client.execute_query(query, {"sub": sub})
+                        current_user = users[0]
                 except Exception as e:
-                    current_app.logger.error("Failed to validate OIDC token: %s", str(e))
-                    raise jwt.InvalidTokenError("Invalid OIDC token") from e
+                    current_app.logger.error("OIDC token validation failed: %s", str(e))
+                    return jsonify({"message": "Token is invalid!"}), 401
 
-            if not current_user:
-                return jsonify({"message": "User not found!"}), 401
-
-            # Attach user to request context
-            request.current_user = current_user
+            # Add current_user to request
+            request.current_user = User(**current_user)
+            # Call the decorated function
             return f(*args, **kwargs)
         except Exception as e:
             current_app.logger.error("Token validation error: %s", str(e))
-            return (
-                jsonify({"message": "Token validation failed!", "details": str(e)}),
-                401,
-            )
+            return jsonify({"message": "Token is invalid!"}), 401
 
     return decorated
 
 
 def admin_required(f):
+    """Decorator to check if user is admin.
+
+    Args:
+        f: Function to decorate
+
+    Returns:
+        Decorated function
+    """
+
     @wraps(f)
     def decorated(*args, **kwargs):
-        current_user = getattr(request, "current_user", None)
-        if not current_user or not current_user.is_admin:
+        # Check if current_user is set (token_required decorator must be applied first)
+        if not hasattr(request, "current_user"):
+            return jsonify({"message": "Authorization required!"}), 401
+
+        # Check if user is admin
+        if not request.current_user.is_admin:
             return jsonify({"message": "Admin privilege required!"}), 403
+
+        # Call the decorated function
         return f(*args, **kwargs)
 
     return decorated

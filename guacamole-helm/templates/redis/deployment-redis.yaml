@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-{{ .Release.Name }}
+  labels:
+    {{- include "guacamole.labels" . | nindent 4 }}
+    component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-{{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: redis-{{ .Release.Name }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
+      containers:
+      - name: redis
+        securityContext:
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        image: {{ .Values.redis.image }}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: {{ .Values.redis.containerPort }}
+          name: redis
+        {{- if .Values.redis.healthcheck.enabled }}
+        livenessProbe:
+          exec:
+            command: ["/bin/sh", "-c", "/usr/local/bin/redis-cli ping"]
+          initialDelaySeconds: {{ .Values.redis.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.redis.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.redis.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.redis.healthcheck.failureThreshold }}
+        readinessProbe:
+          exec:
+            command: ["/bin/sh", "-c", "/usr/local/bin/redis-cli ping"]
+          initialDelaySeconds: {{ .Values.redis.healthcheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.redis.healthcheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.redis.healthcheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.redis.healthcheck.failureThreshold }}
+        {{- end }}
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi

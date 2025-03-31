@@ -1,18 +1,12 @@
-from typing import Generator
-
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import DeclarativeMeta, Session
+from sqlalchemy.orm import DeclarativeMeta
 
 
 Base: DeclarativeMeta = declarative_base()
 
 
-def get_db() -> Generator[Session, None, None]:
-    from desktop_manager.core.database import get_session_factory
+class APIModel(BaseModel):
+    """Base model for API responses with common configuration."""
 
-    SessionFactory = get_session_factory()
-    db = SessionFactory()
-    try:
-        yield db
-    finally:
-        db.close()
+    model_config = ConfigDict(from_attributes=True)

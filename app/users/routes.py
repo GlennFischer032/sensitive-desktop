@@ -2,6 +2,7 @@ import requests
 from flask import (
     current_app,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -38,6 +39,34 @@ def view_users():
         return render_template("users.html", users=[])
 
 
+@users_bp.route("/detail/<username>")
+@login_required
+@admin_required
+def user_detail(username):
+    try:
+        current_app.logger.info(f"Fetching details for user: {username}")
+        users_client = client_factory.get_users_client()
+        user = users_client.get_user(username)
+
+        # Get user's connections if available
+        try:
+            connections_client = client_factory.get_connections_client()
+            user_connections = connections_client.list_connections(filter_by_user=username)
+        except Exception as e:
+            current_app.logger.warning(f"Could not fetch connections for user {username}: {str(e)}")
+            user_connections = []
+
+        return render_template("user_detail.html", user=user, user_connections=user_connections)
+    except APIError as e:
+        current_app.logger.error(f"Error fetching user details: {e.message}")
+        flash(f"Failed to fetch user details: {e.message}", "error")
+        return redirect(url_for("users.view_users"))
+    except Exception as e:
+        current_app.logger.error(f"Error fetching user details: {str(e)}")
+        flash(f"Error fetching user details: {str(e)}", "error")
+        return redirect(url_for("users.view_users"))
+
+
 @users_bp.route("/add", methods=["GET", "POST"])
 @login_required
 @admin_required
@@ -49,28 +78,14 @@ def add_user():
         current_app.logger.info(f"Form data: {request.form}")
 
         username = request.form.get("username")
-        email = request.form.get("email")
-        organization = request.form.get("organization")
-        password = request.form.get("password")
         is_admin = request.form.get("is_admin") == "true"
-        sub = request.form.get("sub")  # Get OIDC subject identifier
+        sub = request.form.get("sub")
 
-        if not username or not email:
-            flash("Username and email are required")
+        if not username or not sub:
+            flash("Username and OIDC Subject Identifier are required", "error")
             return render_template("add_user.html")
 
-        data = {
-            "username": username,
-            "email": email,
-            "organization": organization,
-            "is_admin": is_admin,
-        }
-
-        if sub:
-            data["sub"] = sub
-
-        if password:
-            data["password"] = password
+        data = {"username": username, "is_admin": is_admin, "sub": sub}
 
         try:
             current_app.logger.info("Adding new user...")
@@ -78,22 +93,12 @@ def add_user():
 
             users_client = client_factory.get_users_client()
 
-            user_params = {
-                "username": username,
-                "is_admin": is_admin,
-                "email": email,
-                "organization": organization,
-            }
+            users_client.add_user(**data)
 
-            if sub:
-                user_params["sub"] = sub
-
-            if password:
-                user_params["password"] = password
-
-            users_client.add_user(**user_params)
-
-            flash("User added successfully", "success")
+            flash(
+                "User added successfully. User information will be filled from OIDC during their first login.",
+                "success",
+            )
             return redirect(url_for("users.view_users"))
         except APIError as e:
             current_app.logger.error(f"Failed to add user: {e.message}")
@@ -184,3 +189,42 @@ def remove_user(username):
         return {"status": "success"}, 200
 
     return redirect(url_for("users.dashboard"))
+
+
+@users_bp.route("/update/<username>", methods=["POST"])
+@login_required
+@admin_required
+def update_user(username):
+    try:
+        current_app.logger.info(f"Updating user: {username}")
+        data = request.get_json()
+
+        if not data:
+            return jsonify({"error": "Missing request data"}), 400
+
+        current_app.logger.info(f"Update data: {data}")
+
+        users_client = client_factory.get_users_client()
+        users_client.update_user(username, **data)
+
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"message": "User updated successfully"}), 200
+
+        flash(f"User {username} updated successfully", "success")
+        return redirect(url_for("users.user_detail", username=username))
+
+    except APIError as e:
+        current_app.logger.error(f"Failed to update user: {e.message}")
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"error": e.message}), e.status_code
+
+        flash(f"Failed to update user: {e.message}", "error")
+        return redirect(url_for("users.user_detail", username=username))
+
+    except Exception as e:
+        current_app.logger.error(f"Error updating user: {str(e)}")
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"error": str(e)}), 500
+
+        flash(f"Error updating user: {str(e)}", "error")
+        return redirect(url_for("users.user_detail", username=username))

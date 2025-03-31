@@ -3,34 +3,25 @@
 {% block title %}Add User - Desktop Manager{% endblock %}
 
 {% block content %}
-<div style="max-width: 600px; margin: 0 auto;">
+<div class="form-container">
     <h2>Add New User</h2>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
-        <div class="alert alert-{{ category }}" style="padding: 1rem; margin-bottom: 1rem; border-radius: 4px;
-            {% if category == 'error' %}background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2;{% endif %}
-            {% if category == 'success' %}background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;{% endif %}
-            {% if category == 'warning' %}background-color: #fff3e0; color: #ef6c00; border: 1px solid #ffe0b2;{% endif %}">
-            <p style="margin: 0;">{{ message }}</p>
+        <div class="alert alert-{{ category }}">
+            <p>{{ message }}</p>
         </div>
         {% endfor %}
     {% endif %}
     {% endwith %}
 
-    <div class="requirements-box" style="background-color: #e3f2fd; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; border: 1px solid #bbdefb;">
-        <h4 style="margin-top: 0; color: #1976d2;">Requirements:</h4>
-        <ul style="margin-bottom: 0; color: #2196f3;">
+    <div class="requirements-box">
+        <h4>Requirements:</h4>
+        <ul>
             <li>Username must be at least 3 characters long</li>
-            <li>Email is required</li>
-            <li>If password is provided:</li>
-            <ul>
-                <li>Must be at least 8 characters long</li>
-                <li>Must contain at least one uppercase letter</li>
-                <li>Must contain at least one lowercase letter</li>
-                <li>Must contain at least one number</li>
-            </ul>
+            <li>OIDC Subject Identifier (sub) is required</li>
+            <li>Other user information will be filled from OIDC during first login</li>
         </ul>
     </div>
 
@@ -38,48 +29,27 @@
         <div class="form-group">
             <label for="username">Username:</label>
             <input type="text" id="username" name="username" required minlength="3">
-            <small class="error-message" id="username-error" style="color: #c62828; display: none;"></small>
-        </div>
-
-        <div class="form-group">
-            <label for="email">Email:</label>
-            <input type="email" id="email" name="email" required>
-            <small class="error-message" id="email-error" style="color: #c62828; display: none;"></small>
-        </div>
-
-        <div class="form-group">
-            <label for="organization">Organization:</label>
-            <input type="text" id="organization" name="organization">
-            <small class="error-message" id="organization-error" style="color: #c62828; display: none;"></small>
+            <small class="error-message" id="username-error"><!-- Error message will appear here --></small>
         </div>
 
         <div class="form-group">
             <label for="sub">OIDC Subject Identifier (sub):</label>
-            <input type="text" id="sub" name="sub">
-            <small class="help-text" style="color: #757575; display: block; margin-top: 0.25rem;">Optional. Only needed for OIDC users. This is the unique identifier from the OIDC provider.</small>
-            <small class="error-message" id="sub-error" style="color: #c62828; display: none;"></small>
+            <input type="text" id="sub" name="sub" required>
+            <small class="form-help">This is the unique identifier from the OIDC provider.</small>
+            <small class="error-message" id="sub-error"><!-- Error message will appear here --></small>
         </div>
 
         <div class="form-group">
-            <label for="password">Password: (optional)</label>
-            <input type="password" id="password" name="password" minlength="8">
-            <small class="error-message" id="password-error" style="color: #c62828; display: none;"></small>
+            <div class="checkbox-wrapper">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="is_admin" value="true">
+                    Admin User
+                </label>
+            </div>
+            <small class="form-help">Administrators can manage users and desktop configurations.</small>
         </div>
 
-        <div class="form-group">
-            <label for="confirm_password">Confirm Password:</label>
-            <input type="password" id="confirm_password" name="confirm_password" minlength="8">
-            <small class="error-message" id="confirm-password-error" style="color: #c62828; display: none;"></small>
-        </div>
-
-        <div class="form-group">
-            <label>
-                <input type="checkbox" name="is_admin" value="true">
-                Admin User
-            </label>
-        </div>
-
-        <div id="loading" style="display: none;">
+        <div id="loading" class="hidden">
             <div class="loading-wave">
                 <div class="loading-bar"></div>
                 <div class="loading-bar"></div>
@@ -88,21 +58,20 @@
             </div>
         </div>
 
-        <div style="margin-top: 2rem; text-align: center;">
+        <div class="form-actions">
             <button type="submit" class="button" id="submit-btn">Add User</button>
-            <a href="{{ url_for('users.view_users') }}" class="button" style="margin-left: 1rem; background-color: #95a5a6;">Cancel</a>
+            <a href="{{ url_for('users.view_users') }}" class="button secondary">Cancel</a>
         </div>
     </form>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
 document.getElementById('user-form').addEventListener('submit', function(e) {
     const username = document.getElementById('username').value;
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const confirmPassword = document.getElementById('confirm_password').value;
+    const sub = document.getElementById('sub').value;
 
     // Clear previous error messages
     document.querySelectorAll('.error-message').forEach(el => {
@@ -121,65 +90,18 @@ document.getElementById('user-form').addEventListener('submit', function(e) {
         hasError = true;
     }
 
-    // Email validation
-    if (!email) {
+    // Sub validation
+    if (!sub) {
         e.preventDefault();
-        const emailError = document.getElementById('email-error');
-        emailError.textContent = 'Email is required';
-        emailError.style.display = 'block';
+        const subError = document.getElementById('sub-error');
+        subError.textContent = 'OIDC Subject Identifier is required';
+        subError.style.display = 'block';
         hasError = true;
     }
 
-    // Password validation (only if password is provided)
-    if (password) {
-        if (password.length < 8) {
-            e.preventDefault();
-            const passwordError = document.getElementById('password-error');
-            passwordError.textContent = 'Password must be at least 8 characters long';
-            passwordError.style.display = 'block';
-            hasError = true;
-        } else if (!/[A-Z]/.test(password)) {
-            e.preventDefault();
-            const passwordError = document.getElementById('password-error');
-            passwordError.textContent = 'Password must contain at least one uppercase letter';
-            passwordError.style.display = 'block';
-            hasError = true;
-        } else if (!/[a-z]/.test(password)) {
-            e.preventDefault();
-            const passwordError = document.getElementById('password-error');
-            passwordError.textContent = 'Password must contain at least one lowercase letter';
-            passwordError.style.display = 'block';
-            hasError = true;
-        } else if (!/[0-9]/.test(password)) {
-            e.preventDefault();
-            const passwordError = document.getElementById('password-error');
-            passwordError.textContent = 'Password must contain at least one number';
-            passwordError.style.display = 'block';
-            hasError = true;
-        }
-
-        // Confirm password validation (only if password is provided)
-        if (password !== confirmPassword) {
-            e.preventDefault();
-            const confirmPasswordError = document.getElementById('confirm-password-error');
-            confirmPasswordError.textContent = 'Passwords do not match';
-            confirmPasswordError.style.display = 'block';
-            hasError = true;
-        }
-    } else {
-        // If no password is provided, confirm password should also be empty
-        if (confirmPassword) {
-            e.preventDefault();
-            const confirmPasswordError = document.getElementById('confirm-password-error');
-            confirmPasswordError.textContent = 'Please leave confirm password empty if no password is provided';
-            confirmPasswordError.style.display = 'block';
-            hasError = true;
-        }
-    }
-
     if (!hasError) {
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('submit-btn').style.display = 'none';
+        document.getElementById('loading').classList.add('visible');
+        document.getElementById('submit-btn').classList.add('hidden');
     }
 });
 </script>

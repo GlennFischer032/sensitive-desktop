@@ -2,17 +2,10 @@ import logging
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
-from werkzeug.security import generate_password_hash
 
 from desktop_manager.api.models.user import User
 from desktop_manager.api.schemas.user import UserCreate, UserResponse
-from desktop_manager.clients.guacamole import (
-    GuacamoleClient,
-    add_user_to_group,
-    create_guacamole_user,
-    delete_guacamole_user,
-    ensure_all_users_group,
-)
+from desktop_manager.clients.guacamole import GuacamoleClient
 from desktop_manager.core.exceptions import (
     DatabaseError,
     GuacamoleError,
@@ -69,21 +62,25 @@ class UserService:
 
         try:
             # Create user in Guacamole
-            token = self.guacamole_client.login()
-            if user_data.password:  # Only create Guacamole user if password is provided
-                create_guacamole_user(token, user_data.username, user_data.password)
-                ensure_all_users_group(token)
-                add_user_to_group(token, user_data.username, "all_users")
-                logger.info("Created user %s in Guacamole", user_data.username)
+            self.guacamole_client.login()
+
+            # Create empty-password user in Guacamole for JSON auth
+            self.guacamole_client.create_user_if_not_exists(
+                token=None,
+                username=user_data.username,
+                password="",  # Empty password for JSON auth
+                attributes={
+                    "guac_full_name": user_data.username,
+                    "guac_organization": user_data.organization or "Default",
+                },
+            )
+            logger.info("Created user %s in Guacamole", user_data.username)
 
             # Create user in database
             user = User(
                 username=user_data.username,
                 email=user_data.email,
                 organization=user_data.organization,
-                password_hash=(
-                    generate_password_hash(user_data.password) if user_data.password else None
-                ),
                 is_admin=user_data.is_admin,
                 sub=user_data.sub,
             )
@@ -105,11 +102,10 @@ class UserService:
             logger.error("Failed to create user %s: %s", user_data.username, str(e))
             self.db.rollback()
             # Cleanup Guacamole user if database fails
-            if user_data.password:  # Only cleanup if Guacamole user was created
-                try:
-                    delete_guacamole_user(token, user_data.username)
-                except Exception as cleanup_error:
-                    logger.error("Failed to cleanup Guacamole user: %s", cleanup_error)
+            try:
+                self.guacamole_client.delete_user(user_data.username)
+            except Exception as cleanup_error:
+                logger.error("Failed to cleanup Guacamole user: %s", cleanup_error)
             raise DatabaseError(f"Failed to create user: {e!s}") from e
 
     def delete_user(self, username: str) -> None:
@@ -134,9 +130,8 @@ class UserService:
 
         try:
             # Try to delete from Guacamole first
-            token = self.guacamole_client.login()
             try:
-                delete_guacamole_user(token, username)
+                self.guacamole_client.delete_user(username)
                 logger.info("Deleted user %s from Guacamole", username)
             except GuacamoleError as e:
                 if "User not found" in str(e):

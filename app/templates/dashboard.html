@@ -13,11 +13,33 @@
     </div>
 
     <div class="dashboard-card">
+        <h3>Storage PVCs</h3>
+        <p>Manage your persistent storage volumes</p>
+        <a href="{{ url_for('storage.view_pvcs') }}" class="button">View Storage</a>
+    </div>
+
+    {% if session.get('is_admin') %}
+    <div class="dashboard-card">
         <h3>Users</h3>
         <p>Manage system users</p>
         <a href="{{ url_for('users.view_users') }}" class="button">View Users</a>
     </div>
+
+    <div class="dashboard-card">
+        <h3>Desktop Configurations</h3>
+        <p>Manage desktop configurations</p>
+        <a href="{{ url_for('configurations.list_configurations') }}" class="button">View Configurations</a>
+    </div>
+    {% endif %}
 </div>
+
+<style>
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+</style>
 
 {% with messages = get_flashed_messages() %}
 {% if messages %}

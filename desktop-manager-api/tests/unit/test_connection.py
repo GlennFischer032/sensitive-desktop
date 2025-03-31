@@ -1,13 +1,43 @@
 """Unit tests for connection operations."""
 
 import pytest
-from desktop_manager.api.crud.user import create_user
 from desktop_manager.api.models.connection import Connection
+from desktop_manager.api.models.user import User
 from desktop_manager.api.schemas.user import UserCreate
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from werkzeug.security import generate_password_hash
 
 from tests.config import TEST_CONNECTION, TEST_USER
+
+
+def create_user_for_testing(test_db: Session, user_data: UserCreate) -> User:
+    """Helper function to create a user for testing.
+
+    Args:
+        test_db: SQLAlchemy session
+        user_data: User creation data
+
+    Returns:
+        The created user
+    """
+    # Create a user directly
+    user = User(
+        username=user_data.username,
+        email=user_data.email,
+        organization=user_data.organization,
+        sub=user_data.sub,
+        given_name=None,
+        family_name=None,
+        name=None,
+        locale=None,
+        email_verified=False,
+        last_login=None,
+    )
+    test_db.add(user)
+    test_db.commit()
+    test_db.refresh(user)
+    return user
 
 
 def test_create_connection(test_db: Session):
@@ -16,10 +46,10 @@ def test_create_connection(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
-    user = create_user(test_db, user_data)
+    user = create_user_for_testing(test_db, user_data)
 
     # Create a connection
     connection = Connection(
@@ -47,10 +77,10 @@ def test_connection_user_relationship(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
-    user = create_user(test_db, user_data)
+    user = create_user_for_testing(test_db, user_data)
 
     # Create multiple connections for the user
     connection_names = ["test_conn_1", "test_conn_2"]
@@ -79,29 +109,29 @@ def test_create_duplicate_connection(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
-    user = create_user(test_db, user_data)
+    user = create_user_for_testing(test_db, user_data)
 
-    # Create first connection
-    connection1 = Connection(
+    # Create a connection
+    connection = Connection(
         name=TEST_CONNECTION["name"],
         created_by=user.username,
         guacamole_connection_id=TEST_CONNECTION["guacamole_connection_id"],
     )
-    test_db.add(connection1)
+    test_db.add(connection)
     test_db.commit()
 
-    # Try to create second connection with same name
-    connection2 = Connection(
-        name=TEST_CONNECTION["name"],  # Same name
+    # Try to create another connection with the same name
+    duplicate = Connection(
+        name=TEST_CONNECTION["name"],
         created_by=user.username,
-        guacamole_connection_id="different_id",
+        guacamole_connection_id="test_guac_dup",
     )
-    test_db.add(connection2)
+    test_db.add(duplicate)
 
-    # Should raise IntegrityError
+    # Should raise an integrity error
     with pytest.raises(IntegrityError):
         test_db.commit()
     test_db.rollback()
@@ -113,10 +143,10 @@ def test_delete_connection(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
-    user = create_user(test_db, user_data)
+    user = create_user_for_testing(test_db, user_data)
 
     # Create a connection
     connection = Connection(
@@ -127,17 +157,16 @@ def test_delete_connection(test_db: Session):
     test_db.add(connection)
     test_db.commit()
 
+    # Get the connection ID
+    conn_id = connection.id
+
     # Delete the connection
     test_db.delete(connection)
     test_db.commit()
 
-    # Verify connection is deleted
-    deleted_connection = (
-        test_db.query(Connection)
-        .filter(Connection.name == TEST_CONNECTION["name"])
-        .first()
-    )
-    assert deleted_connection is None
+    # Verify it's gone
+    deleted = test_db.query(Connection).filter(Connection.id == conn_id).first()
+    assert deleted is None
 
 
 def test_cascade_delete_user_connections(test_db: Session):
@@ -146,10 +175,10 @@ def test_cascade_delete_user_connections(test_db: Session):
     user_data = UserCreate(
         username=TEST_USER["username"],
         email=TEST_USER["email"],
-        password=TEST_USER["password"],
         organization=TEST_USER["organization"],
+        sub=TEST_USER["sub"],
     )
-    user = create_user(test_db, user_data)
+    user = create_user_for_testing(test_db, user_data)
 
     # Create connections for the user
     connection_names = ["test_conn_1", "test_conn_2"]
