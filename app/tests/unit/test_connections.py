@@ -123,7 +123,9 @@ def test_add_connection_success(client: FlaskClient, responses_mock) -> None:
                     "Content-Type": "application/json",
                 }
             ),
-            responses_mock.matchers.json_params_matcher({"name": "test-connection"}),
+            responses_mock.matchers.json_params_matcher(
+                {"name": "test-connection", "persistent_home": False}
+            ),
         ],
         json={"message": "Connection created"},
         status=200,
@@ -135,7 +137,7 @@ def test_add_connection_success(client: FlaskClient, responses_mock) -> None:
         follow_redirects=True,
     )
     assert response.status_code == 200
-    assert b"Connection added successfully" in response.data
+    assert b"Connection created successfully" in response.data
 
 
 def test_add_connection_missing_name(client: FlaskClient) -> None:
@@ -148,9 +150,9 @@ def test_add_connection_missing_name(client: FlaskClient) -> None:
         sess["logged_in"] = True
         sess.permanent = True
 
-    response = client.post("/connections/add", data={})
+    response = client.post("/connections/add", data={}, follow_redirects=True)
     assert response.status_code == 200
-    assert b"Please provide a connection name" in response.data
+    assert b"Connection name is required" in response.data
 
 
 def test_add_connection_api_error(client: FlaskClient, responses_mock) -> None:
@@ -216,7 +218,7 @@ def test_delete_connection_success(client: FlaskClient, responses_mock) -> None:
         sess["logged_in"] = True
         sess.permanent = True
 
-    # Mock successful API response
+    # Mock successful API response for deletion
     responses_mock.add(
         responses_mock.POST,
         "http://test-api:5000/api/connections/scaledown",
@@ -233,9 +235,17 @@ def test_delete_connection_success(client: FlaskClient, responses_mock) -> None:
         status=200,
     )
 
+    # Mock the connections list endpoint that gets called after deletion
+    responses_mock.add(
+        responses_mock.GET,
+        "http://test-api:5000/api/connections/list",
+        json={"connections": []},
+        status=200,
+    )
+
     response = client.post("/connections/delete/test-connection", follow_redirects=True)
     assert response.status_code == 200
-    assert b"Connection deleted successfully" in response.data
+    assert b"Connection stopped successfully" in response.data
 
 
 def test_delete_connection_ajax(client: FlaskClient, responses_mock) -> None:
@@ -305,6 +315,14 @@ def test_delete_connection_network_error(client: FlaskClient, responses_mock) ->
         body=Exception("Network error"),
     )
 
+    # Mock the connections list endpoint that gets called after deletion
+    responses_mock.add(
+        responses_mock.GET,
+        "http://test-api:5000/api/connections/list",
+        json={"connections": []},
+        status=200,
+    )
+
     response = client.post("/connections/delete/test-connection", follow_redirects=True)
     assert response.status_code == 200
-    assert b"Error deleting connection" in response.data
+    assert b"Error stopping connection" in response.data

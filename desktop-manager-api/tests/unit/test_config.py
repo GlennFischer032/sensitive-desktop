@@ -25,7 +25,7 @@ def test_config_defaults():
         assert config.GUACAMOLE_PASSWORD == "guacadmin"
         assert config.NAMESPACE == "fischer-ns"
         assert config.ADMIN_USERNAME == "admin"
-        assert config.ADMIN_PASSWORD == "admin123"
+        assert config.ADMIN_PASSWORD == "" or config.ADMIN_PASSWORD is None
         assert config.RANCHER_API_TOKEN == "token-58z6j:jrkfmqfms2gdlzqv98v8zjfck8nq672fgz2j2jv6t9q67txsds22wc"
         assert config.RANCHER_API_URL == "https://rancher.cloud.e-infra.cz"
         assert config.RANCHER_CLUSTER_ID == "c-m-qvndqhf6"

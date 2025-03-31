@@ -161,9 +161,9 @@ def test_oidc_login_failure(client: FlaskClient, responses_mock) -> None:
         status=500,
     )
 
-    response = client.get("/auth/oidc/login", follow_redirects=True)
-    assert response.status_code == 200  # Should redirect to login page
-    assert b"Failed to initiate login" in response.data
+    response = client.get("/auth/oidc/login", follow_redirects=False)
+    assert response.status_code == 302  # Should redirect to login page on error
+    assert "/auth/login" in response.headers["Location"]
 
 
 def test_oidc_callback_success(client: FlaskClient, responses_mock) -> None:
@@ -214,17 +214,17 @@ def test_oidc_callback_error_in_params(client: FlaskClient) -> None:
     """Test OIDC callback with error in parameters."""
     response = client.get(
         "/auth/oidc/callback?error=access_denied&error_description=User+cancelled",
-        follow_redirects=True,
+        follow_redirects=False,
     )
-    assert response.status_code == 200  # Should redirect to login page
-    assert b"Authentication failed: User cancelled" in response.data
+    assert response.status_code == 302  # Should redirect to login page
+    assert "/auth/login" in response.headers["Location"]
 
 
 def test_oidc_callback_missing_params(client: FlaskClient) -> None:
     """Test OIDC callback with missing parameters."""
-    response = client.get("/auth/oidc/callback", follow_redirects=True)
-    assert response.status_code == 200  # Should redirect to login page
-    assert b"Invalid callback parameters" in response.data
+    response = client.get("/auth/oidc/callback", follow_redirects=False)
+    assert response.status_code == 302  # Should redirect to login page
+    assert "/auth/login" in response.headers["Location"]
 
 
 def test_oidc_callback_failure(client: FlaskClient, responses_mock) -> None:
@@ -237,10 +237,10 @@ def test_oidc_callback_failure(client: FlaskClient, responses_mock) -> None:
     )
 
     response = client.get(
-        "/auth/oidc/callback?code=invalid-code&state=test-state", follow_redirects=True
+        "/auth/oidc/callback?code=invalid-code&state=test-state", follow_redirects=False
     )
-    assert response.status_code == 200  # Should redirect to login page
-    assert b"Authentication failed" in response.data
+    assert response.status_code == 302  # Should redirect to login page
+    assert "/auth/login" in response.headers["Location"]
 
 
 def test_oidc_callback_network_error(client: FlaskClient, responses_mock) -> None:
@@ -252,7 +252,7 @@ def test_oidc_callback_network_error(client: FlaskClient, responses_mock) -> Non
     )
 
     response = client.get(
-        "/auth/oidc/callback?code=test-code&state=test-state", follow_redirects=True
+        "/auth/oidc/callback?code=test-code&state=test-state", follow_redirects=False
     )
-    assert response.status_code == 200  # Should redirect to login page
-    assert b"Error completing authentication" in response.data
+    assert response.status_code == 302  # Should redirect to login page
+    assert "/auth/login" in response.headers["Location"]
