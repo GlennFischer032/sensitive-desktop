@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
 {% block title %}
-  {% if configuration %}Edit{% else %}Add{% endif %} Desktop Configuration - Desktop Manager
+  {% if configuration.id %}Edit{% else %}Create{% endif %} Desktop Configuration - Desktop Manager
 {% endblock %}
 
 {% block content %}
 <div class="form-container">
-  <h2>{% if configuration %}Edit{% else %}Create{% endif %} Desktop Configuration</h2>
+  <h2>{% if configuration.id %}Edit{% else %}Create{% endif %} Desktop Configuration</h2>
 
   <form id="configForm" method="post" class="configuration-form">
     <div class="form-group">

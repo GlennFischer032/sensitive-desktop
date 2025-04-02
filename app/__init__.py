@@ -32,10 +32,16 @@ def create_app(config_class=Config):
     # Initialize security features
     init_security(app)
 
-    redis_client = redis.from_url(app.config["SESSION_REDIS"])
-    app.config["SESSION_REDIS"] = redis_client
+    # Initialize session
+    if app.config.get("SESSION_TYPE") != "null":
+        # Only use Redis session when not in test mode with null session
+        redis_client = redis.from_url(app.config["SESSION_REDIS"])
+        app.config["SESSION_REDIS"] = redis_client
+        Session(app)
+    else:
+        # For testing, we'll use the default Flask session (signed cookies)
+        app.logger.info("Using default Flask session interface for testing")
 
-    Session(app)
     app.config["SESSION_REFRESH_EACH_REQUEST"] = True
 
     # Configure CORS with security settings

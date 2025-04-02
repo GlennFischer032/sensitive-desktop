@@ -181,15 +181,19 @@ def delete_configuration(config_id: int) -> Response:
 
         # Handle AJAX requests
         if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"success": True, "message": "Configuration deleted successfully"}), 200
+            response = jsonify({"success": True, "message": "Configuration deleted successfully"})
+            response.headers.add("Content-Type", "application/json")
+            return response, 200
 
         flash("Configuration deleted successfully", "success")
-    except APIError as e:
+    except Exception as e:
         logger.error(f"Error deleting configuration {config_id}: {str(e)}")
 
         # Handle AJAX requests
         if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"error": str(e)}), 400
+            response = jsonify({"error": str(e)})
+            response.headers.add("Content-Type", "application/json")
+            return response, 400
 
         flash(f"Error deleting configuration: {str(e)}", "error")
 

@@ -16,6 +16,9 @@ class Config:
     GUACAMOLE_URL = os.environ.get("GUACAMOLE_URL", "http://guacamole:8080")
     EXTERNAL_GUACAMOLE_URL = os.environ.get("EXTERNAL_GUACAMOLE_URL", GUACAMOLE_URL + "/guacamole")
 
+    # Testing configuration
+    TEST_TOKEN = os.environ.get("TEST_TOKEN", "test-token-for-automated-testing-only")
+
     # Logging configuration
     LOG_LEVEL = logging.INFO
 

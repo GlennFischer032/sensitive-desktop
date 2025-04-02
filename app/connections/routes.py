@@ -10,10 +10,10 @@ from flask import (
     url_for,
 )
 
-from clients.base import APIError
-from clients.factory import client_factory
-from middleware.security import rate_limit
-from utils.decorators import login_required
+from app.clients.base import APIError
+from app.clients.factory import client_factory
+from app.middleware.security import rate_limit
+from app.utils.decorators import login_required
 
 from . import connections_bp
 

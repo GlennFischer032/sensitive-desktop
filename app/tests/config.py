@@ -11,14 +11,14 @@ class TestConfig(Config):
     TESTING = True
     SECRET_KEY = "test-secret-key"
     WTF_CSRF_ENABLED = False
-    SESSION_TYPE = "filesystem"  # Use filesystem sessions for testing
-    SESSION_FILE_DIR = "/tmp/flask_session"  # Temporary directory for session files
+    SESSION_TYPE = "null"  # Use null session type for testing
     PERMANENT_SESSION_LIFETIME = timedelta(days=1)  # Set session lifetime
     SESSION_COOKIE_SECURE = False  # Allow non-HTTPS in testing
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     API_URL = "http://test-api:5000"  # Will be mocked in tests
     GUACAMOLE_URL = "http://test-guacamole:8080"  # Will be mocked in tests
+    SKIP_AUTH_FOR_TESTING = True  # Skip authentication checks in tests
 
     # Security settings for testing
     CORS_ALLOWED_ORIGINS = ["http://test-api:5000"]
@@ -31,3 +31,6 @@ class TestConfig(Config):
     OIDC_CLIENT_SECRET = "test-client-secret"
     OIDC_PROVIDER_URL = "http://test-oidc-provider"
     OIDC_REDIRECT_URI = "http://localhost:5001/auth/oidc/callback"
+
+    # Skip authentication for testing
+    SKIP_AUTH_FOR_TESTING = True

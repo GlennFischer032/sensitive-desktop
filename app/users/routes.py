@@ -1,3 +1,7 @@
+"""Routes for user management module."""
+import logging
+from typing import Dict
+
 import requests
 from flask import (
     current_app,
@@ -10,18 +14,24 @@ from flask import (
     url_for,
 )
 
-from clients.base import APIError
-from clients.factory import client_factory
-from middleware.security import rate_limit
-from utils.decorators import admin_required, login_required
+from app.clients.base import APIError
+from app.clients.factory import client_factory
+from app.middleware.auth import admin_required
+from app.middleware.security import rate_limit
+from app.utils.decorators import login_required
 
 from . import users_bp
 
 
 @users_bp.route("/")
 @login_required
-@admin_required
 def view_users():
+    """Display users list (admin only)."""
+    # Check if user is admin
+    if not session.get("is_admin", False):
+        flash("You need administrator privileges to access this page", "error")
+        return redirect(url_for("connections.view_connections"))
+
     try:
         current_app.logger.info("Fetching users from API...")
         users_client = client_factory.get_users_client()
