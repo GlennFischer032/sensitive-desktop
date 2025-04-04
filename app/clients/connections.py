@@ -192,7 +192,7 @@ class ConnectionsClient(BaseClient):
             raise
 
     def resume_connection(self, name: str, token: Optional[str] = None) -> Dict[str, Any]:
-        """Resume a deleted connection.
+        """Resume a stopped connection.
 
         Args:
             name: Connection name
@@ -210,17 +210,43 @@ class ConnectionsClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            # Ensure headers include proper Content-Type
-            headers = {"Content-Type": "application/json"}
-
             data, _ = self.post(
                 endpoint="/api/connections/resume",
                 data={"name": name},
                 token=token,
-                timeout=30,
-                headers=headers,
+                timeout=60,
             )
             return data
         except APIError as e:
             self.logger.error(f"Error resuming connection: {str(e)}")
+            raise
+
+    def permanent_delete_connection(self, name: str, token: Optional[str] = None) -> Dict[str, Any]:
+        """Permanently delete a stopped connection and its PVC.
+
+        Args:
+            name: Connection name
+            token: Authentication token. If None, uses token from session.
+
+        Returns:
+            Dict[str, Any]: Response data
+
+        Raises:
+            APIError: If request fails
+        """
+        token = token or session.get("token")
+        if not token:
+            self.logger.error("No authentication token available")
+            raise APIError("Authentication required", status_code=401)
+
+        try:
+            data, _ = self.post(
+                endpoint="/api/connections/permanent-delete",
+                data={"name": name},
+                token=token,
+                timeout=30,
+            )
+            return data
+        except APIError as e:
+            self.logger.error(f"Error permanently deleting connection: {str(e)}")
             raise

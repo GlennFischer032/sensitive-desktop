@@ -1,6 +1,7 @@
 """Pydantic schemas for connection operations."""
 
 from datetime import datetime
+import re
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -51,14 +52,40 @@ class ConnectionList(BaseModel):
 class ConnectionScaleUp(BaseModel):
     """Schema for scaling up a connection."""
 
-    name: str = Field(..., description="Name for the new connection", min_length=1, max_length=255)
+    name: str = Field(
+        ...,
+        description="Name for the new connection",
+        min_length=1,
+        max_length=12,
+        pattern=r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$",
+    )
 
     @field_validator("name")
     @classmethod
     def validate_name(cls, v):
-        if not v.strip():
+        """Validate the connection name.
+
+        The name must:
+        - Not be empty or just whitespace
+        - Start and end with an alphanumeric character
+        - Contain only lowercase letters, numbers, and hyphens
+        - Not exceed max length (which will be further constrained to account for UUID suffix)
+        - Match the Kubernetes DNS-1123 subdomain pattern
+        """
+        v = v.strip().lower()
+
+        if not v:
             raise ValueError("Name cannot be empty or just whitespace")
-        return v.strip()
+
+        # Validate against Kubernetes naming pattern
+        pattern = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
+        if not pattern.match(v):
+            raise ValueError(
+                "Name must start and end with an alphanumeric character and "
+                "contain only lowercase letters, numbers, and hyphens"
+            )
+
+        return v
 
 
 class ConnectionScaleDown(BaseModel):

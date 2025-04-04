@@ -85,7 +85,7 @@ def admin_required(view_func: Callable) -> Callable:
                 return jsonify({"success": False, "error": error_message}), 403
 
             flash("You need administrator privileges to access this page", "error")
-            return redirect(url_for("index"))
+            return redirect(url_for("connections.view_connections"))
 
         return view_func(*args, **kwargs)
 

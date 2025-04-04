@@ -1,5 +1,6 @@
 from http import HTTPStatus
 import logging
+import re
 from typing import Any, Dict, Tuple
 
 from flask import Blueprint, jsonify, redirect, request
@@ -51,6 +52,30 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             if not data or "name" not in data:
                 return (
                     jsonify({"error": "Missing required field: name"}),
+                    HTTPStatus.BAD_REQUEST,
+                )
+
+            # Validate name against the required pattern
+            name_pattern = re.compile(
+                r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+            )
+            if not name_pattern.match(data["name"]):
+                return (
+                    jsonify(
+                        {
+                            "error": "Connection name must start and end with an alphanumeric character "
+                            "and contain only lowercase letters, numbers, and hyphens"
+                        }
+                    ),
+                    HTTPStatus.BAD_REQUEST,
+                )
+
+            # Check if name is too long (max 12 characters)
+            if len(data["name"]) > 12:
+                return (
+                    jsonify(
+                        {"error": "Connection name is too long. Maximum length is 12 characters."}
+                    ),
                     HTTPStatus.BAD_REQUEST,
                 )
 
@@ -189,8 +214,8 @@ def scale_up() -> tuple[Dict[str, Any], int]:
 
             logging.info("Current user: %s", current_user.username)
 
-            # Generate deterministic name using username as suffix
-            name = generate_unique_connection_name(base_name, current_user.username)
+            # Generate unique name with UUID instead of username
+            name = generate_unique_connection_name(base_name)
             logging.info("Generated unique name: %s", name)
 
             # Generate VNC password
@@ -1318,4 +1343,110 @@ def resume_connection() -> Tuple[Dict[str, Any], int]:
 
     except Exception as e:
         logging.error("Error in resume_connection: %s", str(e))
+        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@connections_bp.route("/permanent-delete", methods=["POST"])
+@token_required
+def permanent_delete() -> Tuple[Dict[str, Any], int]:
+    """Permanently delete a connection and its associated PVC.
+
+    This endpoint:
+    1. Deletes the connection from the system
+    2. Deletes the PVC with the name format [connection_name]-home
+
+    For stopped connections with persistent home.
+
+    Returns:
+        tuple: A tuple containing:
+            - Dict with results
+            - HTTP status code
+    """
+    try:
+        # Get authenticated user
+        current_user = request.current_user
+
+        # Extract connection name from request
+        data = request.get_json()
+        if not data or "name" not in data:
+            return (
+                jsonify({"error": "Missing required field: name"}),
+                HTTPStatus.BAD_REQUEST,
+            )
+
+        connection_name = data["name"]
+        logging.info("Permanently deleting connection: %s", connection_name)
+
+        # Get database client
+        db_client = client_factory.get_database_client()
+
+        try:
+            # Get connection from database
+            query = """
+            SELECT * FROM connections
+            WHERE name = :connection_name
+            """
+            result, count = db_client.execute_query(query, {"connection_name": connection_name})
+
+            if count == 0:
+                return (
+                    jsonify({"error": f"Connection {connection_name} not found"}),
+                    HTTPStatus.NOT_FOUND,
+                )
+
+            connection = result[0]
+
+            # Check if connection is stopped
+            if not connection.get("is_stopped", False):
+                return (
+                    jsonify({"error": f"Connection {connection_name} must be stopped first"}),
+                    HTTPStatus.BAD_REQUEST,
+                )
+
+            # Check if user has permission to delete this connection
+            if not current_user.is_admin and connection["created_by"] != current_user.username:
+                return (
+                    jsonify({"error": "You do not have permission to delete this connection"}),
+                    HTTPStatus.FORBIDDEN,
+                )
+
+            # Delete the associated PVC if exists (format is [connection_name]-home)
+            pvc_name = f"{connection_name}-home"
+            rancher_client = client_factory.get_rancher_client()
+            pvc_deleted = False
+
+            try:
+                # Try to get the PVC first to check if it exists
+                rancher_client.get_pvc(name=pvc_name)
+
+                # If no exception was raised, the PVC exists, so delete it
+                rancher_client.delete_pvc(name=pvc_name)
+                logging.info("Deleted PVC: %s", pvc_name)
+                pvc_deleted = True
+            except Exception as e:
+                logging.warning("Failed to delete PVC %s: %s", pvc_name, str(e))
+                # Continue with connection deletion even if PVC deletion fails
+
+            # Delete connection from database
+            db_client.delete_connection(connection_name)
+            logging.info("Permanently deleted connection: %s", connection_name)
+
+            # Return result
+            message = f"Connection {connection_name} permanently deleted"
+            if pvc_deleted:
+                message += f" and PVC {pvc_name} removed"
+            else:
+                message += f" but failed to delete PVC {pvc_name}"
+
+            return (
+                jsonify({"message": message}),
+                HTTPStatus.OK,
+            )
+
+        except Exception as e:
+            logging.error("Database error in permanent_delete: %s", str(e))
+            raise
+
+    except Exception as e:
+        logging.error("Error in permanent_delete: %s", str(e))
         return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR

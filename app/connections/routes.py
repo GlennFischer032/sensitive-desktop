@@ -1,3 +1,5 @@
+import re
+
 import requests
 from flask import (
     current_app,
@@ -50,6 +52,23 @@ def add_connection():
                 flash("Connection name is required", "error")
                 return redirect(url_for("connections.add_connection"))
 
+            # Validate name against required pattern and length
+            name_pattern = re.compile(
+                r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+            )
+            if not name_pattern.match(connection_name):
+                flash(
+                    "Connection name must start and end with an alphanumeric character "
+                    "and contain only lowercase letters, numbers, and hyphens",
+                    "error",
+                )
+                return redirect(url_for("connections.add_connection"))
+
+            # Check for the 12 character limit
+            if len(connection_name) > 12:
+                flash("Connection name is too long. Maximum length is 12 characters.", "error")
+                return redirect(url_for("connections.add_connection"))
+
             # Get desktop configuration if specified
             desktop_configuration_id = request.form.get("desktop_configuration_id")
             desktop_configuration = None
@@ -65,7 +84,8 @@ def add_connection():
                 )
 
             # Get persistent home setting
-            persistent_home = bool(request.form.get("persistent_home"))
+            persistent_home_value = request.form.get("persistent_home", "off")
+            persistent_home = persistent_home_value != "off"
 
             # Get external PVC if specified (admin only)
             external_pvc = request.form.get("external_pvc")
@@ -121,26 +141,16 @@ def add_connection():
     is_admin = session.get("is_admin", False)
     if is_admin:
         try:
-            token = session.get("token")
-            if token:
-                api_url = f"{current_app.config['API_URL']}/api/storage-pvcs/list"
-                response = requests.get(
-                    api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10
-                )
-
-                if response.status_code == 200:
-                    data = response.json()
-                    storage_pvcs = data.get("pvcs", [])
-                    current_app.logger.info(f"Retrieved {len(storage_pvcs)} storage PVCs")
+            storage_client = client_factory.get_storage_client()
+            storage_pvcs = storage_client.list_pvcs()
         except Exception as e:
             current_app.logger.error(f"Error fetching storage PVCs: {str(e)}")
-            # Continue without PVCs
 
     return render_template(
         "add_connection.html",
         desktop_configurations=desktop_configurations,
-        storage_pvcs=storage_pvcs,
         is_admin=is_admin,
+        storage_pvcs=storage_pvcs,
     )
 
 
@@ -300,4 +310,56 @@ def resume_connection(connection_name):
             ), 500
 
         flash(f"Error resuming connection: {str(e)}")
+        return redirect(url_for("connections.view_connections"))
+
+
+@connections_bp.route("/permanent-delete/<connection_name>", methods=["POST"])
+@login_required
+@rate_limit(requests_per_minute=10)  # Stricter limit for permanent deletion
+def permanent_delete_connection(connection_name):
+    try:
+        current_app.logger.info(f"Permanently deleting connection: {connection_name}")
+
+        # Extract connection name from JSON body if present
+        if request.is_json:
+            data = request.get_json()
+            if data and "name" in data:
+                connection_name = data["name"]
+                current_app.logger.info(f"Using connection name from JSON body: {connection_name}")
+
+        connections_client = client_factory.get_connections_client()
+        connections_client.permanent_delete_connection(connection_name)
+
+        # If it's an AJAX request, return JSON response
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"status": "success", "message": "Connection permanently deleted"}), 200
+
+        flash("Connection permanently deleted")
+        return redirect(url_for("connections.view_connections"))
+
+    except APIError as e:
+        current_app.logger.error(f"Failed to permanently delete connection: {e.message}")
+
+        # If it's an AJAX request, return JSON error response
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": f"Failed to permanently delete connection: {e.message}",
+                }
+            ), 400
+
+        flash(f"Failed to permanently delete connection: {e.message}")
+        return redirect(url_for("connections.view_connections"))
+
+    except Exception as e:
+        current_app.logger.error(f"Error permanently deleting connection: {str(e)}")
+
+        # If it's an AJAX request, return JSON error response
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(
+                {"status": "error", "message": f"Error permanently deleting connection: {str(e)}"}
+            ), 500
+
+        flash(f"Error permanently deleting connection: {str(e)}")
         return redirect(url_for("connections.view_connections"))

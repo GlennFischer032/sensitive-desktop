@@ -117,11 +117,13 @@
 
 // Button groups
 .button-group {
-  display: flex;
-  gap: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
 
-  &.vertical {
-    flex-direction: column;
+  form {
+    margin: 0;
+    display: inline-block;
   }
 }
 
@@ -165,3 +167,16 @@
 .connect-button:focus {
   @include focus-outline($success-color);
 }
+
+.button.permanent-delete-btn {
+  background-color: $danger-dark;
+  border: 2px solid $danger-color;
+  color: white;
+
+  &:hover {
+    background-color: $danger-color;
+  }
+}
+
+// Specific styles for connection action buttons
+// These were moved to the _tables.scss file

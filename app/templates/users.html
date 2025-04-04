@@ -26,10 +26,12 @@
                 <td>{% if user.name %}{{ user.name }}{% else %}<span class="pending">Pending login</span>{% endif %}</td>
                 <td>{% if user.email %}{{ user.email }}{% else %}<span class="pending">Pending login</span>{% endif %}</td>
                 <td class="action-buttons">
-                    <a href="{{ url_for('users.user_detail', username=user.username) }}" class="button small view-details-btn">View Details</a>
-                    <form action="{{ url_for('users.delete_user', username=user.username) }}" method="post" onsubmit="handleDelete(event, '{{ user.username }}')">
-                        <button type="submit" class="button small danger delete-btn">Delete</button>
-                    </form>
+                    <div class="button-group">
+                        <a href="{{ url_for('users.user_detail', username=user.username) }}" class="button small view-details-btn">View Details</a>
+                        <form action="{{ url_for('users.delete_user', username=user.username) }}" method="post" onsubmit="handleDelete(event, '{{ user.username }}')">
+                            <button type="submit" class="button small danger delete-btn">Delete</button>
+                        </form>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
@@ -56,11 +58,13 @@ async function handleDelete(event, username) {
 
     // Replace button with loading animation
     actionButtons.innerHTML = `
-        <span class="deleting-text">Deleting</span>
-        <div class="loading-dots">
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
+        <div class="button-group">
+            <span class="deleting-text">Deleting</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
         </div>
     `;
 
@@ -109,8 +113,10 @@ async function handleDelete(event, username) {
         }
     } catch (error) {
         actionButtons.innerHTML = `
-            <span class="error-text">Error: ${error.message}</span>
-            <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            <div class="button-group">
+                <span class="error-text">Error: ${error.message}</span>
+                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            </div>
         `;
     }
 }

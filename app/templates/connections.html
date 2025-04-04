@@ -2,13 +2,55 @@
 
 {% block title %}Connections - Desktop Manager{% endblock %}
 
+{% block extra_head %}
+<style>
+/* Direct inline styles scoped to only affect the connections table */
+.connections-table-container td.action-buttons {
+    vertical-align: middle !important;
+    display: table-cell !important;
+    text-align: center !important;
+}
+
+.connections-table-container .button-group {
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    flex-direction: row !important; /* Ensure horizontal layout */
+    width: auto !important;
+    gap: 4px !important; /* Add spacing between buttons */
+}
+
+.connections-table-container .button.small {
+    display: inline-block !important;
+    margin: 0 2px !important;
+}
+
+/* Fix for buttons in stopped connections */
+.connections-table-container .stopped-connection td.action-buttons {
+    opacity: 1 !important;
+}
+
+.connections-table-container .stopped-connection td.action-buttons .button-group,
+.connections-table-container .stopped-connection td.action-buttons .button,
+.connections-table-container .stopped-connection td.action-buttons form,
+.connections-table-container .stopped-connection td.action-buttons a {
+    opacity: 1 !important;
+}
+
+/* Explicitly set the row to have opacity but exclude the buttons */
+.connections-table-container .stopped-connection td:not(.action-buttons) {
+    opacity: 0.7 !important;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="header-with-button">
     <h2>Connections</h2>
     <a href="{{ url_for('connections.add_connection') }}" class="button">Add Connection</a>
 </div>
 
-<div class="table-container">
+<div class="table-container connections-table-container">
     {% if connections %}
     <table>
         <thead>
@@ -31,16 +73,24 @@
                 <td>{{ conn.desktop_configuration_name or "Default" }}</td>
                 <td class="action-buttons">
                     {% if not conn.is_stopped %}
-                    <a href="{{ url_for('connections.direct_connect', connection_id=conn.id) }}" target="_blank" class="button small connect-btn">Connect</a>
-                    <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post"
-                          onsubmit="handleDelete(event, '{{ conn.name }}')">
-                        <button type="submit" class="button small danger delete-btn">Stop</button>
-                    </form>
+                    <div class="button-group">
+                        <a href="{{ url_for('connections.direct_connect', connection_id=conn.id) }}" target="_blank" class="button small connect-btn">Connect</a>
+                        <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post"
+                            onsubmit="handleDelete(event, '{{ conn.name }}')">
+                            <button type="submit" class="button small danger delete-btn">Stop</button>
+                        </form>
+                    </div>
                     {% else %}
-                    <form action="{{ url_for('connections.resume_connection', connection_name=conn.name) }}" method="post"
-                          onsubmit="handleResume(event, '{{ conn.name }}')">
-                        <button type="submit" class="button small success resume-btn">Resume</button>
-                    </form>
+                    <div class="button-group">
+                        <form action="{{ url_for('connections.resume_connection', connection_name=conn.name) }}" method="post"
+                              onsubmit="handleResume(event, '{{ conn.name }}')">
+                            <button type="submit" class="button small success resume-btn">Resume</button>
+                        </form>
+                        <form action="{{ url_for('connections.permanent_delete_connection', connection_name=conn.name) }}" method="post"
+                              onsubmit="handlePermanentDelete(event, '{{ conn.name }}')">
+                            <button type="submit" class="button small danger permanent-delete-btn">Delete</button>
+                        </form>
+                    </div>
                     {% endif %}
                 </td>
             </tr>
@@ -66,13 +116,15 @@ async function handleDelete(event, connectionName) {
     const row = document.getElementById(`connection-${connectionName}`);
     const actionButtons = row.querySelector('.action-buttons');
 
-    // Replace buttons with loading animation
+    // Replace buttons with loading animation while preserving structure
     actionButtons.innerHTML = `
-        <span class="deleting-text">Stopping</span>
-        <div class="loading-dots">
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
+        <div class="button-group">
+            <span class="deleting-text">Stopping</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
         </div>
     `;
 
@@ -112,8 +164,10 @@ async function handleDelete(event, connectionName) {
         }
     } catch (error) {
         actionButtons.innerHTML = `
-            <span class="error-text">Error: ${error.message}</span>
-            <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            <div class="button-group">
+                <span class="error-text">Error: ${error.message}</span>
+                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            </div>
         `;
     }
 }
@@ -129,13 +183,15 @@ async function handleResume(event, connectionName) {
     const row = document.getElementById(`connection-${connectionName}`);
     const actionButtons = row.querySelector('.action-buttons');
 
-    // Replace buttons with loading animation
+    // Replace buttons with loading animation while preserving structure
     actionButtons.innerHTML = `
-        <span class="resuming-text">Resuming</span>
-        <div class="loading-dots">
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
+        <div class="button-group">
+            <span class="resuming-text">Resuming</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
         </div>
     `;
 
@@ -188,8 +244,90 @@ async function handleResume(event, connectionName) {
     } catch (error) {
         console.error('Resume error:', error);
         actionButtons.innerHTML = `
-            <span class="error-text">Error: ${error.message}</span>
-            <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            <div class="button-group">
+                <span class="error-text">Error: ${error.message}</span>
+                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            </div>
+        `;
+    }
+}
+
+async function handlePermanentDelete(event, connectionName) {
+    event.preventDefault();
+
+    if (!confirm('Are you sure you want to permanently delete this connection? This will delete the connection and its persistent home directory. This action cannot be undone.')) {
+        return;
+    }
+
+    const form = event.target;
+    const row = document.getElementById(`connection-${connectionName}`);
+    const actionButtons = row.querySelector('.action-buttons');
+
+    // Replace buttons with loading animation while preserving structure
+    actionButtons.innerHTML = `
+        <div class="button-group">
+            <span class="deleting-text">Permanently Deleting</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
+        </div>
+    `;
+
+    row.classList.add('stopping-row');
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name: connectionName }),
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            // Show success notification
+            const notificationContainer = document.createElement('div');
+            notificationContainer.className = 'notification-container';
+            notificationContainer.innerHTML = `
+                <div class="notification success">
+                    Connection permanently deleted
+                </div>
+            `;
+            document.body.appendChild(notificationContainer);
+
+            // Remove notification after delay
+            setTimeout(() => {
+                notificationContainer.querySelector('.notification').style.opacity = '0';
+                setTimeout(() => notificationContainer.remove(), 300);
+            }, 3000);
+
+            // Remove the row from the table
+            row.remove();
+        } else {
+            let errorMessage = 'Failed to permanently delete connection';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch (e) {
+                try {
+                    errorMessage = await response.text();
+                } catch (e2) {
+                    console.error('Could not parse error response', e2);
+                }
+            }
+            throw new Error(errorMessage);
+        }
+    } catch (error) {
+        console.error('Permanent delete error:', error);
+        actionButtons.innerHTML = `
+            <div class="button-group">
+                <span class="error-text">Error: ${error.message}</span>
+                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            </div>
         `;
     }
 }

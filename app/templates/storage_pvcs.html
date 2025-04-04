@@ -54,11 +54,13 @@
                     {% endif %}
                 </td>
                 <td class="action-buttons">
-                    <button class="button small view-connections-btn" data-pvc-id="{{ pvc.id }}">View Connections</button>
-                    {% if is_admin or pvc.created_by == session.username %}
-                    <button class="button small manage-access-btn" data-pvc-id="{{ pvc.id }}" data-pvc-name="{{ pvc.name }}">Manage Access</button>
-                    <button class="button small danger delete-btn" data-pvc-name="{{ pvc.name }}">Delete</button>
-                    {% endif %}
+                    <div class="button-group">
+                        <button class="button small view-connections-btn" data-pvc-id="{{ pvc.id }}">View Connections</button>
+                        {% if is_admin or pvc.created_by == session.username %}
+                        <button class="button small manage-access-btn" data-pvc-id="{{ pvc.id }}" data-pvc-name="{{ pvc.name }}">Manage Access</button>
+                        <button class="button small danger delete-btn" data-pvc-name="{{ pvc.name }}">Delete</button>
+                        {% endif %}
+                    </div>
                 </td>
             </tr>
             {% endfor %}

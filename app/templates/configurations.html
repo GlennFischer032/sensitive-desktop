@@ -32,10 +32,12 @@
                     {% endif %}
                 </td>
                 <td class="action-buttons">
-                    <a href="{{ url_for('configurations.edit_configuration', config_id=config.id) }}" class="button small view-details-btn">Edit</a>
-                    <form action="{{ url_for('configurations.delete_configuration', config_id=config.id) }}" method="post" onsubmit="handleDelete(event, '{{ config.id }}')">
-                        <button type="submit" class="button small danger delete-btn">Delete</button>
-                    </form>
+                    <div class="button-group">
+                        <a href="{{ url_for('configurations.edit_configuration', config_id=config.id) }}" class="button small view-details-btn">Edit</a>
+                        <form action="{{ url_for('configurations.delete_configuration', config_id=config.id) }}" method="post" onsubmit="handleDelete(event, '{{ config.id }}')">
+                            <button type="submit" class="button small danger delete-btn">Delete</button>
+                        </form>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
@@ -62,11 +64,13 @@ async function handleDelete(event, configId) {
 
     // Replace button with loading animation
     actionButtons.innerHTML = `
-        <span class="deleting-text">Deleting</span>
-        <div class="loading-dots">
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
+        <div class="button-group">
+            <span class="deleting-text">Deleting</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
         </div>
     `;
 
@@ -115,8 +119,10 @@ async function handleDelete(event, configId) {
         }
     } catch (error) {
         actionButtons.innerHTML = `
-            <span class="error-text">Error: ${error.message}</span>
-            <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            <div class="button-group">
+                <span class="error-text">Error: ${error.message}</span>
+                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            </div>
         `;
     }
 }

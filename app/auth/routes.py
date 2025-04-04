@@ -107,14 +107,15 @@ def oidc_callback():
         session["email"] = data["user"]["email"]
         session["organization"] = data.get("organization")
         session["sub"] = data.get("sub")
+        session["logged_in"] = True
         session.permanent = True
 
         logger.info(f"User {data['user']['username']} successfully authenticated via OIDC")
+        logger.info(f"Admin status: {data['user']['is_admin']}")
         flash("Successfully logged in", "success")
 
         next_url = session.pop("next_url", None)
-        if session["is_admin"]:
-            return redirect(next_url or url_for("users.dashboard"))
+        # Always redirect to connections page for now to avoid admin-only redirect issues
         return redirect(next_url or url_for("connections.view_connections"))
 
     except requests.exceptions.RequestException as e:
@@ -254,9 +255,7 @@ def debug_login():
                 {
                     "success": True,
                     "message": "Debug login successful",
-                    "redirect": url_for(
-                        "users.dashboard" if is_admin else "connections.view_connections"
-                    ),
+                    "redirect": url_for("connections.view_connections"),
                 }
             )
 

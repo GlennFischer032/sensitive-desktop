@@ -19,10 +19,12 @@
 {% endwith %}
 
 <div class="form-container">
-    <form id="connection-form" method="post" onsubmit="handleSubmit(event)" action="{{ url_for('connections.add_connection') }}">
+    <form id="connection-form" method="post" onsubmit="return validateAndSubmit(event)" action="{{ url_for('connections.add_connection') }}">
         <div class="form-group">
             <label for="name">Connection Name:</label>
-            <input type="text" id="name" name="connection_name" required>
+            <input type="text" id="name" name="connection_name" required pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" maxlength="12" oninput="validateConnectionName(this)">
+            <small class="form-text">Name must start and end with an alphanumeric character, contain only lowercase letters, numbers, and hyphens, and be 12 characters or less.</small>
+            <div id="name-feedback" class="invalid-feedback" style="display: none; color: red; margin-top: 5px;"></div>
         </div>
 
         <div class="form-group">
@@ -75,8 +77,60 @@
 </div>
 
 <script>
-function handleSubmit(event) {
+// UUID length is 8 characters plus 1 for the hyphen
+const UUID_LENGTH = 9;
+const MAX_TOTAL_LENGTH = 53;
+const MAX_INPUT_LENGTH = 12; // Limit user input to 12 characters
+const NAME_REGEX = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$/;
+
+function validateConnectionName(input) {
+    const nameInput = input.value.toLowerCase();
+    const feedback = document.getElementById('name-feedback');
+    const submitButton = document.getElementById('submit-button');
+
+    // Clear previous feedback
+    feedback.style.display = 'none';
+    submitButton.disabled = false;
+
+    // Convert to lowercase automatically
+    if (input.value !== nameInput) {
+        input.value = nameInput;
+    }
+
+    // Check if empty
+    if (!nameInput) {
+        feedback.textContent = 'Connection name is required.';
+        feedback.style.display = 'block';
+        submitButton.disabled = true;
+        return false;
+    }
+
+    // Check maximum length (hard limit to 12 characters)
+    if (nameInput.length > MAX_INPUT_LENGTH) {
+        feedback.textContent = `Name is too long. Maximum length is ${MAX_INPUT_LENGTH} characters.`;
+        feedback.style.display = 'block';
+        submitButton.disabled = true;
+        return false;
+    }
+
+    // Check regex pattern
+    if (!NAME_REGEX.test(nameInput)) {
+        feedback.textContent = 'Name must start and end with an alphanumeric character, and can contain only lowercase letters, numbers, and hyphens.';
+        feedback.style.display = 'block';
+        submitButton.disabled = true;
+        return false;
+    }
+
+    return true;
+}
+
+function validateAndSubmit(event) {
     event.preventDefault();
+
+    const nameInput = document.getElementById('name');
+    if (!validateConnectionName(nameInput)) {
+        return false;
+    }
 
     const form = document.getElementById('connection-form');
     const loadingContainer = document.getElementById('loading-container');
@@ -98,6 +152,7 @@ function handleSubmit(event) {
 
     // Submit the form
     form.submit();
+    return true;
 }
 </script>
 

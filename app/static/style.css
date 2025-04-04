@@ -686,10 +686,12 @@ p {
     animation: spin 0.8s linear infinite; }
 
 .button-group {
-  display: flex;
-  gap: 8px; }
-  .button-group.vertical {
-    flex-direction: column; }
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem; }
+  .button-group form {
+    margin: 0;
+    display: inline-block; }
 
 .action-buttons {
   display: flex;
@@ -721,6 +723,13 @@ p {
 .connect-button:focus {
   outline: none;
   box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.3); }
+
+.button.permanent-delete-btn {
+  background-color: #c0392b;
+  border: 2px solid #e74c3c;
+  color: white; }
+  .button.permanent-delete-btn:hover {
+    background-color: #e74c3c; }
 
 .form-container {
   max-width: 800px;
@@ -898,7 +907,8 @@ th, td {
   text-align: left;
   border-bottom: 1px solid #ddd;
   vertical-align: middle;
-  height: 60px;
+  height: auto;
+  min-height: 60px;
   box-sizing: border-box; }
 
 th {
@@ -911,7 +921,9 @@ tbody tr:nth-child(even) {
   background-color: rgba(248, 249, 250, 0.5); }
 
 tr {
-  transition: background-color 0.2s; }
+  transition: background-color 0.2s;
+  display: table-row;
+  width: 100%; }
   tr:hover {
     background-color: rgba(52, 152, 219, 0.05); }
 
@@ -936,32 +948,47 @@ tr.active {
   text-decoration: none; }
 
 td.action-buttons {
-  padding: 12px;
-  text-align: left;
+  position: static;
+  text-align: center;
   white-space: nowrap;
-  min-width: 200px; }
-  td.action-buttons form {
-    display: inline-block;
-    margin: 0;
-    vertical-align: middle; }
+  min-width: 200px;
+  vertical-align: middle;
+  padding: 12px;
+  display: table-cell; }
+
+.button-group {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0 auto;
+  width: 100%; }
+
+.connect-btn.button.small,
+.delete-btn.button.small,
+.resume-btn.button.small,
+.permanent-delete-btn.button.small {
+  height: 32px;
+  min-width: 80px;
+  white-space: nowrap;
+  margin: 0 2px;
+  padding: 0 10px;
+  display: inline-block;
+  text-align: center; }
 
 .view-details-btn.button.small,
 .view-connections-btn.button.small,
 .manage-access-btn.button.small,
-.delete-btn.button.small,
-.connect-btn.button.small,
-.resume-btn.button.small,
 .retry-btn.button.small {
   margin-right: 5px; }
 
-.deleting-row td.action-buttons,
-.stopping-row td.action-buttons,
-.resuming-row td.action-buttons {
+.deleting-row .button-group,
+.stopping-row .button-group,
+.resuming-row .button-group {
   display: flex;
-  flex-direction: row;
+  justify-content: center;
   align-items: center;
-  gap: 0.5rem;
-  height: 60px; }
+  gap: 0.5rem; }
 
 .deleting-row .deleting-text,
 .deleting-row .stopping-text,
@@ -974,7 +1001,8 @@ td.action-buttons {
 .resuming-row .resuming-text {
   color: #e74c3c;
   font-style: italic;
-  animation: fade 1.5s infinite; }
+  animation: fade 1.5s infinite;
+  margin-right: 5px; }
 
 .deleting-row .resuming-text,
 .stopping-row .resuming-text,
