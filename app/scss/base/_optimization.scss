@@ -1,0 +1,109 @@
+// CSS Performance Optimization
+// This file contains optimizations for CSS performance
+
+// Reduce paint areas with will-change for frequently animated elements
+.modal-content,
+.notification,
+.dropdown-menu {
+  will-change: transform, opacity;
+}
+
+// Optimize specific components for GPU acceleration
+.modal {
+  // Use transform instead of opacity for better performance
+  &.visible {
+    opacity: 1;
+
+    .modal-content {
+      transform: translateY(0);
+    }
+  }
+}
+
+// Optimize transitions
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+// Reduce selector specificity where possible
+// 1. Use single-class selectors where possible
+.page-header {
+  margin-bottom: 2rem;
+}
+
+// 2. Avoid deep nesting of selectors
+.card-title {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+// 3. Reduce redundant properties through inheritance
+.card-footer {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+// 4. Reduce the impact of * selectors
+// (already optimized in reset.scss)
+
+// 5. Prefer class selectors over element selectors for better performance
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+// 6. Optimize paint regions
+.card {
+  // composite layer for better performance
+  transform: translateZ(0);
+}
+
+// 7. Reduce unused CSS with utility classes
+// Only load utilities that are commonly used
+.d-none {
+  display: none !important;
+}
+
+.d-block {
+  display: block !important;
+}
+
+.d-flex {
+  display: flex !important;
+}
+
+.position-relative {
+  position: relative !important;
+}
+
+.text-center {
+  text-align: center !important;
+}
+
+.mt-0 {
+  margin-top: 0 !important;
+}
+
+.mb-0 {
+  margin-bottom: 0 !important;
+}
+
+// Lazy-load CSS for components that are not immediately visible
+// This is a class that can be applied to content that's below the fold
+.lazy-content {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px; /* Estimate the size */
+}
+
+// Optimize expensive operations
+.shadow-on-hover {
+  &:hover {
+    // Use cached transform instead of expensive box-shadow
+    transform: translateY(-2px);
+  }
+}

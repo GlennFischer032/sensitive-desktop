@@ -1,13 +1,3 @@
-// Convert px to rem
-@function rem($px) {
-  @return ($px / 16) * 1rem;
-}
-
-// Calculate responsive sizes
-@function fluid-size($min-size, $max-size, $min-width: 768, $max-width: 1200) {
-  @return calc(#{$min-size}px + (#{$max-size} - #{$min-size}) * ((100vw - #{$min-width}px) / (#{$max-width} - #{$min-width})));
-}
-
 // Lighten color by percentage
 @function lighten-color($color, $percentage) {
   @return lighten($color, $percentage);

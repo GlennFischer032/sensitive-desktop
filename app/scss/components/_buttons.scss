@@ -1,32 +1,10 @@
 // Base button style
 .button,
 .action-button {
-  display: inline-block;
-  padding: 8px 16px;
-  min-width: 80px;
-  text-align: center;
-  background-color: $primary-color;
-  color: white;
-  border: none;
-  border-radius: $border-radius;
-  cursor: pointer;
-  text-decoration: none;
-  font-size: 14px;
-  transition: background-color $transition-fast, transform $transition-fast, box-shadow $transition-fast;
-  line-height: 1.5;
-  margin: 0;
+  @include button-variant($primary-color);
   position: relative;
   overflow: hidden;
-
-  &:hover {
-    background-color: $primary-dark;
-    box-shadow: $shadow-sm;
-  }
-
-  &:active {
-    transform: translateY(1px);
-    box-shadow: none;
-  }
+  min-width: 80px;
 
   // Material design inspired ripple effect
   &:after {
@@ -62,30 +40,34 @@
 .button.success,
 .action-button.success,
 .connect-button {
-  @include button-variant($success-color, white, $success-dark);
+  @include button-variant($success-color);
 }
 
 .button.danger,
 .action-button.danger,
 .delete-button,
 .button.delete-btn {
-  @include button-variant($danger-color, white, $danger-dark);
+  @include button-variant($danger-color);
 }
 
 .button.warning {
   @include button-variant($warning-color);
 }
 
+.button.info {
+  @include button-variant($info-color);
+}
+
 // Button sizes
 .button.small {
-  padding: 6px 10px;
-  font-size: 0.9rem;
+  padding: $spacing-xs $spacing-sm;
+  font-size: $font-size-sm;
   min-width: 40px;
 }
 
 .button.large {
-  padding: 12px 24px;
-  font-size: 1.1rem;
+  padding: $spacing-sm $spacing-lg;
+  font-size: $font-size-lg;
   min-width: 100px;
 }
 
@@ -93,7 +75,7 @@
 .button-with-icon {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: $spacing-xs;
 }
 
 // Button loading state
@@ -115,57 +97,204 @@
   }
 }
 
-// Button groups
+// Button groups - standardized
 .button-group {
   display: inline-flex;
   align-items: center;
   gap: $spacing-xs;
 
-  form {
-    margin: 0;
-    display: inline-block;
-  }
-}
-
-// Action buttons container
-.action-buttons {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  flex-wrap: nowrap;
-
-  form {
+  // Remove any margins from forms
+  form, button {
     margin: 0;
   }
 
-  // For small screens, display buttons vertically
-  @include respond-to(sm) {
-    flex-direction: column;
-    align-items: stretch;
+  // Buttons in a group should have same size
+  &.same-size {
+    .button,
+    .action-button {
+      flex: 1;
+      min-width: 0; // Allow buttons to shrink below their min-width
+    }
+  }
 
-    .action-button,
-    .button {
+  // Button group variants
+  &.compact {
+    gap: 0;
+
+    .button,
+    .action-button {
+      border-radius: 0;
+
+      &:first-child {
+        border-top-left-radius: $border-radius;
+        border-bottom-left-radius: $border-radius;
+      }
+
+      &:last-child {
+        border-top-right-radius: $border-radius;
+        border-bottom-right-radius: $border-radius;
+      }
+
+      &:not(:last-child) {
+        border-right: 1px solid rgba(255, 255, 255, 0.2);
+      }
+    }
+  }
+
+  // Responsive button groups
+  &.responsive {
+    @include respond-to(sm) {
+      flex-direction: column;
       width: 100%;
+
+      .button,
+      .action-button {
+        width: 100%;
+      }
     }
   }
 }
 
-// Focus states
-.button:focus,
-.action-button:focus {
-  @include focus-outline($primary-color);
+// Action buttons container - now using standardized button-group
+.action-buttons {
+  @extend .button-group;
+  @extend .button-group.responsive;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 
-.button.danger:focus,
-.action-button.danger:focus,
-.delete-button:focus {
-  @include focus-outline($danger-color);
+// Alignment variants for button groups
+.button-group-right {
+  @extend .button-group;
+  justify-content: flex-end;
 }
 
-.button.success:focus,
-.action-button.success:focus,
-.connect-button:focus {
-  @include focus-outline($success-color);
+.button-group-center {
+  @extend .button-group;
+  justify-content: center;
+}
+
+.button-group-between {
+  @extend .button-group;
+  justify-content: space-between;
+  width: 100%;
+}
+
+// Header with button - common pattern in our UI
+.header-with-button {
+  @include flex(row, space-between, center);
+  margin-bottom: $spacing-lg;
+
+  h1, h2, h3, h4, h5, h6 {
+    margin: 0;
+  }
+
+  .button-group,
+  .button,
+  .action-button {
+    margin-left: auto;
+  }
+
+  @include respond-to(sm) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: $spacing-md;
+
+    .button-group,
+    .button,
+    .action-button {
+      margin-left: 0;
+      align-self: stretch;
+    }
+  }
+}
+
+// Focus states - handled by button-variant mixin
+
+// Outline buttons
+.button.outline {
+  background-color: transparent;
+  border: $border-width solid $primary-color;
+  color: $primary-color;
+
+  &:hover {
+    background-color: rgba($primary-color, 0.1);
+  }
+
+  &.secondary {
+    border-color: $secondary-color;
+    color: $secondary-color;
+
+    &:hover {
+      background-color: rgba($secondary-color, 0.1);
+    }
+  }
+
+  &.success {
+    border-color: $success-color;
+    color: $success-color;
+
+    &:hover {
+      background-color: rgba($success-color, 0.1);
+    }
+  }
+
+  &.danger {
+    border-color: $danger-color;
+    color: $danger-color;
+
+    &:hover {
+      background-color: rgba($danger-color, 0.1);
+    }
+  }
+
+  &.warning {
+    border-color: $warning-color;
+    color: $warning-color;
+
+    &:hover {
+      background-color: rgba($warning-color, 0.1);
+    }
+  }
+}
+
+// Text buttons (no background)
+.button.text {
+  background-color: transparent;
+  border: none;
+  color: $primary-color;
+  padding: $spacing-xs $spacing-sm;
+  min-width: auto;
+  box-shadow: none;
+
+  &:hover {
+    background-color: rgba($primary-color, 0.05);
+    box-shadow: none;
+  }
+
+  &.secondary {
+    color: $secondary-color;
+
+    &:hover {
+      background-color: rgba($secondary-color, 0.05);
+    }
+  }
+
+  &.success {
+    color: $success-color;
+
+    &:hover {
+      background-color: rgba($success-color, 0.05);
+    }
+  }
+
+  &.danger {
+    color: $danger-color;
+
+    &:hover {
+      background-color: rgba($danger-color, 0.05);
+    }
+  }
 }
 
 .button.permanent-delete-btn {
@@ -180,3 +309,107 @@
 
 // Specific styles for connection action buttons
 // These were moved to the _tables.scss file
+
+// Primary action button in form action groups
+.form-actions,
+.modal-footer,
+.button-group {
+  // Primary button styling - make it stand out
+  .button.primary {
+    @include button-variant($primary-color);
+    font-weight: 500;
+    min-width: 120px; // Wider for emphasis
+
+    &:not(:first-child) {
+      margin-left: $spacing-sm;
+    }
+  }
+
+
+
+  // Secondary button styling - less emphasis
+  .button.secondary {
+    @include button-variant($secondary-color);
+    box-shadow: none; // Less prominent shadow
+
+    &:not(:first-child) {
+      margin-left: $spacing-sm;
+    }
+  }
+
+  // Auto-order - put primary buttons first in mobile
+  @include respond-to(sm) {
+    flex-direction: column;
+
+    .button.primary,
+    button[type="submit"]:not(.secondary):not(.danger):not(.warning):not(.info) {
+      order: -1; // Move primary buttons to the top
+    }
+
+    .button,
+    button {
+      margin-left: 0 !important;
+      margin-bottom: $spacing-sm;
+      width: 100%;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+}
+
+// Button group primary-secondary pattern
+.button-group-actions {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: center;
+  flex-wrap: wrap;
+
+  // Apply responsive behavior
+  @include respond-to(sm) {
+    flex-direction: column;
+    align-items: stretch;
+
+    > * + * {
+      margin-left: 0;
+      margin-top: $spacing-sm;
+    }
+  }
+
+  // Highlight the primary action
+  .button:not(.secondary):not(.danger):not(.warning):not(.info) {
+    background-color: $primary-color;
+    color: white;
+    font-weight: 500;
+
+    &:hover {
+      background-color: darken($primary-color, 10%);
+    }
+  }
+
+  // Consistent spacing
+  > * + * {
+    margin-left: $spacing-sm;
+  }
+}
+
+.button-group-responsive {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+
+  @include respond-to(sm) {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+
+    .button {
+      width: 100%;
+      margin-left: 0;
+      margin-right: 0;
+    }
+  }
+}

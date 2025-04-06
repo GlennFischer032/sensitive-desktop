@@ -1,0 +1,191 @@
+{% macro modal_js() %}
+<script nonce="{{ csp_nonce() if csp_nonce is defined else '' }}">
+// Accessible modal functionality
+function showModal(modalId, options = {}) {
+    const modal = document.getElementById(modalId);
+    if (!modal) {
+        console.error(`Modal with ID '${modalId}' not found`);
+        return;
+    }
+
+    console.log(`Showing modal: ${modalId}`);
+
+    // Update title if provided
+    if (options.title) {
+        const titleEl = document.getElementById(`${modalId}-title`);
+        if (titleEl) {
+            titleEl.textContent = options.title;
+        }
+    }
+
+    // Make visible
+    modal.style.display = 'flex';
+
+    // Force reflow to trigger animation
+    void modal.offsetWidth;
+    modal.classList.add('visible');
+
+    // Set aria attributes
+    modal.setAttribute('aria-hidden', 'false');
+
+    // Find the first focusable element and focus it
+    setTimeout(() => {
+        const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (focusable.length) {
+            focusable[0].focus();
+        }
+    }, 100);
+
+    // Store the element that had focus before opening the modal
+    modal.previouslyFocused = document.activeElement;
+
+    // Trap focus within modal
+    document.addEventListener('keydown', trapFocus);
+
+    // Close on ESC key
+    document.addEventListener('keydown', handleEscapeKey);
+
+    // Prevent body scrolling
+    document.body.style.overflow = 'hidden';
+
+    // Call onShow callback if provided
+    if (typeof options.onShow === 'function') {
+        options.onShow(modal);
+    }
+
+    return modal;
+}
+
+function hideModal(modalId, options = {}) {
+    const modal = typeof modalId === 'string' ? document.getElementById(modalId) : modalId;
+    if (!modal) {
+        console.error('Modal element not found');
+        return;
+    }
+
+    console.log(`Hiding modal: ${modal.id}`);
+
+    // Start the hiding animation
+    modal.classList.remove('visible');
+
+    // Set aria attributes
+    modal.setAttribute('aria-hidden', 'true');
+
+    // Remove event listeners
+    document.removeEventListener('keydown', trapFocus);
+    document.removeEventListener('keydown', handleEscapeKey);
+
+    // After animation completes, hide modal
+    setTimeout(() => {
+        modal.style.display = 'none';
+
+        // Return focus to the element that had focus before opening the modal
+        if (modal.previouslyFocused) {
+            modal.previouslyFocused.focus();
+        }
+
+        // Restore body scrolling
+        document.body.style.overflow = '';
+
+        // Call onHide callback if provided
+        if (typeof options.onHide === 'function') {
+            options.onHide(modal);
+        }
+    }, 300);
+}
+
+function resetModalContent(modal) {
+    // This function should be overridden by specific implementations
+    // to handle form resets, error clearing, etc.
+}
+
+function trapFocus(e) {
+    // Only execute if a modal is visible
+    const modal = document.querySelector('.modal.visible');
+    if (!modal) return;
+
+    // All focusable elements in the modal
+    const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    const firstFocusable = focusable[0];
+    const lastFocusable = focusable[focusable.length - 1];
+
+    // If Tab is pressed and focus would move outside modal, redirect focus
+    if (e.key === 'Tab') {
+        if (e.shiftKey && document.activeElement === firstFocusable) {
+            e.preventDefault();
+            lastFocusable.focus();
+        } else if (!e.shiftKey && document.activeElement === lastFocusable) {
+            e.preventDefault();
+            firstFocusable.focus();
+        }
+    }
+}
+
+function handleEscapeKey(e) {
+    // Close modal on ESC key
+    if (e.key === 'Escape') {
+        const modal = document.querySelector('.modal.visible');
+        if (modal) {
+            hideModal(modal);
+        }
+    }
+}
+
+// Initialize modals when the DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Close modal when clicking the close button
+    document.querySelectorAll('.modal .close-modal').forEach(button => {
+        button.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            if (modal) {
+                hideModal(modal.id);
+            }
+        });
+    });
+
+    // Close modal when clicking the backdrop (outside the modal content)
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            // Only close if the click is directly on the modal backdrop (not on any children)
+            if (e.target === this) {
+                hideModal(this.id);
+            }
+        });
+    });
+
+    // Set up ARIA attributes
+    document.querySelectorAll('.modal').forEach(modal => {
+        if (!modal.getAttribute('role')) {
+            modal.setAttribute('role', 'dialog');
+        }
+        if (!modal.getAttribute('aria-modal')) {
+            modal.setAttribute('aria-modal', 'true');
+        }
+        if (!modal.getAttribute('aria-hidden')) {
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        // Ensure the modal has an ID
+        if (!modal.id) {
+            modal.id = 'modal-' + Math.random().toString(36).substring(2, 9);
+        }
+
+        // Set labelledby if not already set
+        if (!modal.getAttribute('aria-labelledby') && !modal.getAttribute('aria-label')) {
+            const title = modal.querySelector('.modal-header h3, .modal-header h2, .modal-header h1');
+            if (title) {
+                const titleId = title.id || `${modal.id}-title`;
+                title.id = titleId;
+                modal.setAttribute('aria-labelledby', titleId);
+            }
+        }
+    });
+});
+
+// Expose modal functions to the global scope
+window.ModalManager = {
+    show: showModal,
+    hide: hideModal
+};
+</script>
+{% endmacro %}

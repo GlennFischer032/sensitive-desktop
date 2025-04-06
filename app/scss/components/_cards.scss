@@ -1,61 +1,135 @@
-// Basic card
+// Base Card Component
 .card {
   @include card($spacing-md, $bg-white, 1);
   margin-bottom: $spacing-lg;
-}
 
-// Dashboard card
-.dashboard-card {
-  @include card($spacing-xl, $bg-white, 1);
-  transition: transform $transition-fast, box-shadow $transition-fast;
+  &__header {
+    margin-bottom: $spacing-md;
 
-  &:hover {
-    transform: translateY(-2px);
-    @include box-shadow(2);
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 0;
+      color: $text-dark;
+      font-weight: $font-weight-medium;
+    }
+  }
+
+  &__body {
+    margin-bottom: $spacing-md;
+  }
+
+  &__footer {
+    @include flex(row, flex-end, center);
+    gap: $spacing-sm;
+    margin-top: $spacing-md;
+  }
+
+  // Card variants
+  &--hover {
+    transition: transform $transition-fast, box-shadow $transition-fast;
+
+    &:hover {
+      transform: translateY(-2px);
+      @include box-shadow(2);
+    }
+  }
+
+  &--bordered {
+    border: $border-width solid $border-color;
+  }
+
+  &--flat {
+    @include box-shadow(0);
+    border: $border-width solid $border-color-light;
+  }
+
+  // Card sizes
+  &--sm {
+    padding: $spacing-sm;
+  }
+
+  &--lg {
+    padding: $spacing-xl;
   }
 }
 
-// Detail section
+// Dashboard card (legacy classname maintained for compatibility)
+.dashboard-card {
+  @include card($spacing-lg, $bg-white, 1);
+  @extend .card--hover;
+  margin-bottom: $spacing-lg;
+
+  h3 {
+    margin-top: 0;
+    margin-bottom: $spacing-sm;
+    color: $text-dark;
+    font-weight: $font-weight-medium;
+  }
+
+  p {
+    margin-bottom: $spacing-lg;
+    color: $text-light;
+  }
+
+  .button {
+    margin-top: auto;
+  }
+}
+
+// Dashboard grid
+.dashboard-grid {
+  @include grid(3, $spacing-lg);
+  margin-top: $spacing-xl;
+
+  @include respond-to(md) {
+    @include grid(2, $spacing-md);
+  }
+
+  @include respond-to(sm) {
+    @include grid(1, $spacing-md);
+  }
+}
+
+// Detail section - a specialized card for showing details
 .detail-section {
-  background-color: $bg-white;
-  border-radius: $border-radius-lg;
-  @include box-shadow(1);
-  padding: $spacing-lg;
+  @include card($spacing-lg, $bg-white, 1);
   margin-bottom: $spacing-xl;
 
   h3 {
     margin-top: 0;
     color: $text-dark;
+    font-weight: $font-weight-medium;
     border-bottom: 1px solid $border-color;
     padding-bottom: $spacing-sm;
     margin-bottom: $spacing-lg;
   }
 }
 
-// Detail grid
+// Detail grid - for displaying key-value pairs
 .detail-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: $spacing-lg;
+  @include grid(2, $spacing-lg);
+
+  @include respond-to(sm) {
+    @include grid(1, $spacing-md);
+  }
 }
 
-// Detail item
+// Detail item - for key-value display
 .detail-item {
   @include flex(column);
-  margin-bottom: 10px;
+  margin-bottom: $spacing-sm;
   overflow: hidden;
 
   .detail-label {
-    font-weight: 600;
+    font-weight: $font-weight-medium;
     color: $text-light;
-    margin-bottom: 0.25rem;
-    font-size: 0.9rem;
+    margin-bottom: $spacing-xs;
+    font-size: $font-size-sm;
   }
 
   .detail-value {
     word-break: break-word;
     overflow-wrap: break-word;
-    font-size: 1.1rem;
+    font-size: $font-size-base;
   }
 }
 
@@ -63,14 +137,13 @@
 .login-container {
   max-width: 400px;
   margin: $spacing-xl auto;
-  padding: $spacing-xl;
-  background: $bg-white;
-  border-radius: $border-radius-lg;
-  @include box-shadow(1);
+  @include card($spacing-xl, $bg-white, 1);
 
   .login-header {
     text-align: center;
     margin-top: 0;
+    margin-bottom: $spacing-lg;
+    @include heading(lg, $font-weight-medium, $text-dark);
   }
 }
 
@@ -82,21 +155,20 @@
 
 // Login option card
 .login-option {
-  padding: $spacing-lg;
-  background: $bg-light;
-  border-radius: $border-radius;
+  @include card($spacing-lg, $bg-light, 1);
   text-align: center;
 
   h3 {
     margin: 0 0 $spacing-md;
-    font-size: 1.3rem;
+    font-size: $font-size-lg;
     color: $text-dark;
+    font-weight: $font-weight-medium;
   }
 
   .login-description {
     margin-bottom: $spacing-lg;
     color: $text-light;
-    line-height: 1.5;
+    line-height: $line-height-base;
   }
 }
 
@@ -107,10 +179,7 @@
   padding: $spacing-xl;
 
   .error-content {
-    background: $bg-white;
-    padding: $spacing-xl;
-    border-radius: $border-radius-lg;
-    @include box-shadow(1);
+    @include card($spacing-xl, $bg-white, 1);
     text-align: center;
     max-width: 500px;
     width: 100%;
@@ -118,7 +187,8 @@
     h1 {
       color: $text-dark;
       margin-bottom: $spacing-lg;
-      font-size: 2rem;
+      font-size: $font-size-xxl;
+      font-weight: $font-weight-medium;
     }
   }
 
@@ -141,6 +211,6 @@
 
   .retry-info {
     color: $danger-color;
-    font-weight: bold;
+    font-weight: $font-weight-bold;
   }
 }

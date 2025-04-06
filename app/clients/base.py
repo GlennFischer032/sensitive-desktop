@@ -4,6 +4,7 @@ import logging
 from http import HTTPStatus
 from typing import Any, Dict, Optional, Tuple
 
+from flask import session
 import requests
 from flask import current_app
 from pydantic import BaseModel
@@ -34,7 +35,6 @@ class ClientRequest(BaseModel):
     """Model for API request parameters."""
 
     endpoint: str
-    token: Optional[str] = None
     data: Optional[Dict[str, Any]] = None
     params: Optional[Dict[str, Any]] = None
     timeout: Optional[int] = None
@@ -120,8 +120,9 @@ class BaseClient:
         Raises:
             APIError: If request fails
         """
+
         url = f"{self._get_base_url()}{request.endpoint}"
-        request_headers = self._get_headers(request.token)
+        request_headers = self._get_headers(session.get("token"))
         if request.headers:
             request_headers.update(request.headers)
 
@@ -129,7 +130,6 @@ class BaseClient:
 
         self.logger.debug(f"Making {method} request to {url}")
         try:
-            # Ensure we have the right Content-Type header
             if method.upper() in ["POST", "PUT"] and request.data is not None:
                 request_headers["Content-Type"] = "application/json"
 

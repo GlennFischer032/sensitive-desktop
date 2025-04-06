@@ -43,7 +43,8 @@ test = [
 ]
 
 dev = [
-    "sass>=1.0.0"
+    "libsass",
+    "debugpy"
 ]
 
 # NPM script replacement for Python projects

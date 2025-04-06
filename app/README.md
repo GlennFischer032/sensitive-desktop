@@ -50,7 +50,6 @@ app/
    export FLASK_ENV=development
    export SECRET_KEY=your-secret-key
    export API_URL=http://desktop-api:80
-   export GUACAMOLE_URL=http://guacamole:8080/guacamole
    ```
 
 4. Run the development server:
@@ -70,7 +69,6 @@ Run the container:
 docker run -p 5000:5000 \
   -e SECRET_KEY=your-secret-key \
   -e API_URL=http://desktop-api:80 \
-  -e GUACAMOLE_URL=http://guacamole:8080/guacamole \
   desktop-manager-frontend
 ```
 
@@ -89,7 +87,6 @@ Configuration is managed through environment variables and the config module:
 
 - `SECRET_KEY`: Flask secret key for session management
 - `API_URL`: URL of the Desktop Manager API service
-- `GUACAMOLE_URL`: URL of the Guacamole service
 - `FLASK_ENV`: Application environment (development/production)
 - `FLASK_APP`: Application entry point
 

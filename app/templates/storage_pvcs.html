@@ -1,13 +1,20 @@
 {% extends "base.html" %}
+{% from "partials/modal.html" import modal, confirm_modal, loading, error_message %}
+{% from "partials/modal_js.html" import modal_js %}
 
 {% block title %}Storage PVCs - Desktop Manager{% endblock %}
 
 {% block content %}
-<div class="header-with-button">
-    <h2>Storage PVCs Management</h2>
-    {% if is_admin %}
-    <button id="create-pvc-button" class="button">Create New PVC</button>
-    {% endif %}
+<div class="page-header">
+    <div class="header-title">
+        <h2>Storage PVCs Management</h2>
+        <span class="subtitle">Manage persistent storage volumes</span>
+    </div>
+    <div class="header-actions">
+        {% if is_admin %}
+        <button id="create-pvc-button" class="button">Create New PVC</button>
+        {% endif %}
+    </div>
 </div>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -73,168 +80,135 @@
     {% endif %}
 </div>
 
-<!-- Create PVC Modal -->
-<div id="create-pvc-modal" class="modal">
-    <div class="modal-content">
-        <h3>Create New Storage PVC</h3>
-        <form id="create-pvc-form">
-            <div class="form-group">
-                <label for="pvc-name" class="required">PVC Name:</label>
-                <input type="text" id="pvc-name" name="name" required pattern="[a-z0-9]([-a-z0-9]*[a-z0-9])?"
-                       title="Must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character">
-                <small class="form-text">Name must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character.</small>
-            </div>
+{% call modal(id="create-pvc-modal", title="Create New Storage PVC", size="md") %}
+    <div class="info-box">
+        <h4>Requirements:</h4>
+        <ul>
+            <li>Name must consist of lowercase alphanumeric characters or '-'</li>
+            <li>Must start and end with an alphanumeric character</li>
+        </ul>
+    </div>
 
-            <div class="form-group">
-                <label for="pvc-size">Size:</label>
-                <div class="size-input-container">
-                    <input type="number" id="pvc-size-value" name="size_value" value="10" min="1" step="1" required>
-                    <select id="pvc-size-unit" name="size_unit">
-                        <option value="Gi" selected>Gi (Gibibyte)</option>
-                        <option value="Ti">Ti (Tebibyte)</option>
-                    </select>
-                </div>
-                <small class="form-text">Specify the amount of storage you need (1 Ti = 1024 Gi)</small>
-            </div>
+    <form id="create-pvc-form">
+        <div class="form-group">
+            <label for="pvc-name" class="required">PVC Name:</label>
+            <input type="text" id="pvc-name" name="name" required pattern="[a-z0-9]([-a-z0-9]*[a-z0-9])?"
+                   title="Must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character">
+            <small class="form-text">Name must consist of lowercase alphanumeric characters or '-', and must start and end with an alphanumeric character.</small>
+        </div>
 
-            <div class="form-group">
+        <div class="form-group">
+            <label for="pvc-size">Size:</label>
+            <div class="size-input-container">
+                <input type="number" id="pvc-size-value" name="size_value" value="10" min="1" step="1" required>
+                <select id="pvc-size-unit" name="size_unit">
+                    <option value="Gi" selected>Gi (Gibibyte)</option>
+                    <option value="Ti">Ti (Tebibyte)</option>
+                </select>
+            </div>
+            <small class="form-text">Specify the amount of storage you need (1 Ti = 1024 Gi)</small>
+        </div>
+
+        <div class="form-group">
+            <div class="checkbox-wrapper">
                 <label class="checkbox-label">
                     <input type="checkbox" id="is-public" name="is_public" checked>
                     Make this PVC public (available to all users)
                 </label>
             </div>
-
-            <div id="user-access-container" class="form-group hidden">
-                <label>User Access:</label>
-                <div class="user-list">
-                    {% if users %}
-                    {% for user in users %}
-                    {% if not user.is_admin %}
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="allowed_users" value="{{ user.username }}">
-                        {{ user.username }}
-                    </label>
-                    {% endif %}
-                    {% endfor %}
-                    {% else %}
-                    <p>No users available for access control.</p>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="button">Create PVC</button>
-                <button type="button" class="button secondary close-modal">Cancel</button>
-            </div>
-        </form>
-
-        <div id="create-loading" class="loading-container hidden">
-            <div class="loading-wave">
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-            </div>
-            <p class="loading-text">Creating PVC...</p>
         </div>
 
-        <div id="create-error" class="message error hidden"></div>
-    </div>
-</div>
+        <div id="user-access-container" class="form-group hidden">
+            <label>User Access:</label>
+            <div class="user-list">
+                {% if users %}
+                {% for user in users %}
+                {% if not user.is_admin %}
+                <label class="checkbox-label">
+                    <input type="checkbox" name="allowed_users" value="{{ user.username }}">
+                    {{ user.username }}
+                </label>
+                {% endif %}
+                {% endfor %}
+                {% else %}
+                <p>No users available for access control.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button">Create PVC</button>
+            <button type="button" class="button secondary close-modal">Cancel</button>
+        </div>
+    </form>
+
+    {{ loading(id="create-loading", text="Creating PVC...") }}
+    {{ error_message(id="create-error") }}
+{% endcall %}
 
 <!-- Manage Access Modal -->
-<div id="manage-access-modal" class="modal">
-    <div class="modal-content">
-        <h3>Manage Access for <span id="access-pvc-name"></span></h3>
-        <form id="manage-access-form">
-            <input type="hidden" id="access-pvc-id" name="pvc_id">
+{% call modal(id="manage-access-modal", title="Manage Access", size="md") %}
+    <div id="access-pvc-name" style="display: none;"></div>
+    <form id="manage-access-form">
+        <input type="hidden" id="access-pvc-id" name="pvc_id">
 
-            <div class="form-group">
+        <div class="form-group">
+            <div class="checkbox-wrapper">
                 <label class="checkbox-label">
                     <input type="checkbox" id="access-is-public" name="is_public">
                     Make this PVC public (available to all users)
                 </label>
             </div>
-
-            <div id="access-user-container" class="form-group">
-                <label>User Access:</label>
-                <div class="user-list" id="access-user-list">
-                    <!-- User list will be populated dynamically -->
-                    <p>Loading users...</p>
-                </div>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="button">Save Changes</button>
-                <button type="button" class="button secondary close-modal">Cancel</button>
-            </div>
-        </form>
-
-        <div id="access-loading" class="loading-container hidden">
-            <div class="loading-wave">
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-            </div>
-            <p class="loading-text">Updating access...</p>
         </div>
 
-        <div id="access-error" class="message error hidden"></div>
-    </div>
-</div>
+        <div id="access-user-container" class="form-group">
+            <label>User Access:</label>
+            <div class="user-list" id="access-user-list">
+                <!-- User list will be populated dynamically -->
+                <p>Loading users...</p>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button">Save Changes</button>
+            <button type="button" class="button secondary close-modal">Cancel</button>
+        </div>
+    </form>
+
+    {{ loading(id="access-loading", text="Updating access...") }}
+    {{ error_message(id="access-error") }}
+{% endcall %}
 
 <!-- View Connections Modal -->
-<div id="view-connections-modal" class="modal">
-    <div class="modal-content">
-        <h3>Connections Using This PVC</h3>
-        <div id="connections-list-container">
-            <p class="loading-text">Loading connections...</p>
-        </div>
-        <div class="form-actions">
-            <button type="button" class="button secondary close-modal">Close</button>
-        </div>
+{% call modal(id="view-connections-modal", title="Connections Using This PVC", size="md") %}
+    <div id="connections-list-container">
+        <p class="loading-text">Loading connections...</p>
     </div>
-</div>
-
-<!-- Delete Confirmation Modal -->
-<div id="delete-modal" class="modal">
-    <div class="modal-content">
-        <h3>Delete Storage PVC</h3>
-        <p>Are you sure you want to delete this PVC? This action cannot be undone.</p>
-        <p class="warning">If the PVC is being used by any connection, deletion will fail.</p>
-        <div class="form-actions">
-            <button id="confirm-delete" class="button danger">Delete</button>
-            <button class="button secondary close-modal">Cancel</button>
-        </div>
-
-        <div id="delete-loading" class="loading-container hidden">
-            <div class="loading-wave">
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-            </div>
-            <p class="loading-text">Deleting PVC...</p>
-        </div>
-
-        <div id="delete-error" class="message error hidden"></div>
+    <div class="form-actions">
+        <button type="button" class="button secondary close-modal">Close</button>
     </div>
-</div>
+{% endcall %}
+
+{% call confirm_modal(id="delete-modal", title="Delete Storage PVC", confirm_text="Delete", confirm_class="danger", cancel_text="Cancel") %}
+    <p>Are you sure you want to delete this PVC? This action cannot be undone.</p>
+    <p class="warning">If the PVC is being used by any connection, deletion will fail.</p>
+
+    {{ loading(id="delete-loading", text="Deleting PVC...") }}
+    {{ error_message(id="delete-error") }}
+{% endcall %}
+
+{{ modal_js() }}
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Modal handling
-    const createModal = document.getElementById('create-pvc-modal');
-    const manageAccessModal = document.getElementById('manage-access-modal');
-    const viewConnectionsModal = document.getElementById('view-connections-modal');
-    const deleteModal = document.getElementById('delete-modal');
+    console.log('DOM loaded, setting up event handlers');
 
     // Create PVC button
     const createPvcButton = document.getElementById('create-pvc-button');
     if (createPvcButton) {
         createPvcButton.addEventListener('click', function() {
-            showModal(createModal);
+            console.log('Create PVC button clicked');
+            ModalManager.show('create-pvc-modal');
         });
     }
 
@@ -265,13 +239,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-
-    // Close modal buttons
-    document.querySelectorAll('.close-modal').forEach(button => {
-        button.addEventListener('click', function() {
-            hideModal(this.closest('.modal'));
-        });
-    });
 
     // Create PVC form submission
     document.getElementById('create-pvc-form').addEventListener('submit', async function(e) {
@@ -304,7 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         try {
-            const response = await fetch('/storage/pvcs', {
+            const response = await fetch('/storage/pvc', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -332,85 +299,136 @@ document.addEventListener('DOMContentLoaded', function() {
     // Manage Access buttons
     document.querySelectorAll('.manage-access-btn').forEach(button => {
         button.addEventListener('click', async function() {
+            console.log('Manage access button clicked');
             const pvcId = this.getAttribute('data-pvc-id');
             const pvcName = this.getAttribute('data-pvc-name');
-            const accessPvcNameSpan = document.getElementById('access-pvc-name');
             const accessPvcIdInput = document.getElementById('access-pvc-id');
             const accessUserList = document.getElementById('access-user-list');
-            const accessLoading = document.getElementById('access-loading');
             const accessError = document.getElementById('access-error');
             const accessForm = document.getElementById('manage-access-form');
 
-            // Set the PVC info
-            accessPvcNameSpan.textContent = pvcName;
-            accessPvcIdInput.value = pvcId;
+            // Show the modal with the PVC name in the title
+            ModalManager.show('manage-access-modal', {
+                title: `Manage Access for ${pvcName}`,
+                onShow: function() {
+                    // Set the PVC ID
+                    accessPvcIdInput.value = pvcId;
 
-            // Reset form and hide error
-            accessForm.reset();
-            accessError.classList.add('hidden');
+                    // Reset form and hide error
+                    accessForm.reset();
+                    accessError.classList.add('hidden');
 
-            // Show loading in user list
-            accessUserList.innerHTML = '<p>Loading users...</p>';
+                    // Show loading in user list
+                    accessUserList.innerHTML = '<p>Loading users...</p>';
 
-            // Show the modal
-            showModal(manageAccessModal);
-
-            try {
-                // Fetch PVC details to get current access settings
-                const pvcResponse = await fetch(`/storage/pvcs/${pvcId}`);
-                if (!pvcResponse.ok) {
-                    throw new Error('Failed to fetch PVC details');
+                    // Now fetch PVC details
+                    loadPvcDetails(pvcId);
                 }
+            });
 
-                const pvcData = await pvcResponse.json();
-                const pvc = pvcData.pvc;
-
-                // Set initial state of is_public checkbox
-                document.getElementById('access-is-public').checked = pvc.is_public;
-                if (pvc.is_public) {
-                    accessUserContainer.classList.add('hidden');
-                } else {
-                    accessUserContainer.classList.remove('hidden');
-                }
-
-                // Fetch users for the access list
-                const usersResponse = await fetch('/storage/api/users');
-                if (!usersResponse.ok) {
-                    throw new Error('Failed to fetch users');
-                }
-
-                const usersData = await usersResponse.json();
-                const users = usersData.users || [];
-
-                // Build the user list HTML
-                if (users.length > 0) {
-                    let html = '';
-
-                    // Filter out admin users
-                    const nonAdminUsers = users.filter(user => !user.is_admin);
-
-                    if (nonAdminUsers.length > 0) {
-                        nonAdminUsers.forEach(user => {
-                            const isChecked = pvc.allowed_users && pvc.allowed_users.includes(user.username);
-                            html += `
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="allowed_users" value="${user.username}" ${isChecked ? 'checked' : ''}>
-                                ${user.username}
-                            </label>
-                            `;
-                        });
-                    } else {
-                        html = '<p>No non-admin users available</p>';
+            // Function to fetch and display PVC details
+            async function loadPvcDetails(pvcId) {
+                try {
+                    // Fetch PVC details to get current access settings
+                    const pvcResponse = await fetch(`/storage/pvc/${pvcId}`);
+                    if (!pvcResponse.ok) {
+                        throw new Error('Failed to fetch PVC details');
                     }
 
-                    accessUserList.innerHTML = html;
-                } else {
-                    accessUserList.innerHTML = '<p>No users available for access control</p>';
+                    const pvcData = await pvcResponse.json();
+                    const pvc = pvcData.pvc;
+
+                    // Set initial state of is_public checkbox
+                    document.getElementById('access-is-public').checked = pvc.is_public;
+                    if (pvc.is_public) {
+                        accessUserContainer.classList.add('hidden');
+                    } else {
+                        accessUserContainer.classList.remove('hidden');
+                    }
+
+                    // Fetch users for the access list
+                    const usersResponse = await fetch('/storage/users');
+
+                    if (!usersResponse.ok) {
+                        throw new Error('Failed to fetch users');
+                    }
+
+                    const users = await usersResponse.json();
+
+                    // Build the user list HTML
+                    if (users.length > 0) {
+                        let html = '';
+
+                        // Filter out admin users
+                        const nonAdminUsers = users.filter(user => !user.is_admin);
+
+                        if (nonAdminUsers.length > 0) {
+                            nonAdminUsers.forEach(user => {
+                                const isChecked = pvc.allowed_users && pvc.allowed_users.includes(user.username);
+                                html += `
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="allowed_users" value="${user.username}" ${isChecked ? 'checked' : ''}>
+                                    ${user.username}
+                                </label>
+                                `;
+                            });
+                        } else {
+                            html = '<p>No non-admin users available</p>';
+                        }
+
+                        accessUserList.innerHTML = html;
+                    } else {
+                        accessUserList.innerHTML = '<p>No users available for access control</p>';
+                    }
+                } catch (error) {
+                    console.error('Error fetching access data:', error);
+                    accessUserList.innerHTML = `<p class="error">Error loading users: ${error.message}</p>`;
                 }
-            } catch (error) {
-                console.error('Error fetching access data:', error);
-                accessUserList.innerHTML = `<p class="error">Error loading users: ${error.message}</p>`;
             }
+        });
+    });
+
+    // View Connections buttons
+    document.querySelectorAll('.view-connections-btn').forEach(button => {
+        button.addEventListener('click', async function() {
+            console.log('View connections button clicked');
+            const pvcId = this.getAttribute('data-pvc-id');
+            const container = document.getElementById('connections-list-container');
+
+            ModalManager.show('view-connections-modal', {
+                onShow: async function() {
+                    // Show loading in connections container
+                    container.innerHTML = '<p class="loading-text">Loading connections...</p>';
+
+                    try {
+                        const response = await fetch(`/storage/pvc/connections/${pvcId}`);
+                        const data = await response.json();
+
+                        if (!response.ok) {
+                            throw new Error(data.error || 'Failed to load connections');
+                        }
+
+                        // Display connections
+                        if (data.connections && data.connections.length > 0) {
+                            let html = '<table class="connections-list"><thead><tr><th>Connection Name</th><th>Created At</th></tr></thead><tbody>';
+
+                            data.connections.forEach(connection => {
+                                html += `<tr>
+                                    <td>${connection.name || 'N/A'}</td>
+                                    <td>${new Date(connection.created_at).toLocaleString()}</td>
+                                </tr>`;
+                            });
+
+                            html += '</tbody></table>';
+                            container.innerHTML = html;
+                        } else {
+                            container.innerHTML = '<p>No connections are using this PVC.</p>';
+                        }
+                    } catch (error) {
+                        container.innerHTML = `<p class="error-text">${error.message}</p>`;
+                    }
+                }
+            });
         });
     });
 
@@ -434,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .map(checkbox => checkbox.value);
 
         try {
-            const response = await fetch(`/storage/pvcs/${pvcId}/access`, {
+            const response = await fetch(`/storage/pvc/access/${pvcId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -462,77 +480,39 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // View Connections buttons
-    document.querySelectorAll('.view-connections-btn').forEach(button => {
-        button.addEventListener('click', async function() {
-            const pvcId = this.getAttribute('data-pvc-id');
-            const container = document.getElementById('connections-list-container');
-
-            // Show modal with loading state
-            container.innerHTML = '<p class="loading-text">Loading connections...</p>';
-            showModal(viewConnectionsModal);
-
-            try {
-                const response = await fetch(`/storage/api/connection/${pvcId}`);
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Failed to load connections');
-                }
-
-                // Display connections - updated to use connections array instead of pvcs
-                if (data.connections && data.connections.length > 0) {
-                    let html = '<table class="connections-list"><thead><tr><th>Connection Name</th><th>Created At</th></tr></thead><tbody>';
-
-                    data.connections.forEach(connection => {
-                        html += `<tr>
-                            <td>${connection.name || 'N/A'}</td>
-                            <td>${new Date(connection.created_at).toLocaleString()}</td>
-                        </tr>`;
-                    });
-
-                    html += '</tbody></table>';
-                    container.innerHTML = html;
-                } else {
-                    container.innerHTML = '<p>No connections are using this PVC.</p>';
-                }
-            } catch (error) {
-                container.innerHTML = `<p class="error-text">${error.message}</p>`;
-            }
-        });
-    });
-
     // Delete PVC buttons
     document.querySelectorAll('.delete-btn').forEach(button => {
         button.addEventListener('click', function() {
+            console.log('Delete button clicked');
             const pvcName = this.getAttribute('data-pvc-name');
-            const confirmBtn = document.getElementById('confirm-delete');
-
-            // Set the PVC name on the confirm button
-            confirmBtn.setAttribute('data-pvc-name', pvcName);
 
             // Show the delete modal
-            showModal(deleteModal);
+            ModalManager.show('delete-modal', {
+                onShow: function() {
+                    // Set up the confirm delete button click handler
+                    document.getElementById('delete-modal-confirm').onclick = function() {
+                        handleDeleteConfirm(pvcName);
+                    };
+                }
+            });
         });
     });
 
-    // Confirm delete button
-    document.getElementById('confirm-delete').addEventListener('click', async function() {
-        const pvcName = this.getAttribute('data-pvc-name');
+    // Delete confirmation function
+    async function handleDeleteConfirm(pvcName) {
         const deleteLoading = document.getElementById('delete-loading');
         const deleteError = document.getElementById('delete-error');
-        const formActions = this.closest('.form-actions');
 
-        // Hide any previous error
+        // Hide the error message
         deleteError.classList.add('hidden');
         deleteError.textContent = '';
 
         // Show loading
-        formActions.style.display = 'none';
+        document.getElementById('delete-modal-confirm').style.display = 'none';
         deleteLoading.classList.remove('hidden');
 
         try {
-            const response = await fetch(`/storage/api/pvc/${pvcName}`, {
+            const response = await fetch(`/storage/pvc/${pvcName}`, {
                 method: 'DELETE'
             });
 
@@ -547,55 +527,17 @@ document.addEventListener('DOMContentLoaded', function() {
             if (pvcRow) pvcRow.remove();
 
             // Hide the modal
-            hideModal(deleteModal);
+            ModalManager.hide('delete-modal');
 
             // Show success message
             showNotification('PVC deleted successfully', 'success');
         } catch (error) {
             // Show error
             deleteLoading.classList.add('hidden');
-            formActions.style.display = 'flex';
+            document.getElementById('delete-modal-confirm').style.display = 'flex';
             deleteError.textContent = error.message;
             deleteError.classList.remove('hidden');
         }
-    });
-
-    // Modal helper functions
-    function showModal(modal) {
-        modal.style.display = 'flex';
-        setTimeout(() => {
-            modal.classList.add('visible');
-        }, 10);
-    }
-
-    function hideModal(modal) {
-        modal.classList.remove('visible');
-        setTimeout(() => {
-            modal.style.display = 'none';
-
-            // Reset forms and errors
-            if (modal === createModal) {
-                document.getElementById('create-pvc-form').reset();
-                document.getElementById('create-pvc-form').style.display = 'block';
-                document.getElementById('create-loading').classList.add('hidden');
-                document.getElementById('create-error').classList.add('hidden');
-
-                // Reset visibility of user access container
-                if (isPublicCheckbox && userAccessContainer) {
-                    isPublicCheckbox.checked = true;
-                    userAccessContainer.classList.add('hidden');
-                }
-            } else if (modal === manageAccessModal) {
-                document.getElementById('manage-access-form').reset();
-                document.getElementById('manage-access-form').style.display = 'block';
-                document.getElementById('access-loading').classList.add('hidden');
-                document.getElementById('access-error').classList.add('hidden');
-            } else if (modal === deleteModal) {
-                document.getElementById('confirm-delete').closest('.form-actions').style.display = 'flex';
-                document.getElementById('delete-loading').classList.add('hidden');
-                document.getElementById('delete-error').classList.add('hidden');
-            }
-        }, 300);
     }
 
     // Simple notification

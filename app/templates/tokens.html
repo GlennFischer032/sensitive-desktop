@@ -1,12 +1,17 @@
 {% extends "base.html" %}
+{% from "partials/modal.html" import modal, loading, error_message %}
+{% from "partials/modal_js.html" import modal_js %}
 
 {% block title %}API Tokens - Desktop Manager{% endblock %}
 
 {% block content %}
-<div class="content-header">
-    <h1>API Tokens</h1>
-    <div class="content-header-actions">
-        <button class="button primary" id="createTokenButton">Create New Token</button>
+<div class="page-header">
+    <div class="header-title">
+        <h2>API Tokens</h2>
+        <span class="subtitle">Manage API access tokens</span>
+    </div>
+    <div class="header-actions">
+        <button class="button" id="createTokenButton">Create New Token</button>
     </div>
 </div>
 
@@ -84,69 +89,49 @@
 </div>
 
 <!-- Create Token Modal -->
-<div id="newTokenModal" class="modal">
-    <div class="modal-content">
-        <h3>Create New API Token</h3>
-        <form id="createTokenForm" action="{{ url_for('tokens.create_token') }}" method="POST">
-            <div class="form-group">
-                <label for="name">Token Name</label>
-                <input type="text" id="name" name="name"
-                       placeholder="e.g., CI/CD Pipeline, Personal Script" required>
-            </div>
-            <div class="form-group">
-                <label for="description">Description (Optional)</label>
-                <textarea id="description" name="description"
-                          placeholder="What will this token be used for?"></textarea>
-            </div>
-            <div class="form-group">
-                <label for="expires_in_days">Expires After (days)</label>
-                <select id="expires_in_days" name="expires_in_days">
-                    <option value="7">7 days</option>
-                    <option value="30" selected>30 days</option>
-                    <option value="90">90 days</option>
-                    <option value="180">180 days</option>
-                    <option value="365">365 days</option>
-                </select>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="button">Create Token</button>
-                <button type="button" class="button secondary close-modal">Cancel</button>
-            </div>
-        </form>
-
-        <div id="create-loading" class="loading-container hidden">
-            <div class="loading-wave">
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-            </div>
-            <p class="loading-text">Creating token...</p>
+{% call modal(id="newTokenModal", title="Create New API Token", size="md") %}
+    <form id="createTokenForm" action="{{ url_for('tokens.create_token') }}" method="POST">
+        <div class="form-group">
+            <label for="name" class="required">Token Name</label>
+            <input type="text" id="name" name="name"
+                   placeholder="e.g., CI/CD Pipeline, Personal Script" required>
         </div>
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description"
+                      placeholder="What will this token be used for?"></textarea>
+        </div>
+        <div class="form-group">
+            <label for="expires_in_days">Expires After (days)</label>
+            <select id="expires_in_days" name="expires_in_days">
+                <option value="7">7 days</option>
+                <option value="30" selected>30 days</option>
+                <option value="90">90 days</option>
+                <option value="180">180 days</option>
+                <option value="365">365 days</option>
+            </select>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="button">Create Token</button>
+            <button type="button" class="button secondary close-modal">Cancel</button>
+        </div>
+    </form>
 
-        <div id="create-error" class="message error hidden"></div>
-    </div>
-</div>
+    {{ loading(id="create-loading", text="Creating token...") }}
+    {{ error_message(id="create-error") }}
+{% endcall %}
+
+{{ modal_js() }}
 
 <script nonce="{{ csp_nonce() if csp_nonce is defined else '' }}">
 document.addEventListener('DOMContentLoaded', function() {
-    // Modal handling
-    const createModal = document.getElementById('newTokenModal');
-
     // Create token button
     const createBtn = document.getElementById('createTokenButton');
     if (createBtn) {
         createBtn.addEventListener('click', function() {
-            showModal(createModal);
+            ModalManager.show('newTokenModal');
         });
     }
-
-    // Close modal buttons
-    document.querySelectorAll('.close-modal').forEach(button => {
-        button.addEventListener('click', function() {
-            hideModal(this.closest('.modal'));
-        });
-    });
 
     // Create token form submission
     const createForm = document.getElementById('createTokenForm');
@@ -189,29 +174,6 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(function() {
             window.copyToken();
         }, 500);
-    }
-
-    // Modal helper functions
-    function showModal(modal) {
-        modal.style.display = 'flex';
-        setTimeout(() => {
-            modal.classList.add('visible');
-        }, 10);
-    }
-
-    function hideModal(modal) {
-        modal.classList.remove('visible');
-        setTimeout(() => {
-            modal.style.display = 'none';
-
-            // Reset forms and errors if needed
-            if (modal === createModal) {
-                document.getElementById('createTokenForm').reset();
-                document.getElementById('createTokenForm').style.display = 'block';
-                document.getElementById('create-loading').classList.add('hidden');
-                document.getElementById('create-error').classList.add('hidden');
-            }
-        }, 300);
     }
 });
 </script>

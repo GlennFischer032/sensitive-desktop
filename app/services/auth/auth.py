@@ -37,7 +37,7 @@ class RateLimitError(AuthError):
         )
 
 
-def handle_auth_response(response: requests.Response) -> Tuple[Dict[str, Any], int]:
+def handle_auth_response(response: requests.Response) -> Tuple[AuthResponse, int]:
     """
     Handle authentication API response.
 
@@ -45,7 +45,7 @@ def handle_auth_response(response: requests.Response) -> Tuple[Dict[str, Any], i
         response: Response from auth API
 
     Returns:
-        Tuple[Dict[str, Any], int]: Response data and status code
+        Tuple[AuthResponse, int]: Response data and status code
 
     Raises:
         AuthError: If authentication fails
@@ -62,9 +62,8 @@ def handle_auth_response(response: requests.Response) -> Tuple[Dict[str, Any], i
         if response.status_code != HTTPStatus.OK:
             raise AuthError(data.get("error", "Authentication failed"), response.status_code)
 
-        # Validate response data
         auth_data = AuthResponse(**data)
-        return auth_data.model_dump(), HTTPStatus.OK
+        return auth_data, HTTPStatus.OK
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Request error: {str(e)}")
@@ -117,10 +116,10 @@ def refresh_token() -> None:
             timeout=10,
         )
 
-        data, status_code = handle_auth_response(response)
+        auth_data, status_code = handle_auth_response(response)
 
         if status_code == HTTPStatus.OK:
-            session["token"] = data["token"]
+            session["token"] = auth_data.token
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Token refresh error: {str(e)}")

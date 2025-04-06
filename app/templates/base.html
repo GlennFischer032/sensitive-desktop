@@ -1,9 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <title>{% block title %}Desktop Manager{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='custom.css') }}">
     <!-- Security Headers -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-Frame-Options" content="DENY">
@@ -13,13 +12,18 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body class="{{ body_class }}">
+    <!-- Skip link for keyboard navigation -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            <div class="notification-container">
+            <div class="notification-container" role="alert" aria-live="polite">
                 {% for category, message in messages %}
                     <div class="notification {{ category }}">
                         {{ message }}
-                        <span class="notification-close"></span>
+                        <span class="notification-close">
+                            <span class="sr-only">Close notification</span>
+                        </span>
                     </div>
                 {% endfor %}
             </div>
@@ -35,6 +39,8 @@
             if (!container) {
                 container = document.createElement('div');
                 container.className = 'notification-container';
+                container.setAttribute('role', 'alert');
+                container.setAttribute('aria-live', 'polite');
                 document.body.appendChild(container);
             }
             return container;
@@ -48,7 +54,9 @@
             notification.className = `notification ${type}`;
             notification.innerHTML = `
                 ${message}
-                <span class="notification-close"></span>
+                <span class="notification-close">
+                    <span class="sr-only">Close notification</span>
+                </span>
             `;
 
             container.appendChild(notification);
@@ -112,7 +120,7 @@
     </script>
 
     {% if not hide_nav %}
-    <div class="nav-container">
+    <nav class="nav-container" role="navigation" aria-label="Main Navigation">
         <div class="nav-links">
             {% if session.get('token') %}
                 {% if session.get('is_admin') %}
@@ -127,10 +135,10 @@
                 <a href="{{ url_for('auth.logout') }}">Logout</a>
             {% endif %}
         </div>
-    </div>
+    </nav>
     {% endif %}
 
-    <div class="container">
+    <main id="main-content" class="container">
         {% block content %}{% endblock %}
 
         {% if config.DEBUG %}
@@ -141,7 +149,16 @@
             <p>Logged in: {{ session.get('logged_in', False) }}</p>
         </div>
         {% endif %}
-    </div>
+
+        <footer class="page-footer" role="contentinfo">
+            <div class="footer-info">
+                <p>&copy; {{ year }} Desktop Manager</p>
+            </div>
+            <div class="footer-actions">
+                {% block footer_actions %}{% endblock %}
+            </div>
+        </footer>
+    </main>
 
     <!-- Add nonce for inline scripts -->
     <script nonce="{{ csp_nonce() if csp_nonce is defined else '' }}">

@@ -1,9 +1,31 @@
 // Form container
 .form-container {
-  max-width: 800px;
-  width: 100%;
-  margin: 0 auto;
+  @include container(800px);
   padding: $spacing-xl;
+}
+
+// Standard form layout
+.standard-form {
+  @include flex(column);
+  gap: $spacing-lg;
+  max-width: 100%;
+
+  // Section headings within forms
+  .form-section-title {
+    font-size: $font-size-lg;
+    font-weight: $font-weight-medium;
+    color: $text-dark;
+    margin-top: $spacing-xl;
+    margin-bottom: $spacing-md;
+    padding-bottom: $spacing-xs;
+    border-bottom: 1px solid $border-color;
+  }
+
+  .form-section {
+    @include flex(column);
+    gap: $spacing-md;
+    margin-bottom: $spacing-lg;
+  }
 }
 
 // Form group
@@ -14,7 +36,7 @@
     display: block;
     margin-bottom: $spacing-sm;
     color: $text-dark;
-    font-weight: 500;
+    font-weight: $font-weight-medium;
 
     &.required:after {
       content: " *";
@@ -26,30 +48,7 @@
   input,
   select,
   textarea {
-    width: 100%;
-    padding: $spacing-sm;
-    border: 1px solid $border-color;
-    border-radius: $border-radius;
-    font-size: $font-size-base;
-    transition: border-color $transition-fast, box-shadow $transition-fast, background-color $transition-fast;
-    font-family: inherit;
-
-    &:focus {
-      outline: none;
-      border-color: $primary-color;
-      box-shadow: 0 0 0 2px rgba($primary-color, 0.2);
-    }
-
-    &::placeholder {
-      color: $secondary-color;
-      opacity: 1;
-    }
-
-    &:disabled {
-      background-color: $bg-light;
-      cursor: not-allowed;
-      opacity: 0.7;
-    }
+    @include form-control;
   }
 
   // Textarea
@@ -99,8 +98,8 @@
 // Form row (horizontal layout)
 .form-row {
   @include flex(row, flex-start, stretch, nowrap);
-  gap: $spacing-xl;
-  margin-bottom: $spacing-xl;
+  gap: $spacing-lg;
+  margin-bottom: $spacing-lg;
 
   .form-group {
     flex: 1;
@@ -114,10 +113,15 @@
 }
 
 // Checkbox and radio styles
+.checkbox-wrapper,
+.radio-wrapper {
+  margin-bottom: $spacing-md;
+}
+
 .checkbox-label,
 .radio-label {
   @include flex(row, flex-start, flex-start);
-  font-weight: normal;
+  font-weight: $font-weight-normal;
   cursor: pointer;
   margin-bottom: $spacing-sm;
 
@@ -136,7 +140,18 @@
 .form-actions {
   @include flex(row, flex-start, center);
   gap: $spacing-md;
-  margin-top: $spacing-xl * 1.5;
+  margin-top: $spacing-xl;
+  padding-top: $spacing-lg;
+  border-top: 1px solid $border-color-light;
+
+  // Primary/secondary button styling
+  .button.primary {
+    order: 1;
+  }
+
+  .button.secondary {
+    order: 2;
+  }
 
   @include respond-to(sm) {
     flex-direction: column;
@@ -144,6 +159,15 @@
 
     .button {
       width: 100%;
+    }
+
+    // Reverse order on mobile to prioritize primary action
+    .button.primary {
+      order: 1;
+    }
+
+    .button.secondary {
+      order: 2;
     }
   }
 }
@@ -172,10 +196,33 @@
   }
 }
 
+// Form group inline
+.form-group-inline {
+  @include flex(row, flex-start, center);
+  gap: $spacing-md;
+
+  label {
+    margin-bottom: 0;
+    min-width: 100px;
+  }
+
+  @include respond-to(sm) {
+    flex-direction: column;
+    align-items: flex-start;
+
+    label {
+      margin-bottom: $spacing-xs;
+      min-width: auto;
+    }
+  }
+}
+
 // Login form
 .login-form {
   @include flex(column);
   gap: $spacing-md;
+  max-width: 450px;
+  margin: 0 auto;
 
   .form-group {
     @include flex(column);
@@ -184,6 +231,131 @@
 
   .button-container {
     text-align: center;
-    margin-top: $spacing-xl;
+    margin-top: $spacing-lg;
+  }
+}
+
+// Input with icon
+.input-with-icon {
+  position: relative;
+
+  input {
+    padding-left: $spacing-xl;
+  }
+
+  .input-icon {
+    position: absolute;
+    left: $spacing-sm;
+    top: 50%;
+    transform: translateY(-50%);
+    color: $text-light;
+  }
+}
+
+// Input sizes
+.input-sm {
+  padding: $spacing-xs $spacing-sm;
+  font-size: $font-size-sm;
+}
+
+.input-lg {
+  padding: $spacing-sm $spacing-md;
+  font-size: $font-size-lg;
+}
+
+// Form grid layout for inputs with varying widths
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: $spacing-md;
+  margin-bottom: $spacing-lg;
+
+  .col-1 { grid-column: span 1; }
+  .col-2 { grid-column: span 2; }
+  .col-3 { grid-column: span 3; }
+  .col-4 { grid-column: span 4; }
+  .col-5 { grid-column: span 5; }
+  .col-6 { grid-column: span 6; }
+  .col-7 { grid-column: span 7; }
+  .col-8 { grid-column: span 8; }
+  .col-9 { grid-column: span 9; }
+  .col-10 { grid-column: span 10; }
+  .col-11 { grid-column: span 11; }
+  .col-12 { grid-column: span 12; }
+
+  @include respond-to(sm) {
+    grid-template-columns: 1fr;
+
+    .col-1, .col-2, .col-3, .col-4, .col-5, .col-6,
+    .col-7, .col-8, .col-9, .col-10, .col-11, .col-12 {
+      grid-column: 1;
+    }
+  }
+}
+
+// Search form
+.search-form {
+  @include flex(row, flex-start, center);
+  gap: $spacing-md;
+  margin-bottom: $spacing-lg;
+
+  .search-input {
+    flex: 1;
+    position: relative;
+
+    input {
+      padding-left: $spacing-xl;
+      height: 42px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: $spacing-sm;
+      top: 50%;
+      transform: translateY(-50%);
+      color: $text-light;
+    }
+  }
+
+  .search-button {
+    height: 42px;
+  }
+
+  @include respond-to(sm) {
+    flex-direction: column;
+    align-items: stretch;
+
+    .search-button {
+      width: 100%;
+    }
+  }
+}
+
+// Form validation messages
+.validation-message {
+  font-size: $font-size-sm;
+  margin-top: $spacing-xs;
+
+  &.error {
+    color: $danger-color;
+  }
+
+  &.success {
+    color: $success-color;
+  }
+
+  &.warning {
+    color: $warning-color;
+  }
+}
+
+// Required field indicator at form top
+.required-field-note {
+  font-size: $font-size-sm;
+  color: $text-light;
+  margin-bottom: $spacing-lg;
+
+  span {
+    color: $danger-color;
   }
 }

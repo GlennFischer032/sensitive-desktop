@@ -8,11 +8,11 @@ from datetime import datetime
 from urllib.parse import unquote
 
 from dateutil import parser
-from flask import flash, jsonify, redirect, render_template, request, session, url_for
+from flask import flash, jsonify, redirect, render_template, request, url_for
 
 from app.clients.factory import client_factory
-from app.tokens import tokens_bp
-from app.utils.decorators import admin_required, login_required
+from app.services.tokens import tokens_bp
+from app.middleware.auth import admin_required, login_required
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +30,8 @@ def parse_date_safely(date_str):
         return None
 
     try:
-        # Parse the date and return it without timezone info to avoid comparison issues
         parsed_date = parser.parse(date_str)
         if parsed_date.tzinfo:
-            # Convert to naive datetime in UTC
             return parsed_date.replace(tzinfo=None)
         return parsed_date
     except Exception as e:
@@ -68,7 +66,7 @@ def view_tokens():
 def _fetch_tokens():
     """Fetch tokens and convert timestamps to datetime objects."""
     tokens_client = client_factory.get_tokens_client()
-    response = tokens_client.list_tokens(token=session.get("token"))
+    response = tokens_client.list_tokens()
 
     tokens = response.get("tokens", [])
 
@@ -93,20 +91,16 @@ def _get_new_token_from_args():
     new_token = None
     if request.args.get("new_token"):
         try:
-            # Handle both JSON string and dictionary formats
             import json
             from urllib.parse import unquote
 
             new_token_data = request.args.get("new_token")
             if isinstance(new_token_data, str):
-                # Try to parse as JSON
                 try:
                     new_token = json.loads(unquote(new_token_data))
                 except json.JSONDecodeError:
-                    # Handle URL-encoded key-value pairs
                     new_token = _parse_key_value_token_data(new_token_data)
 
-            # Parse the expiration date if present
             if new_token and "expires_at" in new_token:
                 new_token["expires_at"] = parse_date_safely(new_token["expires_at"])
         except Exception as e:
@@ -156,7 +150,6 @@ def create_token():
             name=name,
             description=description,
             expires_in_days=expires_in_days,
-            token=session.get("token"),
         )
 
         if is_ajax:
@@ -194,7 +187,7 @@ def revoke_token(token_id):
 
     try:
         tokens_client = client_factory.get_tokens_client()
-        tokens_client.revoke_token(token_id, token=session.get("token"))
+        tokens_client.revoke_token(token_id)
 
         if is_ajax:
             return jsonify({"success": True})

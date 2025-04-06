@@ -5,54 +5,32 @@ from flask import (
     current_app,
     flash,
     jsonify,
-    redirect,
     render_template,
     request,
     session,
-    url_for,
 )
 
 from app.clients.base import APIError
 from app.clients.factory import client_factory
 from app.middleware.security import rate_limit
-from app.utils.decorators import admin_required, login_required
+from app.middleware.auth import admin_required, login_required
 
 from . import storage_bp
 
 
-@storage_bp.route("/pvcs")
+@storage_bp.route("/")
 @login_required
 @rate_limit(requests_per_minute=20)
 def view_pvcs():
     """View storage PVCs management page."""
     try:
-        # Fetch storage PVCs from API
-        token = session.get("token")
-        if not token:
-            flash("Authentication required", "error")
-            return redirect(url_for("auth.login"))
+        storage_client = client_factory.get_storage_client()
+        pvcs = storage_client.list_storage()
 
-        api_url = f"{current_app.config['API_URL']}/api/storage-pvcs/list"
-        response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
-
-        if response.status_code != HTTPStatus.OK:
-            error_message = f"Failed to fetch storage PVCs: {response.text}"
-            current_app.logger.error(error_message)
-            flash(error_message, "error")
-            return render_template("storage_pvcs.html", pvcs=[])
-
-        data = response.json()
-        pvcs = data.get("pvcs", [])
-
-        # Get users for access control
         users = []
         if session.get("is_admin"):
-            users_url = f"{current_app.config['API_URL']}/api/users/list"
-            users_response = requests.get(users_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
-
-            if users_response.status_code == HTTPStatus.OK:
-                users_data = users_response.json()
-                users = users_data.get("users", [])
+            users_client = client_factory.get_users_client()
+            users = users_client.list_users()
 
         current_app.logger.info(f"Retrieved {len(pvcs)} storage PVCs")
         return render_template("storage_pvcs.html", pvcs=pvcs, users=users, is_admin=session.get("is_admin", False))
@@ -62,7 +40,7 @@ def view_pvcs():
         return render_template("storage_pvcs.html", pvcs=[])
 
 
-@storage_bp.route("/pvcs/<int:pvc_id>/access", methods=["GET"])
+@storage_bp.route("/pvc/access/<int:pvc_id>", methods=["GET"])
 @login_required
 def get_pvc_access(pvc_id):
     """Get access information for a PVC."""
@@ -75,13 +53,10 @@ def get_pvc_access(pvc_id):
         return jsonify({"error": str(e)}), e.status_code
     except Exception as e:
         current_app.logger.error(f"Error getting PVC access: {str(e)}")
-        if current_app.config.get("TESTING"):
-            # Return a mock response for testing
-            return jsonify({"error": str(e)}), 503
         return jsonify({"error": str(e)}), 500
 
 
-@storage_bp.route("/pvcs/<int:pvc_id>/access", methods=["POST"])
+@storage_bp.route("/pvc/access/<int:pvc_id>", methods=["POST"])
 @login_required
 @admin_required
 def update_pvc_access(pvc_id):
@@ -102,13 +77,10 @@ def update_pvc_access(pvc_id):
         return jsonify({"error": str(e)}), e.status_code
     except Exception as e:
         current_app.logger.error(f"Error updating PVC access: {str(e)}")
-        if current_app.config.get("TESTING"):
-            # Return a mock response for testing
-            return jsonify({"error": str(e)}), 503
         return jsonify({"error": str(e)}), 500
 
 
-@storage_bp.route("/pvcs/<int:pvc_id>", methods=["GET"])
+@storage_bp.route("/pvc/<int:pvc_id>", methods=["GET"])
 @login_required
 def get_pvc(pvc_id):
     """Get a specific PVC."""
@@ -130,7 +102,7 @@ def get_pvc(pvc_id):
         return jsonify({"error": str(e)}), 500
 
 
-@storage_bp.route("/pvcs", methods=["POST"])
+@storage_bp.route("/pvc", methods=["POST"])
 @login_required
 @admin_required
 def create_pvc():
@@ -141,92 +113,51 @@ def create_pvc():
         if not data:
             return jsonify({"error": "No input data provided"}), 400
 
-        # Get token
-        token = session.get("token")
-        if not token:
-            return jsonify({"error": "Authentication required"}), 401
-
-        # Forward request to API
-        api_url = f"{current_app.config['API_URL']}/api/storage-pvcs/create"
-
-        # Log the request data for debugging
-        current_app.logger.info(f"Creating PVC with data: {data}")
-
-        response = requests.post(
-            api_url,
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json=data,
-            timeout=30,
-        )
+        storage_client = client_factory.get_storage_client()
+        pvc = storage_client.create_storage(**data)
 
         # Return the API response as-is
-        return jsonify(response.json()), response.status_code
+        return pvc, 201
     except Exception as e:
         current_app.logger.error(f"Error creating PVC: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
-@storage_bp.route("/api/connection/<int:pvc_id>", methods=["GET"])
+@storage_bp.route("/pvc/connections/<int:pvc_id>", methods=["GET"])
 @login_required
 def get_pvc_connections(pvc_id):
     """Get connections using a specific PVC."""
     try:
-        token = session.get("token")
-        if not token:
-            return jsonify({"error": "Authentication required"}), 401
-
-        # Use the new connections endpoint instead of the connection PVCs endpoint
-        api_url = f"{current_app.config['API_URL']}/api/storage-pvcs/connections/{pvc_id}"
-        response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
-
-        if response.status_code != HTTPStatus.OK:
-            return jsonify({"error": response.text}), response.status_code
-
-        return jsonify(response.json())
+        storage_client = client_factory.get_storage_client()
+        connections = storage_client.get_pvc_connections(pvc_id)
+        return jsonify(connections)
     except Exception as e:
         current_app.logger.error(f"Error fetching PVC connections: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
-@storage_bp.route("/api/users", methods=["GET"])
+@storage_bp.route("/users", methods=["GET"])
 @login_required
 def get_users_list():
     """Get list of users for access control."""
     try:
-        token = session.get("token")
-        if not token:
-            return jsonify({"error": "Authentication required"}), 401
-
-        # Fixed endpoint to match backend API
-        api_url = f"{current_app.config['API_URL']}/api/users/list"
-        response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
-
-        if response.status_code != HTTPStatus.OK:
-            return jsonify({"error": response.text}), response.status_code
-
-        return jsonify(response.json())
+        users_client = client_factory.get_users_client()
+        users = users_client.list_users()
+        return jsonify(users)
     except Exception as e:
         current_app.logger.error(f"Error fetching users list: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
-@storage_bp.route("/api/pvc/<string:pvc_name>", methods=["DELETE"])
+@storage_bp.route("/pvc/<string:pvc_name>", methods=["DELETE"])
 @login_required
 @admin_required
 def delete_pvc(pvc_name):
     """Delete a PVC by name."""
     try:
-        token = session.get("token")
-        if not token:
-            return jsonify({"error": "Authentication required"}), 401
-
-        api_url = f"{current_app.config['API_URL']}/api/storage-pvcs/{pvc_name}"
-        response = requests.delete(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=30)
-
-        if response.status_code != HTTPStatus.OK:
-            return jsonify({"error": response.text}), response.status_code
-
-        return jsonify(response.json())
+        storage_client = client_factory.get_storage_client()
+        result = storage_client.delete_storage(pvc_name)
+        return jsonify(result)
     except Exception as e:
         current_app.logger.error(f"Error deleting PVC: {str(e)}")
         return jsonify({"error": str(e)}), 500

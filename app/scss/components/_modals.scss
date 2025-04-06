@@ -24,14 +24,14 @@
   }
 }
 
-// Modal content wrapper
+// Modal content wrapper - standardized for all modals
 .modal-content {
   position: relative;
-  width: 400px;
-  max-width: 90%;
+  width: 90%;
+  max-width: 600px; // Standard modal width
   margin: 0 auto;
   background-color: $bg-white;
-  padding: 25px;
+  padding: $spacing-lg;
   border-radius: $border-radius-lg;
   @include box-shadow(3);
   cursor: default;
@@ -40,22 +40,42 @@
   max-height: 90vh;
   overflow-y: auto;
 
+  // FIX: Ensure consistent padding for scrollbars
+  padding-right: $spacing-lg + ($spacing-unit * 2); // Add extra padding to prevent content overlap with scrollbar
+
+  // Standard animation for all modals
   .modal.visible & {
     transform: translateY(0);
   }
+
+  // Standard heading styles
+  > h3:first-child {
+    margin-top: 0;
+    margin-bottom: $spacing-md;
+    padding-right: 30px; // Space for close button
+  }
 }
 
-// Modal warning text
-.modal .warning {
-  color: $danger-color;
-  font-weight: bold;
+// Modal size variants
+.modal-content {
+  &.modal-sm {
+    max-width: 400px;
+  }
+
+  &.modal-lg {
+    max-width: 800px;
+  }
+
+  &.modal-xl {
+    max-width: 1000px;
+  }
 }
 
-// Modal close button
+// Modal close button - standardized for all modals
 .modal-close {
   position: absolute;
-  top: 15px;
-  right: 15px;
+  top: $spacing-md;
+  right: $spacing-md;
   cursor: pointer;
   background: transparent;
   border: none;
@@ -64,74 +84,138 @@
   line-height: 1;
   padding: 0;
   transition: color $transition-fast;
+  z-index: 10;
 
   &:hover {
     color: $text-color;
   }
 }
 
-// Modal header
+// Standard modal sections
 .modal-header {
   margin-bottom: $spacing-lg;
+  border-bottom: 1px solid $border-color;
+  padding-bottom: $spacing-md;
+  position: relative; // FIX: Ensure proper positioning for close button
 
   h3 {
+    margin-top: 0;
     margin-bottom: $spacing-sm;
+    padding-right: 30px; // FIX: Space for close button
+  }
+
+  // FIX: Ensure modal-close is positioned correctly in header
+  .modal-close {
+    top: 0;
+    right: 0;
   }
 }
 
-// Modal footer
+.modal-body {
+  margin-bottom: $spacing-lg;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: $spacing-md; // FIX: Add padding for scrollbar
+
+  /* Standardized scrollbar styling */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+  }
+}
+
 .modal-footer {
   margin-top: $spacing-lg;
   @include flex(row, flex-end, center);
   gap: $spacing-sm;
+  border-top: 1px solid $border-color;
+  padding-top: $spacing-md;
 }
 
-// User Details Modal specific styles
+// Standardized form actions for all modal forms
+.form-actions {
+  @include flex(row, flex-end, center);
+  gap: $spacing-sm;
+  margin-top: $spacing-lg;
+}
+
+// Standard message box for requirements or info
+.info-box {
+  background-color: rgba($info-color, 0.1);
+  border-left: 3px solid $info-color;
+  padding: $spacing-md;
+  margin-bottom: $spacing-md;
+  border-radius: $border-radius-sm;
+
+  h4 {
+    margin-top: 0;
+    margin-bottom: $spacing-sm;
+    color: darken($info-color, 10%);
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 20px;
+
+    li {
+      margin-bottom: 5px;
+    }
+  }
+
+  // Variant for warnings
+  &.warning {
+    background-color: rgba($warning-color, 0.1);
+    border-left-color: $warning-color;
+
+    h4 {
+      color: darken($warning-color, 10%);
+    }
+  }
+
+  // Variant for errors
+  &.error {
+    background-color: rgba($danger-color, 0.1);
+    border-left-color: $danger-color;
+
+    h4 {
+      color: darken($danger-color, 10%);
+    }
+  }
+}
+
+// User Details Modal specific styles - using the new standards
 #user-details-modal {
   .modal-content {
-    width: 90%;
     max-width: 800px;
-    max-height: 85vh;
-    position: relative;
-    padding: 25px;
   }
 
   .user-detail-container {
-    max-height: 65vh;
-    overflow-y: auto;
-    padding-bottom: 10px;
-    padding-right: 5px; // Space for scrollbar
-
-    /* Custom scrollbar styling */
-    &::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 4px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: #c1c1c1;
-      border-radius: 4px;
-    }
-
-    &::-webkit-scrollbar-thumb:hover {
-      background: #a8a8a8;
-    }
+    @extend .modal-body;
   }
 
-  // Add some spacing between detail sections
+  // Detail sections
   .detail-section {
-    margin-bottom: 25px;
+    margin-bottom: $spacing-lg;
 
     // Make headings stick to the top during scrolling
     > h3 {
       position: sticky;
       top: 0;
       background-color: $bg-white;
-      padding: 10px 0;
+      padding: $spacing-sm 0;
       z-index: 5;
       margin-top: 0;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -139,32 +223,67 @@
   }
 }
 
-// Add User Modal specific styles
+// Add User Modal specific styles - using the new standards
 #add-user-modal {
   .modal-content {
     max-width: 550px;
   }
 
   .requirements-box {
-    background-color: rgba($info-color, 0.1);
-    border-left: 3px solid $info-color;
-    padding: 12px 15px;
-    margin-bottom: 20px;
-    border-radius: $border-radius-sm;
+    @extend .info-box;
+  }
+}
 
-    h4 {
-      margin-top: 0;
-      margin-bottom: 8px;
-      color: darken($info-color, 10%);
-    }
+// Loading container within modals - standardized
+.modal .loading-container {
+  @include flex(column, center, center);
+  padding: $spacing-lg;
 
-    ul {
-      margin: 0;
-      padding-left: 20px;
+  .loading-text {
+    margin-top: $spacing-md;
+    color: $text-muted;
+  }
+}
 
-      li {
-        margin-bottom: 5px;
-      }
+// FIX: Ensure checkboxes are visible
+.checkbox-wrapper {
+  margin-bottom: $spacing-md;
+}
+
+.checkbox-label {
+  display: flex !important;
+  align-items: center;
+  margin-bottom: $spacing-sm;
+  font-weight: normal;
+  cursor: pointer;
+
+  input[type="checkbox"] {
+    margin-right: $spacing-sm;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: inline-block !important;
+    position: relative !important;
+    pointer-events: auto !important;
+  }
+}
+
+// FIX: User list styling
+.user-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: $spacing-sm;
+  border: 1px solid $border-color-light;
+  border-radius: $border-radius-sm;
+
+  .checkbox-label {
+    margin-bottom: $spacing-xs;
+    padding: $spacing-xs;
+
+    &:hover {
+      background-color: rgba($primary-color, 0.05);
     }
   }
 }

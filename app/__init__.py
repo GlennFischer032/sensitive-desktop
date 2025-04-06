@@ -9,15 +9,15 @@ from flask import Flask, jsonify, redirect, render_template, request, session, u
 from flask_cors import CORS
 from flask_session import Session
 
-from app.auth import auth_bp
-from app.configurations import configurations_bp
-from app.connections import connections_bp
-from app.storage import storage_bp
-from app.tokens import tokens_bp
-from app.users import users_bp
+from app.services.auth import auth_bp
+from app.services.configurations import configurations_bp
+from app.services.connections import connections_bp
+from app.services.storage import storage_bp
+from app.services.tokens import tokens_bp
+from app.services.users import users_bp
 from config.config import Config
 from middleware.security import init_security, rate_limiter
-from utils.decorators import login_required
+from middleware.auth import login_required
 
 
 def init_session(app: Flask):
@@ -254,7 +254,8 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
         def csp_nonce():
             return getattr(request, "csp_nonce", "")
 
-        return {"csp_nonce": csp_nonce}
+        # Add current year for templates
+        return {"csp_nonce": csp_nonce, "year": datetime.now().year}
 
     # Main routes
     @app.route("/")
