@@ -1,11 +1,11 @@
 import logging
 import time
-from typing import Generator, Optional
+from typing import Optional
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool, StaticPool
 
 from desktop_manager.config.settings import get_settings
@@ -89,8 +89,6 @@ def init_db() -> None:
     try:
         # Import all models to ensure they're registered with SQLAlchemy
         from desktop_manager.api.models.base import Base
-        from desktop_manager.api.models.desktop_configuration import DesktopConfiguration
-        from desktop_manager.api.models.user import User
 
         # Create all tables
         Base.metadata.create_all(bind=get_engine())

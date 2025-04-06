@@ -8,6 +8,7 @@ import responses
 from flask import Flask, session
 from flask.testing import FlaskClient
 
+from middleware.auth import simulate_login
 from tests.conftest import TEST_ADMIN, TEST_TOKEN, TEST_USER
 
 # Set up logging
@@ -19,10 +20,7 @@ def test_view_users_success(client: FlaskClient, responses_mock) -> None:
     """Test successful users listing for admin."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     logger.debug(
@@ -118,10 +116,7 @@ def test_add_user_get(client: FlaskClient) -> None:
     """Test get add user page."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     response = client.get("/users/add")
@@ -133,10 +128,7 @@ def test_add_user_success(client: FlaskClient, responses_mock) -> None:
     """Test successful user addition."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     # Mock successful API response
@@ -179,10 +171,7 @@ def test_add_user_missing_fields(client: FlaskClient) -> None:
     """Test add user with missing required fields."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     response = client.post("/users/add", data={}, follow_redirects=True)
@@ -194,10 +183,7 @@ def test_add_user_validation_error(client: FlaskClient, responses_mock) -> None:
     """Test add user with API validation error."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     # Mock API validation error response
@@ -230,10 +216,7 @@ def test_add_user_network_error(client: FlaskClient, responses_mock) -> None:
     """Test add user with network error."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     # Mock network error
@@ -260,10 +243,7 @@ def test_add_user_timeout(client: FlaskClient, responses_mock) -> None:
     """Test add user with API timeout."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     # Mock timeout error
@@ -290,10 +270,7 @@ def test_delete_user_success(client: FlaskClient, responses_mock) -> None:
     """Test successful user deletion."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     # Mock successful API response
@@ -322,10 +299,7 @@ def test_delete_self(client: FlaskClient) -> None:
     """Test attempting to delete own account."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     response = client.post(
@@ -339,10 +313,7 @@ def test_delete_user_network_error(client: FlaskClient, responses_mock) -> None:
     """Test delete user with network error."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     # Mock network error
@@ -361,10 +332,7 @@ def test_dashboard_success(client: FlaskClient) -> None:
     """Test successful dashboard access."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     response = client.get("/users/dashboard")
@@ -378,10 +346,7 @@ def test_dashboard_api_error(client: FlaskClient, responses_mock) -> None:
     """Test dashboard with API error."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     # Mock API error response
@@ -401,10 +366,7 @@ def test_dashboard_network_error(client: FlaskClient, responses_mock) -> None:
     """Test dashboard with network error."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     # Mock network error
@@ -423,10 +385,7 @@ def test_remove_user_ajax(client: FlaskClient, responses_mock) -> None:
     """Test successful user removal via AJAX."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     # Mock successful API response
@@ -462,10 +421,7 @@ def test_remove_user_network_error(client: FlaskClient, responses_mock) -> None:
     """Test remove user with network error."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     # Mock network error
@@ -493,10 +449,7 @@ def test_remove_self_ajax(client: FlaskClient) -> None:
     """Test attempting to remove own account via AJAX."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     response = client.post(
@@ -516,10 +469,7 @@ def test_add_user_without_password(client: FlaskClient, responses_mock) -> None:
     """Test successful user addition without a password (for OIDC users)."""
     # Set up admin session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     # Mock successful API response
@@ -566,10 +516,7 @@ def test_delete_user_client_method(client: FlaskClient, responses_mock) -> None:
 
     # Set up admin session with token
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_ADMIN["username"]
-        sess["is_admin"] = TEST_ADMIN["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
     # Mock successful API response

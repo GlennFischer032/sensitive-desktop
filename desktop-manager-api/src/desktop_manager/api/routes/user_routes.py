@@ -4,14 +4,9 @@ import logging
 from typing import Any, Dict, Tuple
 
 from flask import Blueprint, jsonify, request
-from pydantic import ValidationError
-import requests
 
-from desktop_manager.api.models.user import User
-from desktop_manager.api.schemas.user import UserCreate, UserList, UserResponse
-from desktop_manager.api.utils.error_handlers import handle_validation_error
+from desktop_manager.api.schemas.user import UserList, UserResponse
 from desktop_manager.clients.factory import client_factory
-from desktop_manager.config.settings import get_settings
 from desktop_manager.core.auth import admin_required, token_required
 
 

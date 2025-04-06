@@ -3,6 +3,7 @@
 <head>
     <title>{% block title %}Desktop Manager{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='custom.css') }}">
     <!-- Security Headers -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-Frame-Options" content="DENY">
@@ -119,6 +120,7 @@
                 <a href="{{ url_for('users.view_users') }}">Users</a>
                 <a href="{{ url_for('configurations.list_configurations') }}">Configurations</a>
                 <a href="{{ url_for('storage.view_pvcs') }}">Storage PVCs</a>
+                <a href="{{ url_for('tokens.view_tokens') }}">API Tokens</a>
                 {% endif %}
                 <a href="{{ url_for('connections.view_connections') }}">Connections</a>
                 <a href="{{ url_for('connections.guacamole_dashboard') }}" target="_blank">Guacamole</a>
@@ -130,6 +132,15 @@
 
     <div class="container">
         {% block content %}{% endblock %}
+
+        {% if config.DEBUG %}
+        <div style="margin-top: 50px; padding: 10px; background: #f0f0f0; border: 1px solid #ccc; font-family: monospace; font-size: 12px;">
+            <h4>Debug Info</h4>
+            <p>Username: {{ session.get('username', 'Not logged in') }}</p>
+            <p>Admin: {{ session.get('is_admin', False) }}</p>
+            <p>Logged in: {{ session.get('logged_in', False) }}</p>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Add nonce for inline scripts -->

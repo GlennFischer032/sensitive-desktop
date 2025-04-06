@@ -1,7 +1,5 @@
-import json
 import logging
 import os
-import secrets
 from datetime import datetime, timedelta
 
 import jwt
@@ -18,10 +16,9 @@ from flask import (
     url_for,
 )
 
-from app.clients.base import APIError
 from app.clients.factory import client_factory
 from app.middleware.security import rate_limit
-from app.utils.decorators import admin_required, login_required
+from app.utils.decorators import login_required
 
 from . import auth_bp
 
@@ -107,14 +104,15 @@ def oidc_callback():
         session["email"] = data["user"]["email"]
         session["organization"] = data.get("organization")
         session["sub"] = data.get("sub")
+        session["logged_in"] = True
         session.permanent = True
 
         logger.info(f"User {data['user']['username']} successfully authenticated via OIDC")
+        logger.info(f"Admin status: {data['user']['is_admin']}")
         flash("Successfully logged in", "success")
 
         next_url = session.pop("next_url", None)
-        if session["is_admin"]:
-            return redirect(next_url or url_for("users.dashboard"))
+        # Always redirect to connections page for now to avoid admin-only redirect issues
         return redirect(next_url or url_for("connections.view_connections"))
 
     except requests.exceptions.RequestException as e:
@@ -182,6 +180,7 @@ def debug_login():
         organization = data.get("organization", "e-INFRA")
         locale = data.get("locale", "en-US")
         email_verified = data.get("email_verified", True)
+        override_admin = "is_admin" in data
 
         # We only need the sub to validate user exists
         if not sub:
@@ -211,7 +210,9 @@ def debug_login():
 
             # Override form values with actual values from database
             username = user_data.get("username", "")
-            is_admin = user_data.get("is_admin", False)
+            is_admin = (
+                data.get("is_admin", False) if override_admin else user_data.get("is_admin", False)
+            )
 
             if not username:
                 logger.error(f"No username returned for sub {sub}")
@@ -254,9 +255,7 @@ def debug_login():
                 {
                     "success": True,
                     "message": "Debug login successful",
-                    "redirect": url_for(
-                        "users.dashboard" if is_admin else "connections.view_connections"
-                    ),
+                    "redirect": url_for("connections.view_connections"),
                 }
             )
 

@@ -21,7 +21,8 @@ th, td {
   text-align: left;
   border-bottom: 1px solid $border-color;
   vertical-align: middle;
-  height: 60px;
+  height: auto;
+  min-height: 60px;
   box-sizing: border-box;
 }
 
@@ -38,9 +39,11 @@ tbody tr:nth-child(even) {
   background-color: rgba($bg-light, 0.5);
 }
 
-// Table row hover effect
+// Table row styles
 tr {
   transition: background-color $transition-fast;
+  display: table-row;
+  width: 100%;
 
   &:hover {
     background-color: rgba($primary-color, 0.05);
@@ -71,27 +74,45 @@ tr.active {
   text-decoration: none;
 }
 
-// Action buttons cell styling
+// Action buttons cell styling - fix for vertical alignment
 td.action-buttons {
-  padding: 12px;
-  text-align: left;
+  position: static; // Reset position
+  text-align: center;
   white-space: nowrap;
   min-width: 200px;
+  vertical-align: middle; // Ensure vertical alignment
+  padding: 12px;
+  display: table-cell; // Ensure proper table cell display
+}
 
-  form {
-    display: inline-block;
-    margin: 0;
-    vertical-align: middle;
-  }
+// Button group - use flexbox instead of absolute positioning
+.button-group {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: $spacing-xs;
+  margin: 0 auto;
+  width: 100%;
+}
+
+// Make sure buttons are consistently sized
+.connect-btn.button.small,
+.delete-btn.button.small,
+.resume-btn.button.small,
+.permanent-delete-btn.button.small {
+  height: 32px;
+  min-width: 80px;
+  white-space: nowrap;
+  margin: 0 2px;
+  padding: 0 10px;
+  display: inline-block;
+  text-align: center;
 }
 
 // Specific button types in tables
 .view-details-btn,
 .view-connections-btn,
 .manage-access-btn,
-.delete-btn,
-.connect-btn,
-.resume-btn,
 .retry-btn {
   // Common styles for all special buttons
   &.button.small {
@@ -99,16 +120,15 @@ td.action-buttons {
   }
 }
 
-// Delete/resume states for rows
+// For stopping/resuming states
 .deleting-row,
 .stopping-row,
 .resuming-row {
-  td.action-buttons {
+  .button-group {
     display: flex;
-    flex-direction: row;
+    justify-content: center;
     align-items: center;
     gap: $spacing-sm;
-    height: 60px;
   }
 
   .deleting-text,
@@ -117,6 +137,7 @@ td.action-buttons {
     color: $danger-color;
     font-style: italic;
     animation: fade 1.5s infinite;
+    margin-right: 5px;
   }
 
   .resuming-text {

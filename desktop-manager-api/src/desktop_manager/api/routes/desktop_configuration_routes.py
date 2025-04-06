@@ -1,13 +1,9 @@
 from http import HTTPStatus
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from flask import Blueprint, jsonify, request
 
-from desktop_manager.api.models.desktop_configuration import (
-    DesktopConfiguration,
-    DesktopConfigurationAccess,
-)
 from desktop_manager.clients.factory import client_factory
 from desktop_manager.core.auth import admin_required, token_required
 

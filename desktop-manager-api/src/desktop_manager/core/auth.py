@@ -33,14 +33,57 @@ def token_required(f):
             # First try to validate as JWT token
             try:
                 data = jwt.decode(token, current_app.config["SECRET_KEY"], algorithms=["HS256"])
-                db_client = client_factory.get_database_client()
-                query = "SELECT * FROM users WHERE id = :user_id"
-                users, count = db_client.execute_query(query, {"user_id": int(data["sub"])})
 
-                if count == 0:
-                    return jsonify({"message": "User not found!"}), 401
+                # Check if this is an API token
+                token_id = data.get("token_id")
+                if token_id:
+                    current_app.logger.info("Token identified as API token with ID: %s", token_id)
+                    # This is an API token, check if it's valid
+                    db_client = client_factory.get_database_client()
+                    query = """
+                    SELECT * FROM api_tokens
+                    WHERE token_id = :token_id AND revoked = FALSE
+                    AND expires_at > NOW()
+                    """
+                    tokens, count = db_client.execute_query(query, {"token_id": token_id})
 
-                current_user = users[0]
+                    if count == 0:
+                        current_app.logger.warning(
+                            "API token not found, revoked, or expired: %s", token_id
+                        )
+                        return jsonify({"message": "Token is invalid or revoked!"}), 401
+
+                    # Update last_used timestamp
+                    update_query = """
+                    UPDATE api_tokens
+                    SET last_used = NOW()
+                    WHERE token_id = :token_id
+                    """
+                    db_client.execute_query(update_query, {"token_id": token_id})
+
+                    # Get user info for the token creator
+                    username = tokens[0]["created_by"]
+                    query = "SELECT * FROM users WHERE username = :username"
+                    users, count = db_client.execute_query(query, {"username": username})
+
+                    if count == 0:
+                        current_app.logger.error("User not found for API token: %s", username)
+                        return jsonify({"message": "User not found!"}), 401
+
+                    current_user = users[0]
+                    current_app.logger.info(
+                        "API token validated for user: %s", current_user["username"]
+                    )
+                else:
+                    # Regular user token
+                    db_client = client_factory.get_database_client()
+                    query = "SELECT * FROM users WHERE id = :user_id"
+                    users, count = db_client.execute_query(query, {"user_id": int(data["sub"])})
+
+                    if count == 0:
+                        return jsonify({"message": "User not found!"}), 401
+
+                    current_user = users[0]
             except jwt.InvalidTokenError:
                 # If JWT validation fails, try OIDC token validation
                 current_app.logger.info("JWT validation failed, trying OIDC token validation")

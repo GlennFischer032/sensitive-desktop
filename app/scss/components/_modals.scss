@@ -4,31 +4,41 @@
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  right: 0;
+  bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
-  justify-content: center;
-  align-items: center;
   z-index: 1000;
   opacity: 0;
   transition: opacity $transition-medium;
+  cursor: pointer;
+  box-sizing: border-box;
+
+  // Add flexbox for centering
+  justify-content: center;
+  align-items: center;
+  padding: 30px 0;
 
   &.visible {
     opacity: 1;
-    display: flex;
+    display: flex; // Use flex instead of block for better centering
   }
 }
 
-// Modal content
+// Modal content wrapper
 .modal-content {
+  position: relative;
+  width: 400px;
+  max-width: 90%;
+  margin: 0 auto;
   background-color: $bg-white;
   padding: 25px;
   border-radius: $border-radius-lg;
-  width: 400px;
-  max-width: 90%;
   @include box-shadow(3);
+  cursor: default;
   transform: translateY(-20px);
   transition: transform $transition-medium;
+  max-height: 90vh;
+  overflow-y: auto;
 
   .modal.visible & {
     transform: translateY(0);
@@ -44,35 +54,19 @@
 // Modal close button
 .modal-close {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 20px;
-  height: 20px;
-  opacity: 0.5;
+  top: 15px;
+  right: 15px;
   cursor: pointer;
-  transition: opacity $transition-fast;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: $text-muted;
+  line-height: 1;
+  padding: 0;
+  transition: color $transition-fast;
 
   &:hover {
-    opacity: 1;
-  }
-
-  &:before,
-  &:after {
-    content: '';
-    position: absolute;
-    width: 2px;
-    height: 20px;
-    background-color: $text-color;
-    top: 0;
-    left: 9px;
-  }
-
-  &:before {
-    transform: rotate(45deg);
-  }
-
-  &:after {
-    transform: rotate(-45deg);
+    color: $text-color;
   }
 }
 
@@ -90,4 +84,87 @@
   margin-top: $spacing-lg;
   @include flex(row, flex-end, center);
   gap: $spacing-sm;
+}
+
+// User Details Modal specific styles
+#user-details-modal {
+  .modal-content {
+    width: 90%;
+    max-width: 800px;
+    max-height: 85vh;
+    position: relative;
+    padding: 25px;
+  }
+
+  .user-detail-container {
+    max-height: 65vh;
+    overflow-y: auto;
+    padding-bottom: 10px;
+    padding-right: 5px; // Space for scrollbar
+
+    /* Custom scrollbar styling */
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background: #a8a8a8;
+    }
+  }
+
+  // Add some spacing between detail sections
+  .detail-section {
+    margin-bottom: 25px;
+
+    // Make headings stick to the top during scrolling
+    > h3 {
+      position: sticky;
+      top: 0;
+      background-color: $bg-white;
+      padding: 10px 0;
+      z-index: 5;
+      margin-top: 0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+  }
+}
+
+// Add User Modal specific styles
+#add-user-modal {
+  .modal-content {
+    max-width: 550px;
+  }
+
+  .requirements-box {
+    background-color: rgba($info-color, 0.1);
+    border-left: 3px solid $info-color;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    border-radius: $border-radius-sm;
+
+    h4 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      color: darken($info-color, 10%);
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 20px;
+
+      li {
+        margin-bottom: 5px;
+      }
+    }
+  }
 }

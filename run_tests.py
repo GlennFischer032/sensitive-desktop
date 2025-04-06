@@ -7,10 +7,12 @@ and app components, either individually or together.
 """
 
 import argparse
+import concurrent.futures
 import os
 import subprocess
 import sys
-from typing import List, Optional, Tuple
+import time
+from typing import Dict, List, Optional, Tuple
 
 
 def parse_args() -> argparse.Namespace:
@@ -50,6 +52,33 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run tests with debug logging enabled",
     )
+    parser.add_argument(
+        "--parallel",
+        "-p",
+        action="store_true",
+        help="Run tests for components in parallel",
+    )
+    parser.add_argument(
+        "--last-failed",
+        action="store_true",
+        help="Run only tests that failed in the last run",
+    )
+    parser.add_argument(
+        "--changed-only",
+        action="store_true",
+        help="Run only tests affected by recent changes",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable pytest cache",
+    )
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=os.cpu_count() or 2,
+        help="Number of worker processes for pytest-xdist (if installed)",
+    )
 
     return parser.parse_args()
 
@@ -62,6 +91,10 @@ def run_tests(
     test_path: Optional[str] = None,
     coverage: bool = False,
     debug: bool = False,
+    last_failed: bool = False,
+    changed_only: bool = False,
+    no_cache: bool = False,
+    num_workers: int = 1,
 ) -> Tuple[int, List[str]]:
     """
     Run tests for the specified component.
@@ -74,6 +107,10 @@ def run_tests(
         test_path: Specific test path to run
         coverage: Run tests with coverage reporting
         debug: Run tests with debug logging enabled
+        last_failed: Run only tests that failed in the last run
+        changed_only: Run only tests affected by recent changes
+        no_cache: Disable pytest cache
+        num_workers: Number of worker processes for pytest-xdist
 
     Returns:
         Tuple containing exit code and output lines
@@ -83,6 +120,28 @@ def run_tests(
     os.chdir(os.path.join(current_dir, component_dir))
 
     cmd = ["python", "-m", "pytest"]
+
+    # Add performance optimizations
+    if not no_cache:
+        # Enable cache by default
+        cmd.append("-p")
+        cmd.append("cacheprovider")
+
+    # Try to use pytest-xdist if available for parallel test execution within component
+    try:
+        import pkg_resources
+
+        pkg_resources.get_distribution("pytest-xdist")
+        if num_workers > 1:
+            cmd.append(f"-n{num_workers}")
+    except (pkg_resources.DistributionNotFound, ImportError):
+        pass  # pytest-xdist not installed, continue without it
+
+    if last_failed:
+        cmd.append("--last-failed")
+
+    if changed_only:
+        cmd.append("--changed")
 
     if verbose:
         cmd.append("-v")
@@ -112,19 +171,18 @@ def run_tests(
     env["PYTHONPATH"] = os.getcwd() + ":" + env.get("PYTHONPATH", "")
 
     # Add debugging info only for app component
-    if component == "app":
-        print(f"\n{'=' * 80}")
-        print(f"Running tests for {component_dir} with authentication patching")
-        print(f"{'=' * 80}\n")
+    print(f"\n{'=' * 80}")
+    print(
+        f"Running tests for {component_dir}"
+        + (" with authentication patching" if component == "app" else "")
+    )
+    print(f"{'=' * 80}\n")
+    print(f"Command: {' '.join(cmd)}")
 
-        # Make sure the JWT validation in decorators.py works with our test tokens
-        # This is already handled by the updated mock_jwt fixture in app/tests/conftest.py
-    else:
-        print(f"\n{'=' * 80}")
-        print(f"Running tests for {component_dir}")
-        print(f"{'=' * 80}\n")
-
+    start_time = time.time()
     process = subprocess.run(cmd, capture_output=True, text=True, env=env)
+    duration = time.time() - start_time
+
     output_lines = process.stdout.splitlines()
     error_lines = process.stderr.splitlines()
 
@@ -137,41 +195,103 @@ def run_tests(
         for line in error_lines:
             print(line)
 
+    print(f"\nTests for {component} completed in {duration:.2f} seconds")
+
     # Change back to the original directory
     os.chdir(current_dir)
 
     return process.returncode, output_lines
 
 
+def run_tests_parallel(args: argparse.Namespace) -> Dict[str, Tuple[int, List[str]]]:
+    """Run tests for multiple components in parallel."""
+    components = []
+    if args.component == "all":
+        components = ["api", "app"]
+    else:
+        components = [args.component]
+
+    results = {}
+
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=len(components)
+    ) as executor:
+        future_to_component = {
+            executor.submit(
+                run_tests,
+                component,
+                args.verbose,
+                args.failfast,
+                args.junit_xml,
+                args.test_path,
+                args.coverage,
+                args.debug,
+                args.last_failed,
+                args.changed_only,
+                args.no_cache,
+                args.num_workers,
+            ): component
+            for component in components
+        }
+
+        for future in concurrent.futures.as_completed(future_to_component):
+            component = future_to_component[future]
+            try:
+                results[component] = future.result()
+            except Exception as exc:
+                print(f"Component {component} generated an exception: {exc}")
+                results[component] = (1, [f"Error: {exc}"])
+
+    return results
+
+
 def main() -> int:
     """Main function to run tests."""
     args = parse_args()
+    start_time = time.time()
 
-    exit_codes = []
+    if args.component == "all" and args.parallel:
+        # Run all components in parallel
+        results = run_tests_parallel(args)
+        exit_codes = [code for code, _ in results.values()]
+    else:
+        # Run components sequentially
+        exit_codes = []
 
-    if args.component == "all" or args.component == "api":
-        exit_code, _ = run_tests(
-            "api",
-            args.verbose,
-            args.failfast,
-            args.junit_xml,
-            args.test_path,
-            args.coverage,
-            args.debug,
-        )
-        exit_codes.append(exit_code)
+        if args.component == "all" or args.component == "api":
+            exit_code, _ = run_tests(
+                "api",
+                args.verbose,
+                args.failfast,
+                args.junit_xml,
+                args.test_path,
+                args.coverage,
+                args.debug,
+                args.last_failed,
+                args.changed_only,
+                args.no_cache,
+                args.num_workers,
+            )
+            exit_codes.append(exit_code)
 
-    if args.component == "all" or args.component == "app":
-        exit_code, _ = run_tests(
-            "app",
-            args.verbose,
-            args.failfast,
-            args.junit_xml,
-            args.test_path,
-            args.coverage,
-            args.debug,
-        )
-        exit_codes.append(exit_code)
+        if args.component == "all" or args.component == "app":
+            exit_code, _ = run_tests(
+                "app",
+                args.verbose,
+                args.failfast,
+                args.junit_xml,
+                args.test_path,
+                args.coverage,
+                args.debug,
+                args.last_failed,
+                args.changed_only,
+                args.no_cache,
+                args.num_workers,
+            )
+            exit_codes.append(exit_code)
+
+    total_duration = time.time() - start_time
+    print(f"\nAll tests completed in {total_duration:.2f} seconds")
 
     # Return non-zero if any component's tests failed
     return 1 if any(code != 0 for code in exit_codes) else 0

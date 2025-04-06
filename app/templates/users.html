@@ -5,7 +5,7 @@
 {% block content %}
 <div class="header-with-button">
     <h2>Users</h2>
-    <a href="{{ url_for('users.add_user') }}" class="button">Add User</a>
+    <button id="add-user-button" class="button">Add User</button>
 </div>
 
 <div class="table-container">
@@ -26,10 +26,12 @@
                 <td>{% if user.name %}{{ user.name }}{% else %}<span class="pending">Pending login</span>{% endif %}</td>
                 <td>{% if user.email %}{{ user.email }}{% else %}<span class="pending">Pending login</span>{% endif %}</td>
                 <td class="action-buttons">
-                    <a href="{{ url_for('users.user_detail', username=user.username) }}" class="button small view-details-btn">View Details</a>
-                    <form action="{{ url_for('users.delete_user', username=user.username) }}" method="post" onsubmit="handleDelete(event, '{{ user.username }}')">
-                        <button type="submit" class="button small danger delete-btn">Delete</button>
-                    </form>
+                    <div class="button-group">
+                        <button class="button small view-details-btn" data-username="{{ user.username }}">View Details</button>
+                        <form action="{{ url_for('users.delete_user', username=user.username) }}" method="post" onsubmit="handleDelete(event, '{{ user.username }}')">
+                            <button type="submit" class="button small danger delete-btn">Delete</button>
+                        </form>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
@@ -40,6 +42,154 @@
         <p>No users found. Click "Add User" to create one.</p>
     </div>
     {% endif %}
+</div>
+
+<!-- Add User Modal -->
+<div id="add-user-modal" class="modal">
+    <div class="modal-content">
+        <h3>Add New User</h3>
+        <button type="button" class="modal-close close-modal">×</button>
+
+        <div class="requirements-box">
+            <h4>Requirements:</h4>
+            <ul>
+                <li>Username must be at least 3 characters long</li>
+                <li>OIDC Subject Identifier (sub) is required</li>
+                <li>Other user information will be filled from OIDC during first login</li>
+            </ul>
+        </div>
+
+        <form id="user-form" action="{{ url_for('users.add_user') }}" method="POST">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required minlength="3">
+                <small class="error-message" id="username-error"><!-- Error message will appear here --></small>
+            </div>
+
+            <div class="form-group">
+                <label for="sub">OIDC Subject Identifier (sub):</label>
+                <input type="text" id="sub" name="sub" required>
+                <small class="form-help">This is the unique identifier from the OIDC provider.</small>
+                <small class="error-message" id="sub-error"><!-- Error message will appear here --></small>
+            </div>
+
+            <div class="form-group">
+                <div class="checkbox-wrapper">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="is_admin" value="true">
+                        Admin User
+                    </label>
+                </div>
+                <small class="form-help">Administrators can manage users and desktop configurations.</small>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="button" id="submit-btn">Add User</button>
+                <button type="button" class="button secondary close-modal">Cancel</button>
+            </div>
+        </form>
+
+        <div id="create-loading" class="loading-container hidden">
+            <div class="loading-wave">
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+            </div>
+            <p class="loading-text">Creating user...</p>
+        </div>
+
+        <div id="create-error" class="message error hidden"></div>
+    </div>
+</div>
+
+<!-- User Details Modal -->
+<div id="user-details-modal" class="modal">
+    <div class="modal-content">
+        <h3>User Details: <span id="detail-username"></span></h3>
+        <button type="button" class="modal-close close-modal">×</button>
+
+        <div id="user-details-loading" class="loading-container">
+            <div class="loading-wave">
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+            </div>
+            <p class="loading-text">Loading user details...</p>
+        </div>
+
+        <div id="user-details-error" class="message error hidden"></div>
+
+        <div id="user-details-content" class="user-detail-container hidden">
+            <div class="detail-section">
+                <h3>Basic Information</h3>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Username</div>
+                        <div class="detail-value" id="detail-user-username"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Full Name</div>
+                        <div class="detail-value" id="detail-user-name"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Email</div>
+                        <div class="detail-value" id="detail-user-email"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Role</div>
+                        <div class="detail-value" id="detail-user-role"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Created</div>
+                        <div class="detail-value" id="detail-user-created"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Last Login</div>
+                        <div class="detail-value" id="detail-user-last-login"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Organization</div>
+                        <div class="detail-value" id="detail-user-organization"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h3>OIDC Information</h3>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Subject (sub)</div>
+                        <div class="detail-value" id="detail-user-sub"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Given Name</div>
+                        <div class="detail-value" id="detail-user-given-name"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Family Name</div>
+                        <div class="detail-value" id="detail-user-family-name"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Email Verified</div>
+                        <div class="detail-value" id="detail-user-email-verified"></div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Locale</div>
+                        <div class="detail-value" id="detail-user-locale"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <h3>User Connections</h3>
+                <div id="user-connections-container">
+                    <p>Loading connections...</p>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -56,11 +206,13 @@ async function handleDelete(event, username) {
 
     // Replace button with loading animation
     actionButtons.innerHTML = `
-        <span class="deleting-text">Deleting</span>
-        <div class="loading-dots">
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
+        <div class="button-group">
+            <span class="deleting-text">Deleting</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
         </div>
     `;
 
@@ -109,11 +261,307 @@ async function handleDelete(event, username) {
         }
     } catch (error) {
         actionButtons.innerHTML = `
-            <span class="error-text">Error: ${error.message}</span>
-            <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            <div class="button-group">
+                <span class="error-text">Error: ${error.message}</span>
+                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            </div>
         `;
     }
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal handling
+    const addUserModal = document.getElementById('add-user-modal');
+    const userDetailsModal = document.getElementById('user-details-modal');
+
+    // Close modal when clicking outside of modal content
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+            // Only close if the click is directly on the modal backdrop (not on any children)
+            if (e.target === modal) {
+                hideModal(modal);
+            }
+        });
+    });
+
+    // Add User button
+    const addUserButton = document.getElementById('add-user-button');
+    if (addUserButton) {
+        addUserButton.addEventListener('click', function() {
+            showModal(addUserModal);
+        });
+    }
+
+    // View Details buttons
+    document.querySelectorAll('.view-details-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const username = this.getAttribute('data-username');
+            loadUserDetails(username);
+        });
+    });
+
+    // Close modal buttons
+    document.querySelectorAll('.close-modal').forEach(button => {
+        button.addEventListener('click', function() {
+            hideModal(this.closest('.modal'));
+        });
+    });
+
+    // User form validation and submission
+    document.getElementById('user-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const form = this;
+        const createLoading = document.getElementById('create-loading');
+        const createError = document.getElementById('create-error');
+        const username = document.getElementById('username').value;
+        const sub = document.getElementById('sub').value;
+
+        // Clear previous error messages
+        document.querySelectorAll('.error-message').forEach(el => {
+            el.style.display = 'none';
+            el.textContent = '';
+        });
+
+        // Hide any previous error
+        createError.classList.add('hidden');
+        createError.textContent = '';
+
+        let hasError = false;
+
+        // Username validation
+        if (username.length < 3) {
+            const usernameError = document.getElementById('username-error');
+            usernameError.textContent = 'Username must be at least 3 characters long';
+            usernameError.style.display = 'block';
+            hasError = true;
+        }
+
+        // Sub validation
+        if (!sub) {
+            const subError = document.getElementById('sub-error');
+            subError.textContent = 'OIDC Subject Identifier is required';
+            subError.style.display = 'block';
+            hasError = true;
+        }
+
+        if (hasError) {
+            return false;
+        }
+
+        // Show loading
+        form.style.display = 'none';
+        createLoading.classList.remove('hidden');
+
+        // Collect form data
+        const formData = new FormData(form);
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create user');
+                }
+
+                // Success - show notification
+                const notificationContainer = document.createElement('div');
+                notificationContainer.className = 'notification-container';
+                notificationContainer.innerHTML = `
+                    <div class="notification success">
+                        ${data.message || 'User created successfully'}
+                    </div>
+                `;
+                document.body.appendChild(notificationContainer);
+
+                // Remove notification after delay
+                setTimeout(() => {
+                    notificationContainer.querySelector('.notification').style.opacity = '0';
+                    setTimeout(() => notificationContainer.remove(), 300);
+                }, 3000);
+
+                // Reload the page after a short delay to show the new user
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                // Handle non-JSON response (redirect)
+                window.location.reload();
+            }
+        } catch (error) {
+            // Show error
+            createLoading.classList.add('hidden');
+            form.style.display = 'block';
+            createError.textContent = error.message;
+            createError.classList.remove('hidden');
+        }
+    });
+
+    // Load user details function
+    async function loadUserDetails(username) {
+        const detailUsername = document.getElementById('detail-username');
+        const detailLoading = document.getElementById('user-details-loading');
+        const detailError = document.getElementById('user-details-error');
+        const detailContent = document.getElementById('user-details-content');
+
+        // Update username in modal title
+        detailUsername.textContent = username;
+
+        // Show loading, hide content and errors
+        detailLoading.classList.remove('hidden');
+        detailContent.classList.add('hidden');
+        detailError.classList.add('hidden');
+
+        // Show the modal
+        showModal(userDetailsModal);
+
+        try {
+            // Fetch user details
+            const response = await fetch(`/users/api/detail/${username}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to load user details');
+            }
+
+            const data = await response.json();
+
+            // Update the details in the modal
+            populateUserDetails(data.user, data.user_connections);
+
+            // Hide loading, show content
+            detailLoading.classList.add('hidden');
+            detailContent.classList.remove('hidden');
+
+        } catch (error) {
+            // Show error
+            detailLoading.classList.add('hidden');
+            detailError.textContent = error.message;
+            detailError.classList.remove('hidden');
+        }
+    }
+
+    // Populate user details function
+    function populateUserDetails(user, connections) {
+        // Basic information
+        document.getElementById('detail-user-username').textContent = user.username;
+        document.getElementById('detail-user-name').textContent = user.name || 'Not set';
+        document.getElementById('detail-user-email').textContent = user.email || 'Not set';
+        document.getElementById('detail-user-role').textContent = user.is_admin ? 'Administrator' : 'Regular User';
+        document.getElementById('detail-user-created').textContent = formatDate(user.created_at) || 'N/A';
+        document.getElementById('detail-user-last-login').textContent = user.last_login ? formatDate(user.last_login) : 'Never';
+        document.getElementById('detail-user-organization').textContent = user.organization || 'Not set';
+
+        // OIDC information
+        if (user.sub) {
+            document.getElementById('detail-user-sub').innerHTML = `<span class="oidc-id">${user.sub}</span>`;
+        } else {
+            document.getElementById('detail-user-sub').innerHTML = `<span class="not-set">Not set</span>`;
+        }
+        document.getElementById('detail-user-given-name').textContent = user.given_name || 'Not set';
+        document.getElementById('detail-user-family-name').textContent = user.family_name || 'Not set';
+
+        if (user.email_verified) {
+            document.getElementById('detail-user-email-verified').innerHTML = `<span class="verified">Yes</span>`;
+        } else {
+            document.getElementById('detail-user-email-verified').innerHTML = `<span class="not-verified">No</span>`;
+        }
+
+        document.getElementById('detail-user-locale').textContent = user.locale || 'Not set';
+
+        // User connections
+        const connectionsContainer = document.getElementById('user-connections-container');
+        if (connections && connections.length > 0) {
+            let html = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Connection Name</th>
+                        <th>Desktop Configuration</th>
+                        <th>Created</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+
+            connections.forEach(connection => {
+                html += `
+                <tr>
+                    <td>${connection.name}</td>
+                    <td>${connection.desktop_configuration_name || "Default"}</td>
+                    <td>${formatDate(connection.created_at)}</td>
+                    <td>
+                        ${connection.is_stopped
+                            ? '<span class="status-badge stopped">Stopped</span>'
+                            : '<span class="status-badge active">Active</span>'}
+                    </td>
+                </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            connectionsContainer.innerHTML = html;
+        } else {
+            connectionsContainer.innerHTML = `
+            <div class="empty-state">
+                <p>No connections found for this user.</p>
+            </div>
+            `;
+        }
+    }
+
+    // Format date helper function
+    function formatDate(dateString) {
+        if (!dateString) return null;
+        const date = new Date(dateString);
+        return date.toLocaleString();
+    }
+
+    // Modal helper functions
+    function showModal(modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => {
+            modal.classList.add('visible');
+        }, 10);
+    }
+
+    function hideModal(modal) {
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            modal.style.display = 'none';
+
+            // Reset forms and errors if needed
+            if (modal === addUserModal) {
+                document.getElementById('user-form').reset();
+                document.querySelectorAll('.error-message').forEach(el => {
+                    el.style.display = 'none';
+                    el.textContent = '';
+                });
+                document.getElementById('user-form').style.display = 'block';
+                document.getElementById('create-loading').classList.add('hidden');
+                document.getElementById('create-error').classList.add('hidden');
+            } else if (modal === userDetailsModal) {
+                // Reset user details modal
+                document.getElementById('user-details-content').classList.add('hidden');
+                document.getElementById('user-details-error').classList.add('hidden');
+            }
+        }, 300);
+    }
+});
 </script>
+
 
 {% endblock %}

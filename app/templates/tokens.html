@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}API Tokens - Desktop Manager{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1>API Tokens</h1>
+    <div class="content-header-actions">
+        <button class="button primary" id="createTokenButton">Create New Token</button>
+    </div>
+</div>
+
+<div class="content-description">
+    <p>
+        API tokens allow you to interact with the Desktop Manager API from external applications
+        or command-line tools. Tokens have the same permissions as your user account and can be
+        revoked at any time.
+    </p>
+    <div class="alert info">
+        <strong>Note:</strong> When you create a new token, you'll only see the token value once.
+        Make sure to copy it immediately. All API requests using these tokens should use the
+        Authorization header: <code>Authorization: Bearer &lt;token&gt;</code>
+    </div>
+</div>
+
+<div class="content-body tokens-page">
+    {% if new_token %}
+    <div class="token-box new-token" id="newTokenDisplay">
+        <h3>Your New Token</h3>
+        <p><strong>Important:</strong> This is the only time this token will be displayed. Copy it now!</p>
+        <div class="token-value" id="newTokenValue">
+            {{ new_token.token }}
+            <button class="copy-button" onclick="copyToken()">Copy</button>
+        </div>
+        <div class="token-details">
+            <p><strong>Name:</strong> {{ new_token.name }}</p>
+            <p><strong>Expires:</strong> {{ new_token.expires_at }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="tokens-list">
+        <h2>Your API Tokens</h2>
+
+        {% if not tokens %}
+            <p>You haven't created any API tokens yet.</p>
+        {% else %}
+            {% for token in tokens %}
+            <div class="token-box">
+                <div class="token-header">
+                    <h3>{{ token.name }}</h3>
+                    {% if token.revoked %}
+                        <span class="token-badge badge-revoked">Revoked</span>
+                    {% elif token.expires_at and token.expires_at < now %}
+                        <span class="token-badge badge-expired">Expired</span>
+                    {% else %}
+                        <span class="token-badge badge-active">Active</span>
+                    {% endif %}
+                </div>
+                {% if token.description %}
+                <p>{{ token.description }}</p>
+                {% endif %}
+                <div class="token-details">
+                    <p><strong>ID:</strong> {{ token.token_id }}</p>
+                    <p><strong>Created:</strong> {{ token.created_at.strftime('%Y-%m-%d %H:%M:%S') if token.created_at else 'N/A' }}</p>
+                    <p><strong>Expires:</strong> {{ token.expires_at.strftime('%Y-%m-%d %H:%M:%S') if token.expires_at else 'N/A' }}</p>
+                    {% if token.last_used %}
+                    <p><strong>Last used:</strong> {{ token.last_used.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    {% endif %}
+                </div>
+
+                {% if not token.revoked %}
+                <div class="token-actions">
+                    <form action="{{ url_for('tokens.revoke_token', token_id=token.token_id) }}" method="POST" class="inline-form"
+                          onsubmit="return confirm('Are you sure you want to revoke this token? This action cannot be undone.')">
+                        <button type="submit" class="button danger">Revoke Token</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>
+
+<!-- Create Token Modal -->
+<div id="newTokenModal" class="modal">
+    <div class="modal-content">
+        <h3>Create New API Token</h3>
+        <form id="createTokenForm" action="{{ url_for('tokens.create_token') }}" method="POST">
+            <div class="form-group">
+                <label for="name">Token Name</label>
+                <input type="text" id="name" name="name"
+                       placeholder="e.g., CI/CD Pipeline, Personal Script" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Description (Optional)</label>
+                <textarea id="description" name="description"
+                          placeholder="What will this token be used for?"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="expires_in_days">Expires After (days)</label>
+                <select id="expires_in_days" name="expires_in_days">
+                    <option value="7">7 days</option>
+                    <option value="30" selected>30 days</option>
+                    <option value="90">90 days</option>
+                    <option value="180">180 days</option>
+                    <option value="365">365 days</option>
+                </select>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="button">Create Token</button>
+                <button type="button" class="button secondary close-modal">Cancel</button>
+            </div>
+        </form>
+
+        <div id="create-loading" class="loading-container hidden">
+            <div class="loading-wave">
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+            </div>
+            <p class="loading-text">Creating token...</p>
+        </div>
+
+        <div id="create-error" class="message error hidden"></div>
+    </div>
+</div>
+
+<script nonce="{{ csp_nonce() if csp_nonce is defined else '' }}">
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal handling
+    const createModal = document.getElementById('newTokenModal');
+
+    // Create token button
+    const createBtn = document.getElementById('createTokenButton');
+    if (createBtn) {
+        createBtn.addEventListener('click', function() {
+            showModal(createModal);
+        });
+    }
+
+    // Close modal buttons
+    document.querySelectorAll('.close-modal').forEach(button => {
+        button.addEventListener('click', function() {
+            hideModal(this.closest('.modal'));
+        });
+    });
+
+    // Create token form submission
+    const createForm = document.getElementById('createTokenForm');
+    if (createForm) {
+        createForm.addEventListener('submit', function(event) {
+            // Validate form
+            const nameField = document.getElementById('name');
+            if (!nameField.value.trim()) {
+                event.preventDefault();
+                NotificationManager.show('Token name is required', 'error');
+                return false;
+            }
+
+            // Show loading state
+            createForm.style.display = 'none';
+            document.getElementById('create-loading').classList.remove('hidden');
+
+            // Form will submit normally if validation passes
+        });
+    }
+
+    // Copy token function
+    window.copyToken = function() {
+        const tokenValue = document.getElementById('newTokenValue');
+        if (!tokenValue) return;
+
+        const text = tokenValue.innerText.trim();
+
+        navigator.clipboard.writeText(text).then(function() {
+            NotificationManager.show('Token copied to clipboard!', 'success');
+        }).catch(function(err) {
+            console.error('Failed to copy:', err);
+            NotificationManager.show('Failed to copy token. Please select and copy manually.', 'error');
+        });
+    };
+
+    // Auto-copy token on page load if available
+    const newTokenDisplay = document.getElementById('newTokenDisplay');
+    if (newTokenDisplay) {
+        setTimeout(function() {
+            window.copyToken();
+        }, 500);
+    }
+
+    // Modal helper functions
+    function showModal(modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => {
+            modal.classList.add('visible');
+        }, 10);
+    }
+
+    function hideModal(modal) {
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            modal.style.display = 'none';
+
+            // Reset forms and errors if needed
+            if (modal === createModal) {
+                document.getElementById('createTokenForm').reset();
+                document.getElementById('createTokenForm').style.display = 'block';
+                document.getElementById('create-loading').classList.add('hidden');
+                document.getElementById('create-error').classList.add('hidden');
+            }
+        }, 300);
+    }
+});
+</script>
+{% endblock %}

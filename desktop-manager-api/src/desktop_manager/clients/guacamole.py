@@ -4,7 +4,7 @@ This module provides a client for interacting with Apache Guacamole.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, NotRequired, Optional, TypedDict, Union
+from typing import Any, Dict, Literal, NotRequired, Optional, TypedDict, Union
 
 import requests
 
@@ -682,3 +682,47 @@ class GuacamoleClient(BaseClient):
             raise APIError(
                 f"Failed to check/create user in Guacamole: {e!s}", status_code=e.status_code
             )
+
+    def check_connection_exists(self, token: str, connection_id: str) -> bool:
+        """Check if a connection exists in Guacamole.
+
+        Args:
+            token: Authentication token
+            connection_id: Connection ID
+
+        Returns:
+            bool: True if connection exists, False otherwise
+        """
+        try:
+            endpoint = (
+                f"/api/session/data/{self.data_source}/connections/{connection_id}?token={token}"
+            )
+            data, _ = self.get(endpoint=endpoint)
+            # If we got a response, the connection exists
+            return True
+        except APIError as e:
+            # If we got a 404, the connection doesn't exist
+            if e.status_code == 404:
+                self.logger.warning("Connection %s not found in Guacamole", connection_id)
+                return False
+            # Otherwise, something else went wrong
+            self.logger.error("Error checking if connection exists in Guacamole: %s", str(e))
+            raise APIError(
+                f"Failed to check if connection exists in Guacamole: {e!s}",
+                status_code=e.status_code,
+            )
+
+    def get_auth_token(self, token: str) -> str:
+        """Get a reusable authentication token from a session token.
+
+        This is useful for creating direct connection URLs.
+
+        Args:
+            token: Session token from login()
+
+        Returns:
+            str: Authentication token for direct use
+        """
+        # In Guacamole, the session token can be directly used as an auth token
+        # for constructing direct connection URLs
+        return token

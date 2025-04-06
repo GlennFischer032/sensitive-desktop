@@ -13,8 +13,8 @@ from app.auth import auth_bp
 from app.configurations import configurations_bp
 from app.connections import connections_bp
 from app.storage import storage_bp
+from app.tokens import tokens_bp
 from app.users import users_bp
-from app.utils.security import ContentSecurityPolicyGenerator, generate_csrf_token
 from config.config import Config
 from middleware.security import init_security, rate_limiter
 from utils.decorators import login_required
@@ -32,10 +32,16 @@ def create_app(config_class=Config):
     # Initialize security features
     init_security(app)
 
-    redis_client = redis.from_url(app.config["SESSION_REDIS"])
-    app.config["SESSION_REDIS"] = redis_client
+    # Initialize session
+    if app.config.get("SESSION_TYPE") != "null":
+        # Only use Redis session when not in test mode with null session
+        redis_client = redis.from_url(app.config["SESSION_REDIS"])
+        app.config["SESSION_REDIS"] = redis_client
+        Session(app)
+    else:
+        # For testing, we'll use the default Flask session (signed cookies)
+        app.logger.info("Using default Flask session interface for testing")
 
-    Session(app)
     app.config["SESSION_REFRESH_EACH_REQUEST"] = True
 
     # Configure CORS with security settings
@@ -82,6 +88,8 @@ def create_app(config_class=Config):
                 "users.delete_user",
                 "connections.add_connection",
                 "connections.delete_connection",
+                "tokens.create_token",
+                "tokens.revoke_token",
             ]
 
             # Only enforce JSON content type for non-form endpoints
@@ -173,6 +181,7 @@ def create_app(config_class=Config):
     app.register_blueprint(users_bp)
     app.register_blueprint(configurations_bp)
     app.register_blueprint(storage_bp)
+    app.register_blueprint(tokens_bp)
 
     # Error handlers
     @app.errorhandler(404)

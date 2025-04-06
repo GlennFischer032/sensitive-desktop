@@ -5,6 +5,7 @@ import responses
 from flask import Flask, session
 from flask.testing import FlaskClient
 
+from middleware.auth import simulate_login
 from tests.conftest import TEST_TOKEN, TEST_USER
 
 
@@ -12,10 +13,7 @@ def test_view_connections_success(client: FlaskClient, responses_mock) -> None:
     """Test successful connections listing."""
     # Set up session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_USER["username"]
-        sess["is_admin"] = TEST_USER["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_USER["is_admin"], username=TEST_USER["username"])
         sess.permanent = True
 
     # Mock successful API response
@@ -46,10 +44,7 @@ def test_view_connections_api_error(client: FlaskClient, responses_mock) -> None
     """Test connections listing with API error."""
     # Set up session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_USER["username"]
-        sess["is_admin"] = TEST_USER["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_USER["is_admin"], username=TEST_USER["username"])
         sess.permanent = True
 
     # Mock API error response
@@ -69,10 +64,7 @@ def test_view_connections_network_error(client: FlaskClient, responses_mock) -> 
     """Test connections listing with network error."""
     # Set up session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_USER["username"]
-        sess["is_admin"] = TEST_USER["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_USER["is_admin"], username=TEST_USER["username"])
         sess.permanent = True
 
     # Mock network error
@@ -91,12 +83,16 @@ def test_add_connection_get(client: FlaskClient) -> None:
     """Test get add connection page."""
     # Set up session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_USER["username"]
-        sess["is_admin"] = TEST_USER["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_USER["is_admin"], username=TEST_USER["username"])
         sess.permanent = True
 
+    # First test for the modal in the connections page
+    response = client.get("/connections/")
+    assert response.status_code == 200
+    assert b"add-connection-modal" in response.data
+    assert b"Add Connection" in response.data
+
+    # Then test the legacy direct page access
     response = client.get("/connections/add")
     assert response.status_code == 200
     assert b"Add Connection" in response.data
@@ -106,10 +102,7 @@ def test_add_connection_success(client: FlaskClient, responses_mock) -> None:
     """Test successful connection addition."""
     # Set up session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_USER["username"]
-        sess["is_admin"] = TEST_USER["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_USER["is_admin"], username=TEST_USER["username"])
         sess.permanent = True
 
     # Mock successful API response
@@ -123,44 +116,64 @@ def test_add_connection_success(client: FlaskClient, responses_mock) -> None:
                     "Content-Type": "application/json",
                 }
             ),
-            responses_mock.matchers.json_params_matcher({"name": "test-connection"}),
+            responses_mock.matchers.json_params_matcher(
+                {"name": "test-connection", "persistent_home": False}
+            ),
         ],
         json={"message": "Connection created"},
         status=200,
     )
 
+    # Test with regular form submission
     response = client.post(
         "/connections/add",
         data={"connection_name": "test-connection"},
         follow_redirects=True,
     )
     assert response.status_code == 200
-    assert b"Connection added successfully" in response.data
+    assert b"Connection created successfully" in response.data
+
+    # Test with AJAX request
+    response = client.post(
+        "/connections/add",
+        data={"connection_name": "test-connection-ajax"},
+        headers={"X-Requested-With": "XMLHttpRequest"}
+    )
+    assert response.status_code == 200
+    assert response.is_json
+    assert response.json["status"] == "success"
+    assert "message" in response.json
 
 
 def test_add_connection_missing_name(client: FlaskClient) -> None:
     """Test add connection with missing name."""
     # Set up session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_USER["username"]
-        sess["is_admin"] = TEST_USER["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_USER["is_admin"], username=TEST_USER["username"])
         sess.permanent = True
 
-    response = client.post("/connections/add", data={})
+    # Test regular form submission
+    response = client.post("/connections/add", data={}, follow_redirects=True)
     assert response.status_code == 200
-    assert b"Please provide a connection name" in response.data
+    assert b"Connection name is required" in response.data
+
+    # Test AJAX request
+    response = client.post(
+        "/connections/add",
+        data={},
+        headers={"X-Requested-With": "XMLHttpRequest"}
+    )
+    assert response.status_code == 400
+    assert response.is_json
+    assert response.json["status"] == "error"
+    assert "error" in response.json
 
 
 def test_add_connection_api_error(client: FlaskClient, responses_mock) -> None:
     """Test add connection with API error."""
     # Set up session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_USER["username"]
-        sess["is_admin"] = TEST_USER["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_USER["is_admin"], username=TEST_USER["username"])
         sess.permanent = True
 
     # Mock API error response
@@ -171,6 +184,7 @@ def test_add_connection_api_error(client: FlaskClient, responses_mock) -> None:
         status=500,
     )
 
+    # Test regular form submission
     response = client.post(
         "/connections/add",
         data={"connection_name": "test-connection"},
@@ -179,15 +193,22 @@ def test_add_connection_api_error(client: FlaskClient, responses_mock) -> None:
     assert response.status_code == 200
     assert b"Failed to add connection" in response.data
 
+    # Test AJAX request
+    response = client.post(
+        "/connections/add",
+        data={"connection_name": "test-connection-ajax"},
+        headers={"X-Requested-With": "XMLHttpRequest"}
+    )
+    assert response.status_code == 400
+    assert response.is_json
+    assert response.json["status"] == "error"
+
 
 def test_add_connection_network_error(client: FlaskClient, responses_mock) -> None:
     """Test add connection with network error."""
     # Set up session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_USER["username"]
-        sess["is_admin"] = TEST_USER["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_USER["is_admin"], username=TEST_USER["username"])
         sess.permanent = True
 
     # Mock network error
@@ -197,6 +218,7 @@ def test_add_connection_network_error(client: FlaskClient, responses_mock) -> No
         body=Exception("Network error"),
     )
 
+    # Test regular form submission
     response = client.post(
         "/connections/add",
         data={"connection_name": "test-connection"},
@@ -205,18 +227,25 @@ def test_add_connection_network_error(client: FlaskClient, responses_mock) -> No
     assert response.status_code == 200
     assert b"Error adding connection" in response.data
 
+    # Test AJAX request
+    response = client.post(
+        "/connections/add",
+        data={"connection_name": "test-connection-ajax"},
+        headers={"X-Requested-With": "XMLHttpRequest"}
+    )
+    assert response.status_code == 500
+    assert response.is_json
+    assert response.json["status"] == "error"
+
 
 def test_delete_connection_success(client: FlaskClient, responses_mock) -> None:
     """Test successful connection deletion."""
     # Set up session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_USER["username"]
-        sess["is_admin"] = TEST_USER["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_USER["is_admin"], username=TEST_USER["username"])
         sess.permanent = True
 
-    # Mock successful API response
+    # Mock successful API response for deletion
     responses_mock.add(
         responses_mock.POST,
         "http://test-api:5000/api/connections/scaledown",
@@ -233,19 +262,24 @@ def test_delete_connection_success(client: FlaskClient, responses_mock) -> None:
         status=200,
     )
 
+    # Mock the connections list endpoint that gets called after deletion
+    responses_mock.add(
+        responses_mock.GET,
+        "http://test-api:5000/api/connections/list",
+        json={"connections": []},
+        status=200,
+    )
+
     response = client.post("/connections/delete/test-connection", follow_redirects=True)
     assert response.status_code == 200
-    assert b"Connection deleted successfully" in response.data
+    assert b"Connection stopped successfully" in response.data
 
 
 def test_delete_connection_ajax(client: FlaskClient, responses_mock) -> None:
     """Test successful connection deletion via AJAX."""
     # Set up session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_USER["username"]
-        sess["is_admin"] = TEST_USER["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_USER["is_admin"], username=TEST_USER["username"])
         sess.permanent = True
 
     # Mock successful API response
@@ -269,10 +303,7 @@ def test_delete_connection_api_error(client: FlaskClient, responses_mock) -> Non
     """Test delete connection with API error."""
     # Set up session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_USER["username"]
-        sess["is_admin"] = TEST_USER["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_USER["is_admin"], username=TEST_USER["username"])
         sess.permanent = True
 
     # Mock API error response
@@ -292,10 +323,7 @@ def test_delete_connection_network_error(client: FlaskClient, responses_mock) ->
     """Test delete connection with network error."""
     # Set up session
     with client.session_transaction() as sess:
-        sess["token"] = TEST_TOKEN
-        sess["username"] = TEST_USER["username"]
-        sess["is_admin"] = TEST_USER["is_admin"]
-        sess["logged_in"] = True
+        simulate_login(sess, TEST_TOKEN, is_admin=TEST_USER["is_admin"], username=TEST_USER["username"])
         sess.permanent = True
 
     # Mock network error
@@ -305,6 +333,14 @@ def test_delete_connection_network_error(client: FlaskClient, responses_mock) ->
         body=Exception("Network error"),
     )
 
+    # Mock the connections list endpoint that gets called after deletion
+    responses_mock.add(
+        responses_mock.GET,
+        "http://test-api:5000/api/connections/list",
+        json={"connections": []},
+        status=200,
+    )
+
     response = client.post("/connections/delete/test-connection", follow_redirects=True)
     assert response.status_code == 200
-    assert b"Error deleting connection" in response.data
+    assert b"Error stopping connection" in response.data

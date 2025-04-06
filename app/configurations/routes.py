@@ -25,7 +25,16 @@ def list_configurations() -> str:
     """
     try:
         configs = desktop_configs_client.list_configurations(session.get("token"))
-        return render_template("configurations.html", configurations=configs)
+
+        # Get all users for the modal form
+        try:
+            users_data = desktop_configs_client.get_users(session.get("token"))
+            all_users = users_data.get("data", [])
+        except APIError as e:
+            logger.error(f"Error fetching users: {str(e)}")
+            all_users = []
+
+        return render_template("configurations.html", configurations=configs, users=all_users)
     except APIError as e:
         logger.error(f"Error listing configurations: {str(e)}")
         flash(f"Error listing configurations: {str(e)}", "error")
@@ -181,16 +190,39 @@ def delete_configuration(config_id: int) -> Response:
 
         # Handle AJAX requests
         if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"success": True, "message": "Configuration deleted successfully"}), 200
+            response = jsonify({"success": True, "message": "Configuration deleted successfully"})
+            response.headers.add("Content-Type", "application/json")
+            return response, 200
 
         flash("Configuration deleted successfully", "success")
-    except APIError as e:
+    except Exception as e:
         logger.error(f"Error deleting configuration {config_id}: {str(e)}")
 
         # Handle AJAX requests
         if request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"error": str(e)}), 400
+            response = jsonify({"error": str(e)})
+            response.headers.add("Content-Type", "application/json")
+            return response, 400
 
         flash(f"Error deleting configuration: {str(e)}", "error")
 
     return redirect(url_for("configurations.list_configurations"))
+
+
+@configurations_bp.route("/api/configuration/<int:config_id>", methods=["GET"])
+@admin_required
+def get_configuration_api(config_id: int):
+    """Get a desktop configuration via API.
+
+    Args:
+        config_id: ID of the configuration to retrieve
+
+    Returns:
+        JSON response with configuration data
+    """
+    try:
+        config_response = desktop_configs_client.get_configuration(config_id, session.get("token"))
+        return jsonify(config_response), 200
+    except APIError as e:
+        logger.error(f"Error fetching configuration {config_id}: {str(e)}")
+        return jsonify({"error": str(e)}), 400

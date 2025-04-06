@@ -1,8 +1,6 @@
-from datetime import datetime
 from functools import wraps
 
-import jwt
-from flask import abort, current_app, flash, redirect, request, session, url_for
+from flask import flash, redirect, session, url_for
 
 
 def login_required(f):

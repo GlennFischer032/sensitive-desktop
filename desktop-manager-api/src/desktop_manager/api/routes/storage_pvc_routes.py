@@ -5,14 +5,12 @@ This module provides API routes for managing Persistent Volume Claims (PVCs).
 
 from http import HTTPStatus
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 from flask import Blueprint, jsonify, request
 
 from desktop_manager.api.models.storage_pvc import (
     StoragePVC,
-    StoragePVCCreate,
-    StoragePVCUpdate,
 )
 from desktop_manager.clients.factory import client_factory
 from desktop_manager.config.settings import get_settings

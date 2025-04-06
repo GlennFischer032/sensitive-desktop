@@ -5,10 +5,10 @@
 {% block content %}
 <div class="header-with-button">
     <h2>Connections</h2>
-    <a href="{{ url_for('connections.add_connection') }}" class="button">Add Connection</a>
+    <button id="add-connection-button" class="button">Add Connection</button>
 </div>
 
-<div class="table-container">
+<div class="table-container connections-table-container">
     {% if connections %}
     <table>
         <thead>
@@ -31,16 +31,24 @@
                 <td>{{ conn.desktop_configuration_name or "Default" }}</td>
                 <td class="action-buttons">
                     {% if not conn.is_stopped %}
-                    <a href="{{ url_for('connections.direct_connect', connection_id=conn.id) }}" target="_blank" class="button small connect-btn">Connect</a>
-                    <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post"
-                          onsubmit="handleDelete(event, '{{ conn.name }}')">
-                        <button type="submit" class="button small danger delete-btn">Stop</button>
-                    </form>
+                    <div class="button-group">
+                        <a href="{{ url_for('connections.direct_connect', connection_id=conn.id) }}" target="_blank" class="button small connect-btn">Connect</a>
+                        <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post"
+                            onsubmit="handleDelete(event, '{{ conn.name }}')">
+                            <button type="submit" class="button small danger delete-btn">Stop</button>
+                        </form>
+                    </div>
                     {% else %}
-                    <form action="{{ url_for('connections.resume_connection', connection_name=conn.name) }}" method="post"
-                          onsubmit="handleResume(event, '{{ conn.name }}')">
-                        <button type="submit" class="button small success resume-btn">Resume</button>
-                    </form>
+                    <div class="button-group">
+                        <form action="{{ url_for('connections.resume_connection', connection_name=conn.name) }}" method="post"
+                              onsubmit="handleResume(event, '{{ conn.name }}')">
+                            <button type="submit" class="button small success resume-btn">Resume</button>
+                        </form>
+                        <form action="{{ url_for('connections.permanent_delete_connection', connection_name=conn.name) }}" method="post"
+                              onsubmit="handlePermanentDelete(event, '{{ conn.name }}')">
+                            <button type="submit" class="button small danger permanent-delete-btn">Delete</button>
+                        </form>
+                    </div>
                     {% endif %}
                 </td>
             </tr>
@@ -54,7 +62,122 @@
     {% endif %}
 </div>
 
+<!-- Add Connection Modal -->
+<div id="add-connection-modal" class="modal">
+    <div class="modal-content">
+        <h3>Add Connection</h3>
+        <form id="connection-form" method="post" action="{{ url_for('connections.add_connection') }}">
+            <div class="form-group">
+                <label for="name">Connection Name:</label>
+                <input type="text" id="name" name="connection_name" required
+                       pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                       maxlength="12" oninput="validateConnectionName(this)">
+                <small class="form-text">Name must start and end with an alphanumeric character, contain only lowercase letters, numbers, and hyphens, and be 12 characters or less.</small>
+                <div id="name-feedback" class="invalid-feedback" style="display: none; color: red; margin-top: 5px;"></div>
+            </div>
+
+            <div class="form-group">
+                <div class="checkbox-wrapper">
+                    <label class="checkbox-label" for="persistent_home">
+                        <input type="checkbox" id="persistent_home" name="persistent_home" checked>
+                        Persistent Home Directory
+                    </label>
+                </div>
+                <small class="form-text">When enabled, your home directory contents will be preserved between sessions.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="desktop_configuration_id">Desktop Configuration:</label>
+                <select id="desktop_configuration_id" name="desktop_configuration_id">
+                    <option value="">Default Configuration</option>
+                    {% for config in desktop_configurations %}
+                    <option value="{{ config.id }}">{{ config.name }}</option>
+                    {% endfor %}
+                </select>
+                <small class="form-text">Select a desktop configuration to use for this connection.</small>
+            </div>
+
+            {% if is_admin and storage_pvcs %}
+            <div class="form-group">
+                <label for="external_pvc">Storage PVC:</label>
+                <select id="external_pvc" name="external_pvc">
+                    <option value="">No external storage</option>
+                    {% for pvc in storage_pvcs %}
+                    <option value="{{ pvc.name }}">{{ pvc.name }} ({{ pvc.size }})</option>
+                    {% endfor %}
+                </select>
+                <small class="form-text">Select a persistent volume claim to attach to this desktop for additional storage.</small>
+            </div>
+            {% endif %}
+
+            <div class="form-actions">
+                <button type="submit" class="button" id="submit-button">Create Connection</button>
+                <button type="button" class="button secondary close-modal">Cancel</button>
+            </div>
+        </form>
+
+        <div id="create-loading" class="loading-container hidden">
+            <div class="loading-wave">
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+            </div>
+            <p class="loading-text">Creating connection...</p>
+        </div>
+
+        <div id="create-error" class="message error hidden"></div>
+    </div>
+</div>
+
 <script>
+// UUID length is 8 characters plus 1 for the hyphen
+const UUID_LENGTH = 9;
+const MAX_TOTAL_LENGTH = 53;
+const MAX_INPUT_LENGTH = 12; // Limit user input to 12 characters
+const NAME_REGEX = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$/;
+
+function validateConnectionName(input) {
+    const nameInput = input.value.toLowerCase();
+    const feedback = document.getElementById('name-feedback');
+    const submitButton = document.getElementById('submit-button');
+
+    // Clear previous feedback
+    feedback.style.display = 'none';
+    submitButton.disabled = false;
+
+    // Convert to lowercase automatically
+    if (input.value !== nameInput) {
+        input.value = nameInput;
+    }
+
+    // Check if empty
+    if (!nameInput) {
+        feedback.textContent = 'Connection name is required.';
+        feedback.style.display = 'block';
+        submitButton.disabled = true;
+        return false;
+    }
+
+    // Check maximum length (hard limit to 12 characters)
+    if (nameInput.length > MAX_INPUT_LENGTH) {
+        feedback.textContent = `Name is too long. Maximum length is ${MAX_INPUT_LENGTH} characters.`;
+        feedback.style.display = 'block';
+        submitButton.disabled = true;
+        return false;
+    }
+
+    // Check regex pattern
+    if (!NAME_REGEX.test(nameInput)) {
+        feedback.textContent = 'Name must start and end with an alphanumeric character, and can contain only lowercase letters, numbers, and hyphens.';
+        feedback.style.display = 'block';
+        submitButton.disabled = true;
+        return false;
+    }
+
+    return true;
+}
+
 async function handleDelete(event, connectionName) {
     event.preventDefault();
 
@@ -66,13 +189,15 @@ async function handleDelete(event, connectionName) {
     const row = document.getElementById(`connection-${connectionName}`);
     const actionButtons = row.querySelector('.action-buttons');
 
-    // Replace buttons with loading animation
+    // Replace buttons with loading animation while preserving structure
     actionButtons.innerHTML = `
-        <span class="deleting-text">Stopping</span>
-        <div class="loading-dots">
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
+        <div class="button-group">
+            <span class="deleting-text">Stopping</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
         </div>
     `;
 
@@ -112,8 +237,10 @@ async function handleDelete(event, connectionName) {
         }
     } catch (error) {
         actionButtons.innerHTML = `
-            <span class="error-text">Error: ${error.message}</span>
-            <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            <div class="button-group">
+                <span class="error-text">Error: ${error.message}</span>
+                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            </div>
         `;
     }
 }
@@ -129,13 +256,15 @@ async function handleResume(event, connectionName) {
     const row = document.getElementById(`connection-${connectionName}`);
     const actionButtons = row.querySelector('.action-buttons');
 
-    // Replace buttons with loading animation
+    // Replace buttons with loading animation while preserving structure
     actionButtons.innerHTML = `
-        <span class="resuming-text">Resuming</span>
-        <div class="loading-dots">
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
-            <div class="loading-dot"></div>
+        <div class="button-group">
+            <span class="resuming-text">Resuming</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
         </div>
     `;
 
@@ -188,11 +317,211 @@ async function handleResume(event, connectionName) {
     } catch (error) {
         console.error('Resume error:', error);
         actionButtons.innerHTML = `
-            <span class="error-text">Error: ${error.message}</span>
-            <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            <div class="button-group">
+                <span class="error-text">Error: ${error.message}</span>
+                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            </div>
         `;
     }
 }
+
+async function handlePermanentDelete(event, connectionName) {
+    event.preventDefault();
+
+    if (!confirm('Are you sure you want to permanently delete this connection? This will delete the connection and its persistent home directory. This action cannot be undone.')) {
+        return;
+    }
+
+    const form = event.target;
+    const row = document.getElementById(`connection-${connectionName}`);
+    const actionButtons = row.querySelector('.action-buttons');
+
+    // Replace buttons with loading animation while preserving structure
+    actionButtons.innerHTML = `
+        <div class="button-group">
+            <span class="deleting-text">Permanently Deleting</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
+        </div>
+    `;
+
+    row.classList.add('stopping-row');
+
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name: connectionName }),
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            // Show success notification
+            const notificationContainer = document.createElement('div');
+            notificationContainer.className = 'notification-container';
+            notificationContainer.innerHTML = `
+                <div class="notification success">
+                    Connection permanently deleted
+                </div>
+            `;
+            document.body.appendChild(notificationContainer);
+
+            // Remove notification after delay
+            setTimeout(() => {
+                notificationContainer.querySelector('.notification').style.opacity = '0';
+                setTimeout(() => notificationContainer.remove(), 300);
+            }, 3000);
+
+            // Remove the row from the table
+            row.remove();
+        } else {
+            let errorMessage = 'Failed to permanently delete connection';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch (e) {
+                try {
+                    errorMessage = await response.text();
+                } catch (e2) {
+                    console.error('Could not parse error response', e2);
+                }
+            }
+            throw new Error(errorMessage);
+        }
+    } catch (error) {
+        console.error('Permanent delete error:', error);
+        actionButtons.innerHTML = `
+            <div class="button-group">
+                <span class="error-text">Error: ${error.message}</span>
+                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            </div>
+        `;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal handling
+    const addConnectionModal = document.getElementById('add-connection-modal');
+
+    // Add Connection button
+    const addConnectionButton = document.getElementById('add-connection-button');
+    if (addConnectionButton) {
+        addConnectionButton.addEventListener('click', function() {
+            showModal(addConnectionModal);
+        });
+    }
+
+    // Close modal buttons
+    document.querySelectorAll('.close-modal').forEach(button => {
+        button.addEventListener('click', function() {
+            hideModal(this.closest('.modal'));
+        });
+    });
+
+    // Connection form submission
+    document.getElementById('connection-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        if (!validateConnectionName(document.getElementById('name'))) {
+            return false;
+        }
+
+        const form = this;
+        const createLoading = document.getElementById('create-loading');
+        const createError = document.getElementById('create-error');
+
+        // Hide any previous error
+        createError.classList.add('hidden');
+        createError.textContent = '';
+
+        // Show loading
+        form.style.display = 'none';
+        createLoading.classList.remove('hidden');
+
+        // Ensure the checkbox value is properly set
+        const persistentHomeCheckbox = document.getElementById('persistent_home');
+        let formData = new FormData(form);
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create connection');
+                }
+
+                // Success - show notification
+                const notificationContainer = document.createElement('div');
+                notificationContainer.className = 'notification-container';
+                notificationContainer.innerHTML = `
+                    <div class="notification success">
+                        ${data.message || 'Connection created successfully'}
+                    </div>
+                `;
+                document.body.appendChild(notificationContainer);
+
+                // Remove notification after delay
+                setTimeout(() => {
+                    notificationContainer.querySelector('.notification').style.opacity = '0';
+                    setTimeout(() => notificationContainer.remove(), 300);
+                }, 3000);
+
+                // Reload the page after a short delay to show the new connection
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                // Handle non-JSON response (redirect)
+                window.location.reload();
+            }
+        } catch (error) {
+            // Show error
+            createLoading.classList.add('hidden');
+            form.style.display = 'block';
+            createError.textContent = error.message;
+            createError.classList.remove('hidden');
+        }
+    });
+
+    // Modal helper functions
+    function showModal(modal) {
+        modal.style.display = 'flex';
+        setTimeout(() => {
+            modal.classList.add('visible');
+        }, 10);
+    }
+
+    function hideModal(modal) {
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            modal.style.display = 'none';
+
+            // Reset forms and errors if needed
+            if (modal === addConnectionModal) {
+                document.getElementById('connection-form').reset();
+                document.getElementById('name-feedback').style.display = 'none';
+                document.getElementById('connection-form').style.display = 'block';
+                document.getElementById('create-loading').classList.add('hidden');
+                document.getElementById('create-error').classList.add('hidden');
+            }
+        }, 300);
+    }
+});
 </script>
 
 {% endblock %}

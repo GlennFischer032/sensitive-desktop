@@ -1,4 +1,5 @@
-import requests
+"""Routes for user management module."""
+
 from flask import (
     current_app,
     flash,
@@ -10,18 +11,24 @@ from flask import (
     url_for,
 )
 
-from clients.base import APIError
-from clients.factory import client_factory
-from middleware.security import rate_limit
-from utils.decorators import admin_required, login_required
+from app.clients.base import APIError
+from app.clients.factory import client_factory
+from app.middleware.auth import admin_required
+from app.middleware.security import rate_limit
+from app.utils.decorators import login_required
 
 from . import users_bp
 
 
 @users_bp.route("/")
 @login_required
-@admin_required
 def view_users():
+    """Display users list (admin only)."""
+    # Check if user is admin
+    if not session.get("is_admin", False):
+        flash("You need administrator privileges to access this page", "error")
+        return redirect(url_for("connections.view_connections"))
+
     try:
         current_app.logger.info("Fetching users from API...")
         users_client = client_factory.get_users_client()
@@ -82,8 +89,10 @@ def add_user():
         sub = request.form.get("sub")
 
         if not username or not sub:
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"error": "Username and OIDC Subject Identifier are required"}), 400
             flash("Username and OIDC Subject Identifier are required", "error")
-            return render_template("add_user.html")
+            return redirect(url_for("users.view_users"))
 
         data = {"username": username, "is_admin": is_admin, "sub": sub}
 
@@ -95,6 +104,14 @@ def add_user():
 
             users_client.add_user(**data)
 
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify(
+                    {
+                        "message": "User added successfully. User information will be filled from OIDC during their first login.",
+                        "username": username,
+                    }
+                ), 201
+
             flash(
                 "User added successfully. User information will be filled from OIDC during their first login.",
                 "success",
@@ -102,6 +119,12 @@ def add_user():
             return redirect(url_for("users.view_users"))
         except APIError as e:
             current_app.logger.error(f"Failed to add user: {e.message}")
+
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                if e.details:
+                    return jsonify({"error": e.message, "details": e.details}), e.status_code
+                return jsonify({"error": e.message}), e.status_code
+
             if e.details:
                 # Handle validation errors
                 error_messages = []
@@ -113,9 +136,19 @@ def add_user():
                 flash(f"Failed to add user: {e.message}", "error")
         except Exception as e:
             current_app.logger.error(f"Unexpected error: {str(e)}")
+
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"error": str(e)}), 500
+
             flash(f"Error: {str(e)}", "error")
-        return render_template("add_user.html")
-    return render_template("add_user.html")
+
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"error": "Failed to add user"}), 500
+
+        return redirect(url_for("users.view_users"))
+
+    # For GET requests, redirect to the users page where the modal is available
+    return redirect(url_for("users.view_users"))
 
 
 @users_bp.route("/delete/<username>", methods=["POST"])
@@ -125,19 +158,31 @@ def delete_user(username):
     try:
         current_app.logger.info(f"Attempting to delete user: {username}")
         if username == session.get("username"):
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"error": "Cannot delete your own account"}), 400
             flash("Cannot delete your own account")
             return redirect(url_for("users.view_users"))
 
         users_client = client_factory.get_users_client()
         users_client.delete_user(username)
 
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"message": "User deleted successfully"}), 200
+
         flash("User deleted successfully")
     except APIError as e:
         current_app.logger.error(f"Failed to delete user: {e.message}")
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"error": e.message}), e.status_code
         flash(f"Failed to delete user: {e.message}")
     except Exception as e:
         current_app.logger.error(f"Error deleting user: {str(e)}")
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"error": str(e)}), 500
         flash(f"Error: {str(e)}")
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"error": "Failed to delete user"}), 500
 
     return redirect(url_for("users.view_users"))
 
@@ -228,3 +273,30 @@ def update_user(username):
 
         flash(f"Error updating user: {str(e)}", "error")
         return redirect(url_for("users.user_detail", username=username))
+
+
+@users_bp.route("/api/detail/<username>")
+@login_required
+@admin_required
+def api_user_detail(username):
+    """API endpoint to get user details for the modal view."""
+    try:
+        current_app.logger.info(f"API: Fetching details for user: {username}")
+        users_client = client_factory.get_users_client()
+        user = users_client.get_user(username)
+
+        # Get user's connections if available
+        try:
+            connections_client = client_factory.get_connections_client()
+            user_connections = connections_client.list_connections(filter_by_user=username)
+        except Exception as e:
+            current_app.logger.warning(f"Could not fetch connections for user {username}: {str(e)}")
+            user_connections = []
+
+        return jsonify({"user": user, "user_connections": user_connections}), 200
+    except APIError as e:
+        current_app.logger.error(f"API Error fetching user details: {e.message}")
+        return jsonify({"error": f"Failed to fetch user details: {e.message}"}), e.status_code
+    except Exception as e:
+        current_app.logger.error(f"API Error fetching user details: {str(e)}")
+        return jsonify({"error": f"Error fetching user details: {str(e)}"}), 500

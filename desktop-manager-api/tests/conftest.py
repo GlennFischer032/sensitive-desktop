@@ -242,10 +242,65 @@ def setup_test_db(database_url):
                         target_port INTEGER,
                         password TEXT,
                         protocol TEXT DEFAULT 'vnc',
-                        FOREIGN KEY (created_by) REFERENCES users(username)
+                        is_stopped INTEGER DEFAULT 0,
+                        persistent_home INTEGER DEFAULT 1,
+                        desktop_configuration_id INTEGER,
+                        FOREIGN KEY (created_by) REFERENCES users(username),
+                        FOREIGN KEY (desktop_configuration_id) REFERENCES desktop_configurations(id)
                     )
                 """
                     )
+                )
+
+                # Desktop Configurations table
+                conn.execute(
+                    text(
+                        """
+                    CREATE TABLE IF NOT EXISTS desktop_configurations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL UNIQUE,
+                        description TEXT,
+                        image TEXT NOT NULL,
+                        created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+                        created_by TEXT,
+                        is_public INTEGER DEFAULT 0,
+                        min_cpu INTEGER DEFAULT 1,
+                        max_cpu INTEGER DEFAULT 4,
+                        min_ram TEXT DEFAULT '4096Mi',
+                        max_ram TEXT DEFAULT '16384Mi',
+                        FOREIGN KEY (created_by) REFERENCES users(username) ON DELETE CASCADE
+                    )
+                """
+                    )
+                )
+
+                # Create index for desktop_configurations table
+                conn.execute(
+                    text("CREATE INDEX IF NOT EXISTS idx_desktop_config_name ON desktop_configurations(name)")
+                )
+
+                # Desktop Configuration Access table
+                conn.execute(
+                    text(
+                        """
+                    CREATE TABLE IF NOT EXISTS desktop_configuration_access (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        desktop_configuration_id INTEGER NOT NULL,
+                        username TEXT NOT NULL,
+                        created_at DATETIME DEFAULT (datetime('now', 'localtime')),
+                        FOREIGN KEY (desktop_configuration_id) REFERENCES desktop_configurations(id) ON DELETE CASCADE,
+                        FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE
+                    )
+                """
+                    )
+                )
+
+                # Create indexes for desktop_configuration_access table
+                conn.execute(
+                    text("CREATE INDEX IF NOT EXISTS idx_desktop_config_access_username ON desktop_configuration_access(username)")
+                )
+                conn.execute(
+                    text("CREATE INDEX IF NOT EXISTS idx_desktop_config_access_config_id ON desktop_configuration_access(desktop_configuration_id)")
                 )
 
                 conn.commit()

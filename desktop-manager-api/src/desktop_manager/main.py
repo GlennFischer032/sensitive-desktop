@@ -4,16 +4,15 @@ import logging
 
 from flask import Flask, jsonify
 from flask_cors import CORS
-from sqlalchemy import text
 from werkzeug.security import generate_password_hash
 
-from desktop_manager.api.models.user import SocialAuthAssociation, User
 from desktop_manager.api.routes import (
     auth_bp,
     connections_bp,
     desktop_config_bp,
     oidc_bp,
     storage_pvc_bp,
+    token_bp,
     users_bp,
 )
 from desktop_manager.clients.factory import client_factory
@@ -90,7 +89,8 @@ def create_app() -> Flask:
     app.register_blueprint(desktop_config_bp, url_prefix="/api/desktop-config")
     app.register_blueprint(users_bp, url_prefix="/api/users")
     app.register_blueprint(storage_pvc_bp, url_prefix="/api/storage-pvcs")
-    app.register_blueprint(oidc_bp, url_prefix="/api")  # OIDC routes
+    app.register_blueprint(oidc_bp, url_prefix="/api")
+    app.register_blueprint(token_bp, url_prefix="")  # Token routes already include /api prefix
 
     # Initialize admin user
     with app.app_context():

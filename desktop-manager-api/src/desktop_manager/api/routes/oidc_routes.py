@@ -10,7 +10,6 @@ import hashlib
 from http import HTTPStatus
 import json
 import logging
-import os
 import secrets
 from typing import Any, Dict, Tuple
 from urllib.parse import urlencode
@@ -19,7 +18,6 @@ from flask import Blueprint, current_app, jsonify, request
 import jwt
 import requests
 
-from desktop_manager.api.models.user import PKCEState, SocialAuthAssociation, User
 from desktop_manager.clients.factory import client_factory
 from desktop_manager.config.settings import get_settings
 

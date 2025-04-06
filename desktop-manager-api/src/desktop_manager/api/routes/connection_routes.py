@@ -1,10 +1,10 @@
 from http import HTTPStatus
 import logging
+import re
 from typing import Any, Dict, Tuple
 
-from flask import Blueprint, jsonify, redirect, request
+from flask import Blueprint, jsonify, request
 
-from desktop_manager.api.models.connection import Connection
 from desktop_manager.clients.factory import client_factory
 from desktop_manager.clients.rancher import DesktopValues
 from desktop_manager.config.settings import get_settings
@@ -51,6 +51,30 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             if not data or "name" not in data:
                 return (
                     jsonify({"error": "Missing required field: name"}),
+                    HTTPStatus.BAD_REQUEST,
+                )
+
+            # Validate name against the required pattern
+            name_pattern = re.compile(
+                r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+            )
+            if not name_pattern.match(data["name"]):
+                return (
+                    jsonify(
+                        {
+                            "error": "Connection name must start and end with an alphanumeric character "
+                            "and contain only lowercase letters, numbers, and hyphens"
+                        }
+                    ),
+                    HTTPStatus.BAD_REQUEST,
+                )
+
+            # Check if name is too long (max 12 characters)
+            if len(data["name"]) > 12:
+                return (
+                    jsonify(
+                        {"error": "Connection name is too long. Maximum length is 12 characters."}
+                    ),
                     HTTPStatus.BAD_REQUEST,
                 )
 
@@ -189,8 +213,8 @@ def scale_up() -> tuple[Dict[str, Any], int]:
 
             logging.info("Current user: %s", current_user.username)
 
-            # Generate deterministic name using username as suffix
-            name = generate_unique_connection_name(base_name, current_user.username)
+            # Generate unique name with UUID instead of username
+            name = generate_unique_connection_name(base_name)
             logging.info("Generated unique name: %s", name)
 
             # Generate VNC password
@@ -896,57 +920,98 @@ def direct_connect(connection_id: str):
 
             connection = result[0]
 
-            # Initialize the JSON auth utility
-            guacamole_json_auth = GuacamoleJsonAuth()
+            # Check if user has permission to access this connection
+            if not current_user.is_admin and connection["created_by"] != current_user.username:
+                return (
+                    jsonify({"error": "You do not have permission to access this connection"}),
+                    HTTPStatus.FORBIDDEN,
+                )
 
-            # Construct hostname from connection name
-            settings = get_settings()
-            target_host = f"{settings.NAMESPACE}-{connection['name']}.dyn.cloud.e-infra.cz"
+            # Get the Guacamole connection ID
+            guacamole_connection_id = connection.get("guacamole_connection_id")
+            if not guacamole_connection_id:
+                return jsonify({"error": "No Guacamole connection ID found"}), HTTPStatus.NOT_FOUND
 
-            # Format connection parameters for JSON auth
-            connection_info = {
-                "protocol": "vnc",
-                "parameters": {
-                    "hostname": target_host,
-                    "port": "5900",  # Fixed VNC port
-                    "password": connection.get(
-                        "password", ""
-                    ),  # Password is stored in Guacamole, not in our DB
-                    "enable-audio": "true",
-                    "color-depth": "24",
-                    "cursor": "local",
-                    "swap-red-blue": "false",
-                    "read-only": "false",
-                },
-            }
+            # Get Guacamole client
+            guacamole_client = client_factory.get_guacamole_client()
 
-            # Format for Guacamole JSON auth
-            connections = {connection["name"]: connection_info}
+            # Get auth token for direct connection
+            token = guacamole_client.login()
 
-            # Generate auth token
-            token = guacamole_json_auth.generate_auth_data(
-                username=current_user.username,
-                connections=connections,
-                expires_in_ms=1800000,  # 30 minutes
+            # Verify the connection exists in Guacamole
+            connection_exists = guacamole_client.check_connection_exists(
+                token, guacamole_connection_id
             )
+            if not connection_exists:
+                # Try to recreate the connection if it doesn't exist
+                logging.warning(
+                    "Guacamole connection %s not found, attempting to recreate",
+                    guacamole_connection_id,
+                )
+                try:
+                    settings = get_settings()
+                    target_host = f"{settings.NAMESPACE}-{connection['name']}.dyn.cloud.e-infra.cz"
 
-            # Construct the URL
+                    # We don't have the original VNC password stored in our database
+                    # We'll need to create a new one and update the connection
+                    vnc_password = generate_random_string(12)
+
+                    # Create new connection in Guacamole
+                    new_guacamole_connection_id = guacamole_client.create_connection(
+                        token,
+                        connection["name"],
+                        target_host,
+                        vnc_password,
+                    )
+
+                    # Update the connection in our database
+                    update_query = """
+                    UPDATE connections
+                    SET guacamole_connection_id = :new_id
+                    WHERE id = :connection_id
+                    """
+                    db_client.execute_query(
+                        update_query,
+                        {"new_id": new_guacamole_connection_id, "connection_id": connection_id},
+                    )
+
+                    # Grant permission to user
+                    guacamole_client.grant_permission(
+                        token, current_user.username, new_guacamole_connection_id
+                    )
+
+                    # Use the new connection ID
+                    guacamole_connection_id = new_guacamole_connection_id
+                    logging.info("Created new Guacamole connection: %s", guacamole_connection_id)
+                except Exception as e:
+                    logging.error("Failed to recreate Guacamole connection: %s", str(e))
+                    return jsonify(
+                        {"error": "Failed to recreate Guacamole connection"}
+                    ), HTTPStatus.INTERNAL_SERVER_ERROR
+
+            # Generate auth token directly for this specific connection
+            settings = get_settings()
+
+            # Use the Guacamole REST API auth token to direct to the specific connection
+            auth_token = guacamole_client.get_auth_token(token)
+
+            # Construct the URL to go directly to the connection
             guacamole_external_url = settings.EXTERNAL_GUACAMOLE_URL.rstrip("/")
             if not guacamole_external_url:
                 guacamole_external_url = "http://localhost:8080/guacamole"
 
-            # The URL should include the "data" parameter with the token
-            import urllib.parse
+            # Format direct connection URL with the specific connection ID
+            direct_url = (
+                f"{guacamole_external_url}/#/client/{guacamole_connection_id}?token={auth_token}"
+            )
 
-            encoded_token = urllib.parse.quote_plus(token)
-            auth_url = f"{guacamole_external_url}/#/?data={encoded_token}"
-
-            # Return the auth URL in the response instead of redirecting
+            # Return the auth URL in the response
             return jsonify(
                 {
-                    "auth_url": auth_url,
+                    "auth_url": direct_url,
                     "connection_id": connection_id,
                     "connection_name": connection["name"],
+                    "guacamole_connection_id": guacamole_connection_id,
                 }
             ), HTTPStatus.OK
 
@@ -1318,4 +1383,110 @@ def resume_connection() -> Tuple[Dict[str, Any], int]:
 
     except Exception as e:
         logging.error("Error in resume_connection: %s", str(e))
+        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@connections_bp.route("/permanent-delete", methods=["POST"])
+@token_required
+def permanent_delete() -> Tuple[Dict[str, Any], int]:
+    """Permanently delete a connection and its associated PVC.
+
+    This endpoint:
+    1. Deletes the connection from the system
+    2. Deletes the PVC with the name format [connection_name]-home
+
+    For stopped connections with persistent home.
+
+    Returns:
+        tuple: A tuple containing:
+            - Dict with results
+            - HTTP status code
+    """
+    try:
+        # Get authenticated user
+        current_user = request.current_user
+
+        # Extract connection name from request
+        data = request.get_json()
+        if not data or "name" not in data:
+            return (
+                jsonify({"error": "Missing required field: name"}),
+                HTTPStatus.BAD_REQUEST,
+            )
+
+        connection_name = data["name"]
+        logging.info("Permanently deleting connection: %s", connection_name)
+
+        # Get database client
+        db_client = client_factory.get_database_client()
+
+        try:
+            # Get connection from database
+            query = """
+            SELECT * FROM connections
+            WHERE name = :connection_name
+            """
+            result, count = db_client.execute_query(query, {"connection_name": connection_name})
+
+            if count == 0:
+                return (
+                    jsonify({"error": f"Connection {connection_name} not found"}),
+                    HTTPStatus.NOT_FOUND,
+                )
+
+            connection = result[0]
+
+            # Check if connection is stopped
+            if not connection.get("is_stopped", False):
+                return (
+                    jsonify({"error": f"Connection {connection_name} must be stopped first"}),
+                    HTTPStatus.BAD_REQUEST,
+                )
+
+            # Check if user has permission to delete this connection
+            if not current_user.is_admin and connection["created_by"] != current_user.username:
+                return (
+                    jsonify({"error": "You do not have permission to delete this connection"}),
+                    HTTPStatus.FORBIDDEN,
+                )
+
+            # Delete the associated PVC if exists (format is [connection_name]-home)
+            pvc_name = f"{connection_name}-home"
+            rancher_client = client_factory.get_rancher_client()
+            pvc_deleted = False
+
+            try:
+                # Try to get the PVC first to check if it exists
+                rancher_client.get_pvc(name=pvc_name)
+
+                # If no exception was raised, the PVC exists, so delete it
+                rancher_client.delete_pvc(name=pvc_name)
+                logging.info("Deleted PVC: %s", pvc_name)
+                pvc_deleted = True
+            except Exception as e:
+                logging.warning("Failed to delete PVC %s: %s", pvc_name, str(e))
+                # Continue with connection deletion even if PVC deletion fails
+
+            # Delete connection from database
+            db_client.delete_connection(connection_name)
+            logging.info("Permanently deleted connection: %s", connection_name)
+
+            # Return result
+            message = f"Connection {connection_name} permanently deleted"
+            if pvc_deleted:
+                message += f" and PVC {pvc_name} removed"
+            else:
+                message += f" but failed to delete PVC {pvc_name}"
+
+            return (
+                jsonify({"message": message}),
+                HTTPStatus.OK,
+            )
+
+        except Exception as e:
+            logging.error("Database error in permanent_delete: %s", str(e))
+            raise
+
+    except Exception as e:
+        logging.error("Error in permanent_delete: %s", str(e))
         return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR

@@ -155,3 +155,22 @@ CREATE INDEX idx_pvc_name ON storage_pvcs(name);
 CREATE INDEX idx_pvc_namespace ON storage_pvcs(namespace);
 CREATE INDEX idx_pvc_access ON storage_pvc_access(pvc_id, username);
 CREATE INDEX idx_connection_pvc ON connection_pvcs(connection_id, pvc_id);
+
+-- API Tokens table for admin-generated bearer tokens
+CREATE TABLE IF NOT EXISTS api_tokens (
+    id SERIAL PRIMARY KEY,
+    token_id VARCHAR(64) NOT NULL UNIQUE,  -- public identifier for the token
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    revoked BOOLEAN DEFAULT FALSE,
+    revoked_at TIMESTAMP,
+    created_by VARCHAR(255) NOT NULL,
+    last_used TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(username) ON DELETE CASCADE,
+    UNIQUE (name, created_by)
+);
+
+CREATE INDEX idx_api_token_id ON api_tokens(token_id);
+CREATE INDEX idx_api_token_name ON api_tokens(name, created_by);

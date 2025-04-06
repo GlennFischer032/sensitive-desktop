@@ -1,3 +1,5 @@
+import re
+
 import requests
 from flask import (
     current_app,
@@ -10,10 +12,10 @@ from flask import (
     url_for,
 )
 
-from clients.base import APIError
-from clients.factory import client_factory
-from middleware.security import rate_limit
-from utils.decorators import login_required
+from app.clients.base import APIError
+from app.clients.factory import client_factory
+from app.middleware.security import rate_limit
+from app.utils.decorators import login_required
 
 from . import connections_bp
 
@@ -27,8 +29,32 @@ def view_connections():
         connections_client = client_factory.get_connections_client()
         connections = connections_client.list_connections()
 
+        # Fetch desktop configurations for the add connection modal
+        try:
+            desktop_configs_client = client_factory.get_desktop_configurations_client()
+            desktop_configurations = desktop_configs_client.list_configurations()
+        except Exception as e:
+            current_app.logger.error(f"Error fetching desktop configurations: {str(e)}")
+            desktop_configurations = []
+
+        # Fetch storage PVCs for admin users
+        storage_pvcs = []
+        is_admin = session.get("is_admin", False)
+        if is_admin:
+            try:
+                storage_client = client_factory.get_storage_client()
+                storage_pvcs = storage_client.list_pvcs()
+            except Exception as e:
+                current_app.logger.error(f"Error fetching storage PVCs: {str(e)}")
+
         current_app.logger.info(f"Found {len(connections)} connections")
-        return render_template("connections.html", connections=connections)
+        return render_template(
+            "connections.html",
+            connections=connections,
+            desktop_configurations=desktop_configurations,
+            is_admin=is_admin,
+            storage_pvcs=storage_pvcs,
+        )
     except APIError as e:
         current_app.logger.error(f"Error fetching connections: {e.message}")
         flash(f"Failed to fetch connections: {e.message}")
@@ -47,7 +73,32 @@ def add_connection():
         try:
             connection_name = request.form.get("connection_name")
             if not connection_name:
-                flash("Connection name is required", "error")
+                error_msg = "Connection name is required"
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify({"status": "error", "error": error_msg}), 400
+                flash(error_msg, "error")
+                return redirect(url_for("connections.add_connection"))
+
+            # Validate name against required pattern and length
+            name_pattern = re.compile(
+                r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+            )
+            if not name_pattern.match(connection_name):
+                error_msg = (
+                    "Connection name must start and end with an alphanumeric character "
+                    "and contain only lowercase letters, numbers, and hyphens"
+                )
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify({"status": "error", "error": error_msg}), 400
+                flash(error_msg, "error")
+                return redirect(url_for("connections.add_connection"))
+
+            # Check for the 12 character limit
+            if len(connection_name) > 12:
+                error_msg = "Connection name is too long. Maximum length is 12 characters."
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify({"status": "error", "error": error_msg}), 400
+                flash(error_msg, "error")
                 return redirect(url_for("connections.add_connection"))
 
             # Get desktop configuration if specified
@@ -65,7 +116,8 @@ def add_connection():
                 )
 
             # Get persistent home setting
-            persistent_home = bool(request.form.get("persistent_home"))
+            persistent_home_value = request.form.get("persistent_home", "off")
+            persistent_home = persistent_home_value != "off"
 
             # Get external PVC if specified (admin only)
             external_pvc = request.form.get("external_pvc")
@@ -99,13 +151,22 @@ def add_connection():
                 connection_data["external_pvc"] = external_pvc
 
             connections_client.add_connection(**connection_data)
-            flash("Connection created successfully", "success")
+
+            success_msg = "Connection created successfully"
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"status": "success", "message": success_msg}), 200
+
+            flash(success_msg, "success")
             return redirect(url_for("connections.view_connections"))
         except APIError as e:
             current_app.logger.error(f"Failed to add connection: {e.message}")
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"status": "error", "error": e.message}), 400
             flash(f"Failed to add connection: {e.message}")
         except Exception as e:
             current_app.logger.error(f"Error adding connection: {str(e)}")
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"status": "error", "error": str(e)}), 500
             flash(f"Error adding connection: {str(e)}")
 
     # For GET requests or if POST fails, fetch desktop configurations for the form
@@ -121,26 +182,16 @@ def add_connection():
     is_admin = session.get("is_admin", False)
     if is_admin:
         try:
-            token = session.get("token")
-            if token:
-                api_url = f"{current_app.config['API_URL']}/api/storage-pvcs/list"
-                response = requests.get(
-                    api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10
-                )
-
-                if response.status_code == 200:
-                    data = response.json()
-                    storage_pvcs = data.get("pvcs", [])
-                    current_app.logger.info(f"Retrieved {len(storage_pvcs)} storage PVCs")
+            storage_client = client_factory.get_storage_client()
+            storage_pvcs = storage_client.list_pvcs()
         except Exception as e:
             current_app.logger.error(f"Error fetching storage PVCs: {str(e)}")
-            # Continue without PVCs
 
     return render_template(
         "add_connection.html",
         desktop_configurations=desktop_configurations,
-        storage_pvcs=storage_pvcs,
         is_admin=is_admin,
+        storage_pvcs=storage_pvcs,
     )
 
 
@@ -186,6 +237,9 @@ def direct_connect(connection_id):
         # Construct the API URL for direct connection
         api_url = f"{current_app.config['API_URL']}/api/connections/direct-connect/{connection_id}"
 
+        # Log the request for debugging
+        current_app.logger.info(f"Making API request to {api_url}")
+
         # Make the request to the API with auth token
         response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
 
@@ -195,8 +249,13 @@ def direct_connect(connection_id):
             data = response.json()
             guacamole_url = data.get("auth_url")
 
+            # Log the received data
+            current_app.logger.info(f"Received connection data: {data}")
+
             if guacamole_url:
-                # Redirect to the Guacamole auth URL
+                # Just use the auth URL directly without modification
+                # The backend should already have properly configured it for direct connection
+                current_app.logger.info(f"Redirecting to Guacamole URL: {guacamole_url}")
                 return redirect(guacamole_url)
             else:
                 flash("Invalid response from API: missing auth_url")
@@ -300,4 +359,56 @@ def resume_connection(connection_name):
             ), 500
 
         flash(f"Error resuming connection: {str(e)}")
+        return redirect(url_for("connections.view_connections"))
+
+
+@connections_bp.route("/permanent-delete/<connection_name>", methods=["POST"])
+@login_required
+@rate_limit(requests_per_minute=10)  # Stricter limit for permanent deletion
+def permanent_delete_connection(connection_name):
+    try:
+        current_app.logger.info(f"Permanently deleting connection: {connection_name}")
+
+        # Extract connection name from JSON body if present
+        if request.is_json:
+            data = request.get_json()
+            if data and "name" in data:
+                connection_name = data["name"]
+                current_app.logger.info(f"Using connection name from JSON body: {connection_name}")
+
+        connections_client = client_factory.get_connections_client()
+        connections_client.permanent_delete_connection(connection_name)
+
+        # If it's an AJAX request, return JSON response
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"status": "success", "message": "Connection permanently deleted"}), 200
+
+        flash("Connection permanently deleted")
+        return redirect(url_for("connections.view_connections"))
+
+    except APIError as e:
+        current_app.logger.error(f"Failed to permanently delete connection: {e.message}")
+
+        # If it's an AJAX request, return JSON error response
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": f"Failed to permanently delete connection: {e.message}",
+                }
+            ), 400
+
+        flash(f"Failed to permanently delete connection: {e.message}")
+        return redirect(url_for("connections.view_connections"))
+
+    except Exception as e:
+        current_app.logger.error(f"Error permanently deleting connection: {str(e)}")
+
+        # If it's an AJAX request, return JSON error response
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(
+                {"status": "error", "message": f"Error permanently deleting connection: {str(e)}"}
+            ), 500
+
+        flash(f"Error permanently deleting connection: {str(e)}")
         return redirect(url_for("connections.view_connections"))

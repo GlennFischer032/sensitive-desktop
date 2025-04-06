@@ -20,6 +20,7 @@ dependencies = [
     "python-jose[cryptography]",
     "werkzeug",
     "PyJWT",
+    "python-dateutil",
     # Security dependencies
     "argon2-cffi",
     "bleach",
@@ -27,6 +28,7 @@ dependencies = [
     "flask-talisman",
     "flask-seasurf",
     "email-validator"
+
 ]
 
 [project.optional-dependencies]
@@ -146,7 +148,6 @@ ignore = [
     "E722",     # Do not use bare except
     "S603",     # Subprocess call with potential shell injection
 ]
-unfixable = ["F401"]  # Don't auto-remove unused imports
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.lint.per-file-ignores]
