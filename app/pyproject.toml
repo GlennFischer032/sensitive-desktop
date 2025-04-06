@@ -27,8 +27,9 @@ dependencies = [
     "flask-limiter",
     "flask-talisman",
     "flask-seasurf",
-    "email-validator"
-
+    "email-validator",
+    # API Documentation
+    "flasgger"
 ]
 
 [project.optional-dependencies]
@@ -56,13 +57,18 @@ build = "pysassc -t compressed app/scss/main.scss app/static/style.css"
 
 [tool.setuptools]
 packages = [
-    "auth",
     "clients",
     "config",
-    "connections",
     "middleware",
-    "users",
-    "utils"
+
+    "utils",
+    "services.auth",
+    "services.configurations",
+    "services.connections",
+    "services.storage",
+    "services.tokens",
+    "services.users",
+
 ]
 
 [tool.black]

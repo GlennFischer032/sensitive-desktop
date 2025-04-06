@@ -44,12 +44,16 @@ def parse_date_safely(date_str):
 @admin_required
 def view_tokens():
     """View API tokens page.
-
     This endpoint displays the API tokens page, which shows all tokens
     created by the current user and allows creating new tokens.
-
-    Returns:
-        str: Rendered template
+    ---
+    tags:
+      - Tokens
+    responses:
+      200:
+        description: API tokens page displayed successfully
+      500:
+        description: Error retrieving API tokens
     """
     try:
         tokens = _fetch_tokens()
@@ -126,11 +130,41 @@ def _parse_key_value_token_data(new_token_data):
 @admin_required
 def create_token():
     """Create a new API token.
-
     This endpoint creates a new API token with the provided name and expiration.
-
-    Returns:
-        Response: Redirect to tokens page or JSON response if AJAX request
+    ---
+    tags:
+      - Tokens
+    parameters:
+      - name: name
+        in: formData
+        type: string
+        required: true
+        description: Name for the new token
+      - name: description
+        in: formData
+        type: string
+        required: false
+        description: Description for the token
+      - name: expires_in_days
+        in: formData
+        type: integer
+        required: false
+        default: 30
+        description: Number of days until the token expires
+    responses:
+      200:
+        description: Token created successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            token:
+              type: object
+      400:
+        description: Invalid input parameters
+      500:
+        description: Error creating token
     """
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
@@ -174,14 +208,28 @@ def create_token():
 @admin_required
 def revoke_token(token_id):
     """Revoke an API token.
-
     This endpoint revokes the specified API token.
-
-    Args:
-        token_id: ID of the token to revoke
-
-    Returns:
-        Response: Redirect to tokens page or JSON response if AJAX request
+    ---
+    tags:
+      - Tokens
+    parameters:
+      - name: token_id
+        in: path
+        type: string
+        required: true
+        description: ID of the token to revoke
+    responses:
+      200:
+        description: Token revoked successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+      404:
+        description: Token not found
+      500:
+        description: Error revoking token
     """
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 

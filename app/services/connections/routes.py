@@ -24,6 +24,17 @@ MAX_CONNECTION_NAME_LENGTH = 12
 @connections_bp.route("/")
 @login_required
 def view_connections():
+    """List all available connections for the current user.
+    This endpoint displays a page with all connections accessible to the logged-in user.
+    ---
+    tags:
+      - Connections
+    responses:
+      200:
+        description: Connections displayed successfully
+      500:
+        description: Error fetching connections
+    """
     try:
         current_app.logger.info("Fetching connections from API...")
         connections_client = client_factory.get_connections_client()
@@ -65,6 +76,47 @@ def view_connections():
 @login_required
 @rate_limit(requests_per_minute=10)
 def add_connection():
+    """Create a new connection.
+    This endpoint allows users to create a new remote desktop connection.
+    ---
+    tags:
+      - Connections
+    parameters:
+      - name: connection_name
+        in: formData
+        type: string
+        required: true
+        description: Name for the new connection
+      - name: desktop_configuration_id
+        in: formData
+        type: integer
+        required: false
+        description: ID of the desktop configuration to use
+      - name: persistent_home
+        in: formData
+        type: string
+        required: false
+        description: Whether to enable persistent home directory
+      - name: external_pvc
+        in: formData
+        type: string
+        required: false
+        description: External PVC to mount
+    responses:
+      200:
+        description: Connection created successfully
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            message:
+              type: string
+      400:
+        description: Invalid input parameters
+      500:
+        description: Error creating connection
+    """
     try:
         connection_name = request.form.get("connection_name")
         if not connection_name:
@@ -174,6 +226,30 @@ def _prepare_connection_data(connection_name, persistent_home, desktop_configura
 @login_required
 @rate_limit(requests_per_minute=10)
 def stop_connection(connection_name):
+    """Stop a running connection.
+    This endpoint stops a running desktop connection.
+    ---
+    tags:
+      - Connections
+    parameters:
+      - name: connection_name
+        in: path
+        type: string
+        required: true
+        description: Name of the connection to stop
+    responses:
+      200:
+        description: Connection stopped successfully
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+      400:
+        description: Error stopping connection
+      500:
+        description: Server error
+    """
     try:
         current_app.logger.info(f"Stopping connection: {connection_name}")
         connections_client = client_factory.get_connections_client()
@@ -197,10 +273,22 @@ def stop_connection(connection_name):
 @connections_bp.route("/direct-connect/<connection_id>")
 @login_required
 def direct_connect(connection_id):
-    """Handle connection to remote desktop via Guacamole.
-
-    This endpoint makes a request to the API to get the Guacamole auth URL,
-    then redirects the user to that URL.
+    """Connect to remote desktop via Guacamole.
+    This endpoint redirects the user to Guacamole for direct connection to a remote desktop.
+    ---
+    tags:
+      - Connections
+    parameters:
+      - name: connection_id
+        in: path
+        type: string
+        required: true
+        description: ID of the connection to connect to
+    responses:
+      302:
+        description: Redirect to Guacamole connection
+      500:
+        description: Error connecting to desktop
     """
     try:
         connections_client = client_factory.get_connections_client()
@@ -225,9 +313,15 @@ def direct_connect(connection_id):
 @login_required
 def guacamole_dashboard():
     """Access the Guacamole dashboard with automatic authentication.
-
-    This endpoint makes a request to the API to get the Guacamole dashboard auth URL,
-    then redirects the user to that URL for a seamless experience.
+    This endpoint redirects to the Guacamole dashboard with automatic authentication.
+    ---
+    tags:
+      - Connections
+    responses:
+      302:
+        description: Redirect to Guacamole dashboard
+      500:
+        description: Error accessing Guacamole dashboard
     """
     try:
         connections_client = client_factory.get_connections_client()
@@ -252,6 +346,41 @@ def guacamole_dashboard():
 @login_required
 @rate_limit(requests_per_minute=10)  # Stricter limit for resuming connections
 def resume_connection(connection_name):
+    """Resume a stopped connection.
+    This endpoint resumes a previously stopped desktop connection.
+    ---
+    tags:
+      - Connections
+    parameters:
+      - name: connection_name
+        in: path
+        type: string
+        required: true
+        description: Name of the connection to resume
+      - name: body
+        in: body
+        required: false
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: Alternative way to specify connection name
+    responses:
+      200:
+        description: Connection resumed successfully
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            message:
+              type: string
+      400:
+        description: Error resuming connection
+      500:
+        description: Server error
+    """
     try:
         current_app.logger.info(f"Resuming connection: {connection_name}")
 
@@ -296,6 +425,41 @@ def resume_connection(connection_name):
 @login_required
 @rate_limit(requests_per_minute=10)  # Stricter limit for permanent deletion
 def delete_connection(connection_name):
+    """Delete a connection permanently.
+    This endpoint permanently deletes a desktop connection.
+    ---
+    tags:
+      - Connections
+    parameters:
+      - name: connection_name
+        in: path
+        type: string
+        required: true
+        description: Name of the connection to delete
+      - name: body
+        in: body
+        required: false
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: Alternative way to specify connection name
+    responses:
+      200:
+        description: Connection deleted successfully
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            message:
+              type: string
+      400:
+        description: Error deleting connection
+      500:
+        description: Server error
+    """
     try:
         current_app.logger.info(f"Permanently deleting connection: {connection_name}")
 

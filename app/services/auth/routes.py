@@ -29,12 +29,30 @@ logger.setLevel(logging.DEBUG)
 @auth_bp.route("/login", methods=["GET"])
 @rate_limit(requests_per_minute=15, requests_per_hour=100)
 def login():
+    """Login page endpoint
+    This endpoint renders the login page for users to authenticate.
+    ---
+    tags:
+      - Authentication
+    responses:
+      200:
+        description: Login page rendered successfully
+    """
     return render_template("login.html")
 
 
 @auth_bp.route("/logout")
 @login_required  # Ensure user is logged in before logging out
 def logout():
+    """Logout endpoint
+    This endpoint logs out the current user and redirects to the login page.
+    ---
+    tags:
+      - Authentication
+    responses:
+      302:
+        description: User logged out successfully and redirected to login page
+    """
     current_app.logger.info(f"Logging out user: {session.get('username')}")
     auth_client = client_factory.get_auth_client()
     auth_client.logout()
@@ -43,7 +61,30 @@ def logout():
 
 @auth_bp.route("/oidc/callback")
 def oidc_callback():
-    """Handle OIDC callback by forwarding to backend"""
+    """Handle OIDC callback from authentication provider
+    This endpoint processes the callback from the OIDC provider after user authentication.
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - name: code
+        in: query
+        type: string
+        required: true
+        description: Authorization code from OIDC provider
+      - name: state
+        in: query
+        type: string
+        required: true
+        description: State parameter for CSRF protection
+    responses:
+      302:
+        description: User authenticated successfully and redirected to dashboard
+      400:
+        description: Invalid callback parameters
+      500:
+        description: Authentication error
+    """
     if "error" in request.args:
         error = request.args.get("error")
         error_description = request.args.get("error_description", "")
@@ -104,7 +145,23 @@ def oidc_callback():
 @auth_bp.route("/oidc/login")
 @rate_limit(requests_per_minute=5, requests_per_hour=20)
 def oidc_login():
-    """Initiate OIDC login flow using backend."""
+    """Initiate OIDC login flow using backend.
+    This endpoint redirects the user to the OIDC provider for authentication.
+    ---
+    tags:
+      - Authentication
+    responses:
+      302:
+        description: Redirect to OIDC provider
+      500:
+        description: Failed to initiate OIDC login flow
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Failed to initiate login
+    """
     try:
         auth_client = client_factory.get_auth_client()
         response_data, status_code = auth_client.oidc_login()
@@ -128,7 +185,59 @@ def oidc_login():
 @auth_bp.route("/debug-login", methods=["GET", "POST"])
 @rate_limit(requests_per_minute=5, requests_per_hour=20)
 def debug_login():  # noqa
-    """Debug login route that bypasses OIDC authentication for development purposes."""
+    """Debug login route for development purposes
+    This endpoint provides a development-only method to bypass OIDC authentication.
+    Only available when DEBUG mode is enabled.
+    ---
+    tags:
+      - Debug
+    methods:
+      - GET
+      - POST
+    parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            sub:
+              type: string
+              description: Subject identifier
+              required: true
+            email:
+              type: string
+              description: User email
+            given_name:
+              type: string
+              description: User's given name
+            family_name:
+              type: string
+              description: User's family name
+            is_admin:
+              type: boolean
+              description: Override admin status
+            organization:
+              type: string
+              description: User organization
+    responses:
+      200:
+        description: Debug login successful
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            message:
+              type: string
+            redirect:
+              type: string
+      400:
+        description: Missing or invalid request data
+      404:
+        description: Debug login disabled or user not found
+      500:
+        description: Server error during login process
+    """
     if not current_app.config.get("DEBUG", False):
         logger.warning("Attempt to access debug login when disabled")
         abort(404)

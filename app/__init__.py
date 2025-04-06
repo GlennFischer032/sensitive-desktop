@@ -5,9 +5,10 @@ from http import HTTPStatus
 
 import redis
 import requests
-from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_cors import CORS
 from flask_session import Session
+from flasgger import Swagger
 
 from app.services.auth import auth_bp
 from app.services.configurations import configurations_bp
@@ -15,6 +16,7 @@ from app.services.connections import connections_bp
 from app.services.storage import storage_bp
 from app.services.tokens import tokens_bp
 from app.services.users import users_bp
+from app.utils.swagger import auto_document_blueprint
 from config.config import Config
 from middleware.security import init_security, rate_limiter
 from middleware.auth import login_required
@@ -75,6 +77,54 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
     init_session(app)
 
     init_cors(app)
+
+    # Initialize Swagger documentation
+    swagger_config = {
+        "headers": [],
+        "specs": [
+            {
+                "endpoint": "apispec",
+                "route": "/apispec.json",
+                "rule_filter": lambda rule: True,  # all in
+                "model_filter": lambda tag: True,  # all in
+            }
+        ],
+        "static_url_path": "/flasgger_static",
+        "swagger_ui": True,
+        "specs_route": "/api/docs/",
+    }
+
+    swagger_template = {
+        "info": {
+            "title": "Desktop Frontend API",
+            "description": "API documentation for Desktop Frontend Application",
+            "version": "1.0.0",
+            "contact": {
+                "name": "API Support",
+            },
+        },
+        "securityDefinitions": {"SessionAuth": {"type": "apiKey", "name": "Cookie", "in": "header"}},
+        "security": [{"SessionAuth": []}],
+    }
+
+    # Initialize Swagger without applying protection
+    swagger = Swagger(app, config=swagger_config, template=swagger_template)
+
+    # Create middleware to check admin status for Swagger routes
+    @app.before_request
+    def protect_swagger():
+        # Check if the request path is for Swagger-related resources
+        swagger_paths = ["/api/docs/", "/apispec.json", "/flasgger_static/"]
+
+        if any(request.path.startswith(path) for path in swagger_paths):
+            # Check if user is logged in and is admin
+            if not session.get("logged_in") or "token" not in session:
+                flash("Please log in to access API documentation", "error")
+                return redirect(url_for("auth.login"))
+
+            if not session.get("is_admin", False):
+                flash("You need administrator privileges to access API documentation", "error")
+                return redirect(url_for("connections.view_connections"))
 
     # Request validation middleware
     @app.before_request
@@ -190,6 +240,14 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
     app.register_blueprint(storage_bp)
     app.register_blueprint(tokens_bp)
 
+    # Auto-document blueprints
+    auto_document_blueprint(auth_bp, "Authentication")
+    auto_document_blueprint(connections_bp, "Connections")
+    auto_document_blueprint(users_bp, "Users")
+    auto_document_blueprint(configurations_bp, "Configurations")
+    auto_document_blueprint(storage_bp, "Storage")
+    auto_document_blueprint(tokens_bp, "Tokens")
+
     # Error handlers
     @app.errorhandler(404)
     def not_found_error(error):
@@ -267,6 +325,38 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
 
     @app.route("/test-api-connection")
     def test_api_connection():
+        """Test API Connection Endpoint
+        This endpoint tests the connection to the backend API and returns the status.
+        ---
+        tags:
+          - System
+        responses:
+          200:
+            description: Successfully connected to API
+            schema:
+              type: object
+              properties:
+                api_url:
+                  type: string
+                  example: http://desktop-api:5000
+                status_code:
+                  type: integer
+                  example: 200
+                response:
+                  type: string
+                  example: '{"status": "healthy"}'
+          500:
+            description: Failed to connect to API
+            schema:
+              type: object
+              properties:
+                error:
+                  type: string
+                  example: Connection refused
+                api_url:
+                  type: string
+                  example: http://desktop-api:5000
+        """
         try:
             logger.info(f"Testing connection to API at {app.config['API_URL']}")
             response = requests.get(f"{app.config['API_URL']}/api/health", timeout=10)
@@ -285,6 +375,21 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
     # Health check endpoint
     @app.route("/health")
     def health_check():
+        """Health check endpoint
+        This endpoint can be used to check if the service is up and running.
+        ---
+        tags:
+          - System
+        responses:
+          200:
+            description: Service is healthy
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: healthy
+        """
         return {"status": "healthy"}, 200
 
     # Register custom template filters

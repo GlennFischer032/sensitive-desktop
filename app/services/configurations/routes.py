@@ -18,9 +18,15 @@ logger = logging.getLogger(__name__)
 @login_required
 def list_configurations() -> str:
     """List all desktop configurations.
-
-    Returns:
-        str: Rendered template with configurations list
+    This endpoint displays a page with all available desktop configurations.
+    ---
+    tags:
+      - Configurations
+    responses:
+      200:
+        description: List of configurations displayed successfully
+      500:
+        description: Error fetching configurations
     """
     try:
         desktop_configs_client = client_factory.get_desktop_configurations_client()
@@ -45,9 +51,48 @@ def list_configurations() -> str:
 @admin_required
 def create_configuration() -> Response | str:
     """Create a new desktop configuration.
-
-    Returns:
-        Union[Response, str]: Redirect or rendered template
+    This endpoint allows administrators to create a new desktop configuration.
+    ---
+    tags:
+      - Configurations
+    methods:
+      - GET
+      - POST
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: Configuration name
+            description:
+              type: string
+              description: Configuration description
+            is_public:
+              type: boolean
+              description: Whether configuration is public
+            user_ids:
+              type: array
+              items:
+                type: integer
+              description: IDs of users with access to this configuration
+    responses:
+      200:
+        description: Configuration form displayed (GET)
+      201:
+        description: Configuration created successfully (POST)
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            message:
+              type: string
+      400:
+        description: Error creating configuration
     """
     if request.method == "POST":
         try:
@@ -81,12 +126,46 @@ def create_configuration() -> Response | str:
 @admin_required
 def edit_configuration(config_id: int) -> Response | str:
     """Edit an existing desktop configuration.
-
-    Args:
-        config_id: ID of the configuration to edit
-
-    Returns:
-        Union[Response, str]: Redirect or rendered template
+    This endpoint allows administrators to edit an existing desktop configuration.
+    ---
+    tags:
+      - Configurations
+    methods:
+      - GET
+      - POST
+    parameters:
+      - name: config_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the configuration to edit
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              description: Configuration name
+            description:
+              type: string
+              description: Configuration description
+            is_public:
+              type: boolean
+              description: Whether configuration is public
+            user_ids:
+              type: array
+              items:
+                type: integer
+              description: IDs of users with access to this configuration
+    responses:
+      200:
+        description: Configuration data returned (GET) or updated successfully (POST)
+      400:
+        description: Error updating configuration
+      404:
+        description: Configuration not found
     """
     try:
         config: Optional[Dict] = None
@@ -126,12 +205,32 @@ def edit_configuration(config_id: int) -> Response | str:
 @admin_required
 def delete_configuration(config_id: int) -> Response:
     """Delete a desktop configuration.
-
-    Args:
-        config_id: ID of the configuration to delete
-
-    Returns:
-        Response: Redirect to configurations list
+    This endpoint allows administrators to delete an existing desktop configuration.
+    ---
+    tags:
+      - Configurations
+    methods:
+      - POST
+    parameters:
+      - name: config_id
+        in: path
+        type: integer
+        required: true
+        description: ID of the configuration to delete
+    responses:
+      200:
+        description: Configuration deleted successfully
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+            message:
+              type: string
+      400:
+        description: Error deleting configuration
+      404:
+        description: Configuration not found
     """
     try:
         desktop_configs_client = client_factory.get_desktop_configurations_client()

@@ -60,6 +60,16 @@
             <a href="{{ url_for('tokens.view_tokens') }}" class="button">View API Keys</a>
         </div>
     </div>
+
+    <div class="dashboard-card">
+        <div class="dashboard-card-content">
+            <h3>API Documentation</h3>
+            <p>Explore the API with Swagger UI</p>
+        </div>
+        <div class="dashboard-card-footer">
+            <a href="/api/docs/" class="button">View API Docs</a>
+        </div>
+    </div>
 </div>
 
 {% with messages = get_flashed_messages() %}
