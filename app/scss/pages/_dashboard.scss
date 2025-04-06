@@ -1,2 +1,139 @@
 // Dashboard page styles
 // Add dashboard-specific styles here that aren't general components
+
+// Dashboard grid layout
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: $spacing-lg;
+  margin-bottom: $spacing-xl;
+
+  @include respond-to(lg) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @include respond-to(md) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @include respond-to(sm) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Dashboard card
+.dashboard-card {
+  @include card($padding: 0, $shadow: 2);
+  transition: transform $transition-fast, box-shadow $transition-fast;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+
+  &:hover {
+    transform: translateY(-5px);
+    @include box-shadow(3);
+  }
+
+  // Card content
+  .dashboard-card-content {
+    padding: $spacing-lg;
+    flex: 1;
+
+    h3 {
+      font-size: $font-size-lg;
+      margin-bottom: $spacing-sm;
+      color: $text-dark;
+    }
+
+    p {
+      color: $text-light;
+      margin-bottom: 0;
+    }
+  }
+
+  // Card footer
+  .dashboard-card-footer {
+    padding: $spacing-md $spacing-lg;
+    border-top: 1px solid $border-color-light;
+    background-color: $bg-light;
+
+    .button {
+      width: 100%;
+      text-align: center;
+    }
+  }
+}
+
+// Dashboard stats
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: $spacing-md;
+  margin-bottom: $spacing-xl;
+
+  @include respond-to(md) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @include respond-to(sm) {
+    grid-template-columns: 1fr;
+  }
+
+  .stat-card {
+    @include card($padding: $spacing-md, $shadow: 1);
+    text-align: center;
+
+    .stat-value {
+      font-size: $font-size-xl;
+      font-weight: $font-weight-bold;
+      color: $primary-color;
+      margin-bottom: $spacing-xs;
+    }
+
+    .stat-label {
+      font-size: $font-size-sm;
+      color: $text-light;
+    }
+  }
+}
+
+// Dashboard activity
+.dashboard-activity {
+  @include card($padding: $spacing-md, $shadow: 1);
+  margin-bottom: $spacing-xl;
+
+  h3 {
+    margin-bottom: $spacing-md;
+    padding-bottom: $spacing-xs;
+    border-bottom: 1px solid $border-color-light;
+  }
+
+  .activity-item {
+    @include flex(row, flex-start, center);
+    padding: $spacing-sm 0;
+    border-bottom: 1px solid $border-color-light;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .activity-icon {
+      margin-right: $spacing-md;
+      color: $primary-color;
+    }
+
+    .activity-content {
+      flex: 1;
+
+      .activity-title {
+        font-weight: $font-weight-medium;
+      }
+
+      .activity-meta {
+        font-size: $font-size-sm;
+        color: $text-light;
+      }
+    }
+  }
+}

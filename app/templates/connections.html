@@ -1,11 +1,18 @@
 {% extends "base.html" %}
+{% from "partials/modal.html" import modal, loading, error_message %}
+{% from "partials/modal_js.html" import modal_js %}
 
 {% block title %}Connections - Desktop Manager{% endblock %}
 
 {% block content %}
-<div class="header-with-button">
-    <h2>Connections</h2>
-    <button id="add-connection-button" class="button">Add Connection</button>
+<div class="page-header">
+    <div class="header-title">
+        <h2>Connections</h2>
+        <span class="subtitle">Manage your desktop connections</span>
+    </div>
+    <div class="header-actions">
+        <button id="add-connection-button" class="button">Add Connection</button>
+    </div>
 </div>
 
 <div class="table-container connections-table-container">
@@ -31,21 +38,21 @@
                 <td>{{ conn.desktop_configuration_name or "Default" }}</td>
                 <td class="action-buttons">
                     {% if not conn.is_stopped %}
-                    <div class="button-group">
+                    <div class="button-group-actions">
                         <a href="{{ url_for('connections.direct_connect', connection_id=conn.id) }}" target="_blank" class="button small connect-btn">Connect</a>
-                        <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post"
-                            onsubmit="handleDelete(event, '{{ conn.name }}')">
+                        <form action="{{ url_for('connections.stop_connection', connection_name=conn.name) }}" method="post"
+                            onsubmit="handleStop(event, '{{ conn.name }}')">
                             <button type="submit" class="button small danger delete-btn">Stop</button>
                         </form>
                     </div>
                     {% else %}
-                    <div class="button-group">
+                    <div class="button-group-actions">
                         <form action="{{ url_for('connections.resume_connection', connection_name=conn.name) }}" method="post"
                               onsubmit="handleResume(event, '{{ conn.name }}')">
                             <button type="submit" class="button small success resume-btn">Resume</button>
                         </form>
-                        <form action="{{ url_for('connections.permanent_delete_connection', connection_name=conn.name) }}" method="post"
-                              onsubmit="handlePermanentDelete(event, '{{ conn.name }}')">
+                        <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post"
+                              onsubmit="handleDelete(event, '{{ conn.name }}')">
                             <button type="submit" class="button small danger permanent-delete-btn">Delete</button>
                         </form>
                     </div>
@@ -63,72 +70,70 @@
 </div>
 
 <!-- Add Connection Modal -->
-<div id="add-connection-modal" class="modal">
-    <div class="modal-content">
-        <h3>Add Connection</h3>
-        <form id="connection-form" method="post" action="{{ url_for('connections.add_connection') }}">
-            <div class="form-group">
-                <label for="name">Connection Name:</label>
-                <input type="text" id="name" name="connection_name" required
-                       pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-                       maxlength="12" oninput="validateConnectionName(this)">
-                <small class="form-text">Name must start and end with an alphanumeric character, contain only lowercase letters, numbers, and hyphens, and be 12 characters or less.</small>
-                <div id="name-feedback" class="invalid-feedback" style="display: none; color: red; margin-top: 5px;"></div>
-            </div>
+{% call modal(id="add-connection-modal", title="Add Connection", size="sm") %}
+    <div class="info-box">
+        <h4>Connection Requirements:</h4>
+        <ul>
+            <li>Name must start and end with an alphanumeric character</li>
+            <li>Only lowercase letters, numbers, and hyphens allowed</li>
+            <li>Maximum length is 12 characters</li>
+        </ul>
+    </div>
 
-            <div class="form-group">
-                <div class="checkbox-wrapper">
-                    <label class="checkbox-label" for="persistent_home">
-                        <input type="checkbox" id="persistent_home" name="persistent_home" checked>
-                        Persistent Home Directory
-                    </label>
-                </div>
-                <small class="form-text">When enabled, your home directory contents will be preserved between sessions.</small>
-            </div>
-
-            <div class="form-group">
-                <label for="desktop_configuration_id">Desktop Configuration:</label>
-                <select id="desktop_configuration_id" name="desktop_configuration_id">
-                    <option value="">Default Configuration</option>
-                    {% for config in desktop_configurations %}
-                    <option value="{{ config.id }}">{{ config.name }}</option>
-                    {% endfor %}
-                </select>
-                <small class="form-text">Select a desktop configuration to use for this connection.</small>
-            </div>
-
-            {% if is_admin and storage_pvcs %}
-            <div class="form-group">
-                <label for="external_pvc">Storage PVC:</label>
-                <select id="external_pvc" name="external_pvc">
-                    <option value="">No external storage</option>
-                    {% for pvc in storage_pvcs %}
-                    <option value="{{ pvc.name }}">{{ pvc.name }} ({{ pvc.size }})</option>
-                    {% endfor %}
-                </select>
-                <small class="form-text">Select a persistent volume claim to attach to this desktop for additional storage.</small>
-            </div>
-            {% endif %}
-
-            <div class="form-actions">
-                <button type="submit" class="button" id="submit-button">Create Connection</button>
-                <button type="button" class="button secondary close-modal">Cancel</button>
-            </div>
-        </form>
-
-        <div id="create-loading" class="loading-container hidden">
-            <div class="loading-wave">
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-            </div>
-            <p class="loading-text">Creating connection...</p>
+    <form id="connection-form" method="post" action="{{ url_for('connections.add_connection') }}">
+        <div class="form-group">
+            <label for="name" class="required">Connection Name:</label>
+            <input type="text" id="name" name="connection_name" required
+                   pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                   maxlength="12" oninput="validateConnectionName(this)">
+            <div id="name-feedback" class="invalid-feedback" style="display: none; color: red; margin-top: 5px;"></div>
         </div>
 
-        <div id="create-error" class="message error hidden"></div>
-    </div>
-</div>
+        <div class="form-group">
+            <div class="checkbox-wrapper">
+                <label class="checkbox-label" for="persistent_home">
+                    <input type="checkbox" id="persistent_home" name="persistent_home" checked>
+                    Persistent Home Directory
+                </label>
+            </div>
+            <small class="form-help">When enabled, your home directory contents will be preserved between sessions.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="desktop_configuration_id">Desktop Configuration:</label>
+            <select id="desktop_configuration_id" name="desktop_configuration_id">
+                <option value="">Default Configuration</option>
+                {% for config in desktop_configurations %}
+                <option value="{{ config.id }}">{{ config.name }}</option>
+                {% endfor %}
+            </select>
+            <small class="form-help">Select a desktop configuration to use for this connection.</small>
+        </div>
+
+        {% if storage_pvcs %}
+        <div class="form-group">
+            <label for="external_pvc">Storage PVC:</label>
+            <select id="external_pvc" name="external_pvc">
+                <option value="">No external storage</option>
+                {% for pvc in storage_pvcs %}
+                <option value="{{ pvc.name }}">{{ pvc.name }} ({{ pvc.size }})</option>
+                {% endfor %}
+            </select>
+            <small class="form-help">Select a persistent volume claim to attach to this desktop for additional storage.</small>
+        </div>
+        {% endif %}
+
+        <div class="form-actions">
+            <button type="submit" class="button primary" id="submit-button">Create Connection</button>
+            <button type="button" class="button secondary close-modal">Cancel</button>
+        </div>
+    </form>
+
+    {{ loading(id="create-loading", text="Creating connection...") }}
+    {{ error_message(id="create-error") }}
+{% endcall %}
+
+{{ modal_js() }}
 
 <script>
 // UUID length is 8 characters plus 1 for the hyphen
@@ -178,7 +183,7 @@ function validateConnectionName(input) {
     return true;
 }
 
-async function handleDelete(event, connectionName) {
+async function handleStop(event, connectionName) {
     event.preventDefault();
 
     if (!confirm('Are you sure you want to stop this connection?')) {
@@ -191,7 +196,7 @@ async function handleDelete(event, connectionName) {
 
     // Replace buttons with loading animation while preserving structure
     actionButtons.innerHTML = `
-        <div class="button-group">
+        <div class="button-group-actions">
             <span class="deleting-text">Stopping</span>
             <div class="loading-dots">
                 <div class="loading-dot"></div>
@@ -207,7 +212,8 @@ async function handleDelete(event, connectionName) {
         const response = await fetch(form.action, {
             method: 'POST',
             headers: {
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
             },
             credentials: 'same-origin'
         });
@@ -237,7 +243,7 @@ async function handleDelete(event, connectionName) {
         }
     } catch (error) {
         actionButtons.innerHTML = `
-            <div class="button-group">
+            <div class="button-group-actions">
                 <span class="error-text">Error: ${error.message}</span>
                 <button onclick="location.reload()" class="button small retry-btn">Retry</button>
             </div>
@@ -258,7 +264,7 @@ async function handleResume(event, connectionName) {
 
     // Replace buttons with loading animation while preserving structure
     actionButtons.innerHTML = `
-        <div class="button-group">
+        <div class="button-group-actions">
             <span class="resuming-text">Resuming</span>
             <div class="loading-dots">
                 <div class="loading-dot"></div>
@@ -317,7 +323,7 @@ async function handleResume(event, connectionName) {
     } catch (error) {
         console.error('Resume error:', error);
         actionButtons.innerHTML = `
-            <div class="button-group">
+            <div class="button-group-actions">
                 <span class="error-text">Error: ${error.message}</span>
                 <button onclick="location.reload()" class="button small retry-btn">Retry</button>
             </div>
@@ -325,7 +331,7 @@ async function handleResume(event, connectionName) {
     }
 }
 
-async function handlePermanentDelete(event, connectionName) {
+async function handleDelete(event, connectionName) {
     event.preventDefault();
 
     if (!confirm('Are you sure you want to permanently delete this connection? This will delete the connection and its persistent home directory. This action cannot be undone.')) {
@@ -338,7 +344,7 @@ async function handlePermanentDelete(event, connectionName) {
 
     // Replace buttons with loading animation while preserving structure
     actionButtons.innerHTML = `
-        <div class="button-group">
+        <div class="button-group-actions">
             <span class="deleting-text">Permanently Deleting</span>
             <div class="loading-dots">
                 <div class="loading-dot"></div>
@@ -397,7 +403,7 @@ async function handlePermanentDelete(event, connectionName) {
     } catch (error) {
         console.error('Permanent delete error:', error);
         actionButtons.innerHTML = `
-            <div class="button-group">
+            <div class="button-group-actions">
                 <span class="error-text">Error: ${error.message}</span>
                 <button onclick="location.reload()" class="button small retry-btn">Retry</button>
             </div>
@@ -406,23 +412,13 @@ async function handlePermanentDelete(event, connectionName) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Modal handling
-    const addConnectionModal = document.getElementById('add-connection-modal');
-
     // Add Connection button
     const addConnectionButton = document.getElementById('add-connection-button');
     if (addConnectionButton) {
         addConnectionButton.addEventListener('click', function() {
-            showModal(addConnectionModal);
+            ModalManager.show('add-connection-modal');
         });
     }
-
-    // Close modal buttons
-    document.querySelectorAll('.close-modal').forEach(button => {
-        button.addEventListener('click', function() {
-            hideModal(this.closest('.modal'));
-        });
-    });
 
     // Connection form submission
     document.getElementById('connection-form').addEventListener('submit', async function(e) {
@@ -497,30 +493,6 @@ document.addEventListener('DOMContentLoaded', function() {
             createError.classList.remove('hidden');
         }
     });
-
-    // Modal helper functions
-    function showModal(modal) {
-        modal.style.display = 'flex';
-        setTimeout(() => {
-            modal.classList.add('visible');
-        }, 10);
-    }
-
-    function hideModal(modal) {
-        modal.classList.remove('visible');
-        setTimeout(() => {
-            modal.style.display = 'none';
-
-            // Reset forms and errors if needed
-            if (modal === addConnectionModal) {
-                document.getElementById('connection-form').reset();
-                document.getElementById('name-feedback').style.display = 'none';
-                document.getElementById('connection-form').style.display = 'block';
-                document.getElementById('create-loading').classList.add('hidden');
-                document.getElementById('create-error').classList.add('hidden');
-            }
-        }, 300);
-    }
 });
 </script>
 

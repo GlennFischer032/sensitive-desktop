@@ -1,11 +1,18 @@
 {% extends "base.html" %}
+{% from "partials/modal.html" import modal, loading, error_message %}
+{% from "partials/modal_js.html" import modal_js %}
 
 {% block title %}Users - Desktop Manager{% endblock %}
 
 {% block content %}
-<div class="header-with-button">
-    <h2>Users</h2>
-    <button id="add-user-button" class="button">Add User</button>
+<div class="page-header">
+    <div class="header-title">
+        <h2>Users</h2>
+        <span class="subtitle">Manage user accounts</span>
+    </div>
+    <div class="header-actions">
+        <button id="add-user-button" class="button">Add User</button>
+    </div>
 </div>
 
 <div class="table-container">
@@ -45,152 +52,135 @@
 </div>
 
 <!-- Add User Modal -->
-<div id="add-user-modal" class="modal">
-    <div class="modal-content">
-        <h3>Add New User</h3>
-        <button type="button" class="modal-close close-modal">×</button>
-
-        <div class="requirements-box">
-            <h4>Requirements:</h4>
-            <ul>
-                <li>Username must be at least 3 characters long</li>
-                <li>OIDC Subject Identifier (sub) is required</li>
-                <li>Other user information will be filled from OIDC during first login</li>
-            </ul>
-        </div>
-
-        <form id="user-form" action="{{ url_for('users.add_user') }}" method="POST">
-            <div class="form-group">
-                <label for="username">Username:</label>
-                <input type="text" id="username" name="username" required minlength="3">
-                <small class="error-message" id="username-error"><!-- Error message will appear here --></small>
-            </div>
-
-            <div class="form-group">
-                <label for="sub">OIDC Subject Identifier (sub):</label>
-                <input type="text" id="sub" name="sub" required>
-                <small class="form-help">This is the unique identifier from the OIDC provider.</small>
-                <small class="error-message" id="sub-error"><!-- Error message will appear here --></small>
-            </div>
-
-            <div class="form-group">
-                <div class="checkbox-wrapper">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="is_admin" value="true">
-                        Admin User
-                    </label>
-                </div>
-                <small class="form-help">Administrators can manage users and desktop configurations.</small>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="button" id="submit-btn">Add User</button>
-                <button type="button" class="button secondary close-modal">Cancel</button>
-            </div>
-        </form>
-
-        <div id="create-loading" class="loading-container hidden">
-            <div class="loading-wave">
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-            </div>
-            <p class="loading-text">Creating user...</p>
-        </div>
-
-        <div id="create-error" class="message error hidden"></div>
+{% call modal(id="add-user-modal", title="Add New User", size="sm") %}
+    <div class="info-box">
+        <h4>Requirements:</h4>
+        <ul>
+            <li>Username must be at least 3 characters long</li>
+            <li>OIDC Subject Identifier (sub) is required</li>
+            <li>Other user information will be filled from OIDC during first login</li>
+        </ul>
     </div>
-</div>
+
+    <form id="user-form" action="{{ url_for('users.add_user') }}" method="POST">
+        <div class="form-group">
+            <label for="username" class="required">Username:</label>
+            <input type="text" id="username" name="username" required minlength="3">
+            <small class="error-message" id="username-error"><!-- Error message will appear here --></small>
+        </div>
+
+        <div class="form-group">
+            <label for="sub" class="required">OIDC Subject Identifier (sub):</label>
+            <input type="text" id="sub" name="sub" required>
+            <small class="form-help">This is the unique identifier from the OIDC provider.</small>
+            <small class="error-message" id="sub-error"><!-- Error message will appear here --></small>
+        </div>
+
+        <div class="form-group">
+            <div class="checkbox-wrapper">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="is_admin" value="true">
+                    Admin User
+                </label>
+            </div>
+            <small class="form-help">Administrators can manage users and desktop configurations.</small>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button" id="submit-btn">Add User</button>
+            <button type="button" class="button secondary close-modal">Cancel</button>
+        </div>
+    </form>
+
+    {{ loading(id="create-loading", text="Creating user...") }}
+    {{ error_message(id="create-error") }}
+{% endcall %}
 
 <!-- User Details Modal -->
-<div id="user-details-modal" class="modal">
-    <div class="modal-content">
-        <h3>User Details: <span id="detail-username"></span></h3>
-        <button type="button" class="modal-close close-modal">×</button>
+{% call modal(id="user-details-modal", title="User Details", size="lg") %}
+    <div id="user-details-loading" class="loading-container">
+        <div class="loading-wave">
+            <div class="loading-bar"></div>
+            <div class="loading-bar"></div>
+            <div class="loading-bar"></div>
+            <div class="loading-bar"></div>
+        </div>
+        <p class="loading-text">Loading user details...</p>
+    </div>
 
-        <div id="user-details-loading" class="loading-container">
-            <div class="loading-wave">
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
+    <div id="user-details-error" class="message error hidden"></div>
+
+    <div id="user-details-content" class="detail-content hidden">
+        <div class="detail-section">
+            <h3>Basic Information</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Username</div>
+                    <div class="detail-value" id="detail-user-username"></div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Full Name</div>
+                    <div class="detail-value" id="detail-user-name"></div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Email</div>
+                    <div class="detail-value" id="detail-user-email"></div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Role</div>
+                    <div class="detail-value" id="detail-user-role"></div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Created</div>
+                    <div class="detail-value" id="detail-user-created"></div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Last Login</div>
+                    <div class="detail-value" id="detail-user-last-login"></div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Organization</div>
+                    <div class="detail-value" id="detail-user-organization"></div>
+                </div>
             </div>
-            <p class="loading-text">Loading user details...</p>
         </div>
 
-        <div id="user-details-error" class="message error hidden"></div>
-
-        <div id="user-details-content" class="user-detail-container hidden">
-            <div class="detail-section">
-                <h3>Basic Information</h3>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <div class="detail-label">Username</div>
-                        <div class="detail-value" id="detail-user-username"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Full Name</div>
-                        <div class="detail-value" id="detail-user-name"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Email</div>
-                        <div class="detail-value" id="detail-user-email"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Role</div>
-                        <div class="detail-value" id="detail-user-role"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Created</div>
-                        <div class="detail-value" id="detail-user-created"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Last Login</div>
-                        <div class="detail-value" id="detail-user-last-login"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Organization</div>
-                        <div class="detail-value" id="detail-user-organization"></div>
-                    </div>
+        <div class="detail-section">
+            <h3>OIDC Information</h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Subject (sub)</div>
+                    <div class="detail-value" id="detail-user-sub"></div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Given Name</div>
+                    <div class="detail-value" id="detail-user-given-name"></div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Family Name</div>
+                    <div class="detail-value" id="detail-user-family-name"></div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Email Verified</div>
+                    <div class="detail-value" id="detail-user-email-verified"></div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Locale</div>
+                    <div class="detail-value" id="detail-user-locale"></div>
                 </div>
             </div>
+        </div>
 
-            <div class="detail-section">
-                <h3>OIDC Information</h3>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <div class="detail-label">Subject (sub)</div>
-                        <div class="detail-value" id="detail-user-sub"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Given Name</div>
-                        <div class="detail-value" id="detail-user-given-name"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Family Name</div>
-                        <div class="detail-value" id="detail-user-family-name"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Email Verified</div>
-                        <div class="detail-value" id="detail-user-email-verified"></div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Locale</div>
-                        <div class="detail-value" id="detail-user-locale"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="detail-section">
-                <h3>User Connections</h3>
-                <div id="user-connections-container">
-                    <p>Loading connections...</p>
-                </div>
+        <div class="detail-section">
+            <h3>User Connections</h3>
+            <div id="user-connections-container">
+                <p>Loading connections...</p>
             </div>
         </div>
     </div>
-</div>
+{% endcall %}
+
+{{ modal_js() }}
 
 <script>
 async function handleDelete(event, username) {
@@ -270,25 +260,11 @@ async function handleDelete(event, username) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Modal handling
-    const addUserModal = document.getElementById('add-user-modal');
-    const userDetailsModal = document.getElementById('user-details-modal');
-
-    // Close modal when clicking outside of modal content
-    document.querySelectorAll('.modal').forEach(modal => {
-        modal.addEventListener('click', function(e) {
-            // Only close if the click is directly on the modal backdrop (not on any children)
-            if (e.target === modal) {
-                hideModal(modal);
-            }
-        });
-    });
-
     // Add User button
     const addUserButton = document.getElementById('add-user-button');
     if (addUserButton) {
         addUserButton.addEventListener('click', function() {
-            showModal(addUserModal);
+            ModalManager.show('add-user-modal');
         });
     }
 
@@ -297,13 +273,6 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function() {
             const username = this.getAttribute('data-username');
             loadUserDetails(username);
-        });
-    });
-
-    // Close modal buttons
-    document.querySelectorAll('.close-modal').forEach(button => {
-        button.addEventListener('click', function() {
-            hideModal(this.closest('.modal'));
         });
     });
 
@@ -408,25 +377,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load user details function
     async function loadUserDetails(username) {
-        const detailUsername = document.getElementById('detail-username');
         const detailLoading = document.getElementById('user-details-loading');
         const detailError = document.getElementById('user-details-error');
         const detailContent = document.getElementById('user-details-content');
 
-        // Update username in modal title
-        detailUsername.textContent = username;
+        // Update modal title with username
+        ModalManager.show('user-details-modal', {
+            title: `User Details: ${username}`,
+            onShow: function() {
+                // Show loading, hide content and errors
+                detailLoading.classList.remove('hidden');
+                detailContent.classList.add('hidden');
+                detailError.classList.add('hidden');
 
-        // Show loading, hide content and errors
-        detailLoading.classList.remove('hidden');
-        detailContent.classList.add('hidden');
-        detailError.classList.add('hidden');
+                // Now fetch the details
+                fetchUserDetails(username);
+            }
+        });
+    }
 
-        // Show the modal
-        showModal(userDetailsModal);
+    // Function to fetch user details
+    async function fetchUserDetails(username) {
+        const detailLoading = document.getElementById('user-details-loading');
+        const detailError = document.getElementById('user-details-error');
+        const detailContent = document.getElementById('user-details-content');
 
         try {
             // Fetch user details
-            const response = await fetch(`/users/api/detail/${username}`, {
+            const response = await fetch(`/users/detail/${username}`, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 }
@@ -528,37 +506,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!dateString) return null;
         const date = new Date(dateString);
         return date.toLocaleString();
-    }
-
-    // Modal helper functions
-    function showModal(modal) {
-        modal.style.display = 'flex';
-        setTimeout(() => {
-            modal.classList.add('visible');
-        }, 10);
-    }
-
-    function hideModal(modal) {
-        modal.classList.remove('visible');
-        setTimeout(() => {
-            modal.style.display = 'none';
-
-            // Reset forms and errors if needed
-            if (modal === addUserModal) {
-                document.getElementById('user-form').reset();
-                document.querySelectorAll('.error-message').forEach(el => {
-                    el.style.display = 'none';
-                    el.textContent = '';
-                });
-                document.getElementById('user-form').style.display = 'block';
-                document.getElementById('create-loading').classList.add('hidden');
-                document.getElementById('create-error').classList.add('hidden');
-            } else if (modal === userDetailsModal) {
-                // Reset user details modal
-                document.getElementById('user-details-content').classList.add('hidden');
-                document.getElementById('user-details-error').classList.add('hidden');
-            }
-        }, 300);
     }
 });
 </script>

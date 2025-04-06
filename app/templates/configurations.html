@@ -1,11 +1,18 @@
 {% extends "base.html" %}
+{% from "partials/modal.html" import modal, loading, error_message %}
+{% from "partials/modal_js.html" import modal_js %}
 
 {% block title %}Desktop Configurations - Desktop Manager{% endblock %}
 
 {% block content %}
-<div class="header-with-button">
-    <h2>Desktop Configurations</h2>
-    <button id="add-config-button" class="button">Add Configuration</button>
+<div class="page-header">
+    <div class="header-title">
+        <h2>Desktop Configurations</h2>
+        <span class="subtitle">Manage container configurations for desktops</span>
+    </div>
+    <div class="header-actions">
+        <button id="add-config-button" class="button">Add Configuration</button>
+    </div>
 </div>
 
 <div class="table-container">
@@ -51,125 +58,123 @@
 </div>
 
 <!-- Configuration Modal -->
-<div id="config-modal" class="modal">
-    <div class="modal-content">
-        <h3 id="modal-title">Create Desktop Configuration</h3>
-        <form id="config-form" method="post">
-            <input type="hidden" id="config-id" name="config_id" value="">
+{% call modal(id="config-modal", title="Create Desktop Configuration", size="md") %}
 
-            <div class="form-group">
-                <label for="name">Name *</label>
-                <input type="text" id="name" name="name" required>
+    <form id="config-form" method="post">
+        <input type="hidden" id="config-id" name="config_id" value="">
+
+        <h4>Basic Information</h4>
+
+        <div class="form-group">
+            <label for="name" class="required">Name</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="image" class="required">Docker Image</label>
+            <input type="text" id="image" name="image" required>
+        </div>
+
+        <h4>Resource Allocation</h4>
+
+        <div class="form-group form-row">
+            <div class="form-group-half">
+                <label for="min_cpu" class="required">Minimum CPU Cores</label>
+                <input type="number" id="min_cpu" name="min_cpu" min="1" max="32" value="1" required>
             </div>
 
-            <div class="form-group">
-                <label for="description">Description</label>
-                <textarea id="description" name="description" rows="3"></textarea>
+            <div class="form-group-half">
+                <label for="max_cpu" class="required">Maximum CPU Cores</label>
+                <input type="number" id="max_cpu" name="max_cpu" min="1" max="32" value="4" required>
+            </div>
+        </div>
+
+        <div class="form-group form-row">
+            <div class="form-group-half">
+                <label for="min_ram" class="required">Minimum RAM</label>
+                <select id="min_ram" name="min_ram" required>
+                    <option value="1024Mi">1GB</option>
+                    <option value="2048Mi">2GB</option>
+                    <option value="4096Mi" selected>4GB</option>
+                    <option value="8192Mi">8GB</option>
+                    <option value="16384Mi">16GB</option>
+                    <option value="32768Mi">32GB</option>
+                    <option value="65536Mi">64GB</option>
+                </select>
             </div>
 
-            <div class="form-group">
-                <label for="image">Docker Image *</label>
-                <input type="text" id="image" name="image" required>
+            <div class="form-group-half">
+                <label for="max_ram" class="required">Maximum RAM</label>
+                <select id="max_ram" name="max_ram" required>
+                    <option value="1024Mi">1GB</option>
+                    <option value="2048Mi">2GB</option>
+                    <option value="4096Mi">4GB</option>
+                    <option value="8192Mi">8GB</option>
+                    <option value="16384Mi" selected>16GB</option>
+                    <option value="32768Mi">32GB</option>
+                    <option value="65536Mi">64GB</option>
+                </select>
             </div>
+        </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="min_cpu">Minimum CPU Cores *</label>
-                    <input type="number" id="min_cpu" name="min_cpu" min="1" max="32" value="1" required>
-                </div>
+        <h4>Access Control</h4>
 
-                <div class="form-group">
-                    <label for="max_cpu">Maximum CPU Cores *</label>
-                    <input type="number" id="max_cpu" name="max_cpu" min="1" max="32" value="4" required>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="min_ram">Minimum RAM *</label>
-                    <select id="min_ram" name="min_ram" required>
-                        <option value="1024Mi">1GB</option>
-                        <option value="2048Mi">2GB</option>
-                        <option value="4096Mi" selected>4GB</option>
-                        <option value="8192Mi">8GB</option>
-                        <option value="16384Mi">16GB</option>
-                        <option value="32768Mi">32GB</option>
-                        <option value="65536Mi">64GB</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="max_ram">Maximum RAM *</label>
-                    <select id="max_ram" name="max_ram" required>
-                        <option value="1024Mi">1GB</option>
-                        <option value="2048Mi">2GB</option>
-                        <option value="4096Mi">4GB</option>
-                        <option value="8192Mi">8GB</option>
-                        <option value="16384Mi" selected>16GB</option>
-                        <option value="32768Mi">32GB</option>
-                        <option value="65536Mi">64GB</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group">
+        <div class="form-group">
+            <div class="checkbox-wrapper">
                 <label class="checkbox-label">
                     <input type="checkbox" name="is_public" id="is_public" checked>
                     Make this configuration public
                 </label>
             </div>
-
-            <div class="form-group user-access-group" id="user-access-group">
-                <label>User Access</label>
-                <div class="user-list">
-                    {% if users %}
-                        {% set non_admin_users = users|selectattr('is_admin', 'equalto', false)|list %}
-                        {% if non_admin_users %}
-                            {% for user in non_admin_users %}
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="allowed_users" value="{{ user.username }}">
-                                {{ user.username }}
-                            </label>
-                            {% endfor %}
-                        {% else %}
-                            <p>No non-admin users available</p>
-                        {% endif %}
-                    {% else %}
-                        <p>No users available</p>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="form-actions">
-                <button type="submit" class="button">Create Configuration</button>
-                <button type="button" class="button secondary close-modal">Cancel</button>
-            </div>
-        </form>
-
-        <div id="create-loading" class="loading-container hidden">
-            <div class="loading-wave">
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-                <div class="loading-bar"></div>
-            </div>
-            <p class="loading-text" id="loading-text">Creating configuration...</p>
+            <small class="form-help">Public configurations are available to all users. Private configurations are restricted to specific users.</small>
         </div>
 
-        <div id="create-error" class="message error hidden"></div>
-    </div>
-</div>
+        <div class="form-group user-access-group" id="user-access-group">
+            <label>User Access</label>
+            <div class="user-list">
+                {% if users %}
+                    {% set non_admin_users = users|selectattr('is_admin', 'equalto', false)|list %}
+                    {% if non_admin_users %}
+                        {% for user in non_admin_users %}
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="allowed_users" value="{{ user.username }}">
+                            {{ user.username }}
+                        </label>
+                        {% endfor %}
+                    {% else %}
+                        <p>No non-admin users available</p>
+                    {% endif %}
+                {% else %}
+                    <p>No users available</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button primary">Create Configuration</button>
+            <button type="button" class="button secondary close-modal">Cancel</button>
+        </div>
+    </form>
+
+    {{ loading(id="create-loading", text="Creating configuration...") }}
+    {{ error_message(id="create-error") }}
+{% endcall %}
+
+{{ modal_js() }}
 
 <script>
 // Modal handling
 document.addEventListener('DOMContentLoaded', function() {
-    const configModal = document.getElementById('config-modal');
     const configForm = document.getElementById('config-form');
     const addButton = document.getElementById('add-config-button');
     const isPublicCheckbox = document.getElementById('is_public');
     const userAccessGroup = document.getElementById('user-access-group');
     const submitBtn = document.querySelector('#config-form button[type="submit"]');
-    const modalTitle = document.getElementById('modal-title');
 
     // Initially hide user access if public
     if (isPublicCheckbox.checked) {
@@ -181,10 +186,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add button opens modal with empty form (create mode)
     addButton.addEventListener('click', function() {
         resetForm();
-        modalTitle.textContent = 'Create Desktop Configuration';
+        // Update the modal title
+        ModalManager.show('config-modal', {
+            title: 'Create Desktop Configuration'
+        });
         submitBtn.textContent = 'Create Configuration';
         configForm.setAttribute('action', "{{ url_for('configurations.create_configuration') }}");
-        showModal(configModal);
     });
 
     // Edit buttons open modal with populated form (edit mode)
@@ -192,17 +199,12 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', async function() {
             const configId = this.getAttribute('data-config-id');
             await loadConfigData(configId);
-            modalTitle.textContent = 'Edit Desktop Configuration';
             submitBtn.textContent = 'Save Changes';
             configForm.setAttribute('action', `/configurations/edit/${configId}`);
-            showModal(configModal);
-        });
-    });
-
-    // Close modal buttons
-    document.querySelectorAll('.close-modal').forEach(button => {
-        button.addEventListener('click', function() {
-            hideModal(configModal);
+            // Update the modal title
+            ModalManager.show('config-modal', {
+                title: 'Edit Desktop Configuration'
+            });
         });
     });
 
@@ -222,7 +224,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const form = this;
         const createLoading = document.getElementById('create-loading');
         const createError = document.getElementById('create-error');
-        const loadingText = document.getElementById('loading-text');
         const isEdit = form.getAttribute('action').includes('edit');
 
         // Hide any previous error
@@ -232,7 +233,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show loading
         form.style.display = 'none';
         createLoading.classList.remove('hidden');
-        loadingText.textContent = isEdit ? 'Updating configuration...' : 'Creating configuration...';
+
+        // Update the loading text directly in the DOM
+        createLoading.querySelector('.loading-text').textContent =
+            isEdit ? 'Updating configuration...' : 'Creating configuration...';
 
         // Collect form data as JSON
         const jsonData = {
@@ -314,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Helper function to load configuration data for editing
     async function loadConfigData(configId) {
         try {
-            const response = await fetch(`/configurations/api/configuration/${configId}`, {
+            const response = await fetch(`/configurations/edit/${configId}`, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 }
@@ -388,26 +392,6 @@ document.addEventListener('DOMContentLoaded', function() {
             checkbox.checked = false;
         });
     }
-
-    // Modal helper functions
-    function showModal(modal) {
-        modal.style.display = 'flex';
-        setTimeout(() => {
-            modal.classList.add('visible');
-        }, 10);
-    }
-
-    function hideModal(modal) {
-        modal.classList.remove('visible');
-        setTimeout(() => {
-            modal.style.display = 'none';
-
-            // Reset forms and errors
-            document.getElementById('config-form').style.display = 'block';
-            document.getElementById('create-loading').classList.add('hidden');
-            document.getElementById('create-error').classList.add('hidden');
-        }, 300);
-    }
 });
 
 async function handleDelete(event, configId) {
@@ -439,7 +423,8 @@ async function handleDelete(event, configId) {
         const response = await fetch(form.action, {
             method: 'POST',
             headers: {
-                'X-Requested-With': 'XMLHttpRequest'
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
             },
             credentials: 'same-origin'
         });

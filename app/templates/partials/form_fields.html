@@ -1,0 +1,145 @@
+{% macro input(name, label, type="text", value="", placeholder="", required=false, help_text=None, error_id=None, min=None, max=None, pattern=None, autocomplete=None, disabled=false) %}
+<div class="form-group {% if required %}required{% endif %}" {% if error_id %}id="{{ error_id }}-container"{% endif %}>
+    <label for="{{ name }}">{{ label }}</label>
+    <input type="{{ type }}"
+           id="{{ name }}"
+           name="{{ name }}"
+           value="{{ value }}"
+           placeholder="{{ placeholder }}"
+           {% if required %}required aria-required="true"{% endif %}
+           {% if disabled %}disabled aria-disabled="true"{% endif %}
+           {% if min is not none %}min="{{ min }}"{% endif %}
+           {% if max is not none %}max="{{ max }}"{% endif %}
+           {% if pattern %}pattern="{{ pattern }}"{% endif %}
+           {% if autocomplete %}autocomplete="{{ autocomplete }}"{% endif %}
+           {% if error_id %}aria-describedby="{% if help_text %}{{ name }}-help {% endif %}{{ error_id }}"{% elif help_text %}aria-describedby="{{ name }}-help"{% endif %}>
+
+    {% if help_text %}
+        <small id="{{ name }}-help" class="form-help">{{ help_text }}</small>
+    {% endif %}
+
+    {% if error_id %}
+        <small id="{{ error_id }}" class="error-message" role="alert"></small>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{% macro textarea(name, label, value="", placeholder="", required=false, rows=3, help_text=None, error_id=None, disabled=false) %}
+<div class="form-group {% if required %}required{% endif %}" {% if error_id %}id="{{ error_id }}-container"{% endif %}>
+    <label for="{{ name }}">{{ label }}</label>
+    <textarea
+        id="{{ name }}"
+        name="{{ name }}"
+        rows="{{ rows }}"
+        placeholder="{{ placeholder }}"
+        {% if required %}required aria-required="true"{% endif %}
+        {% if disabled %}disabled aria-disabled="true"{% endif %}
+        {% if error_id %}aria-describedby="{% if help_text %}{{ name }}-help {% endif %}{{ error_id }}"{% elif help_text %}aria-describedby="{{ name }}-help"{% endif %}>{{ value }}</textarea>
+
+    {% if help_text %}
+        <small id="{{ name }}-help" class="form-help">{{ help_text }}</small>
+    {% endif %}
+
+    {% if error_id %}
+        <small id="{{ error_id }}" class="error-message" role="alert"></small>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{% macro select(name, label, options, selected="", required=false, help_text=None, error_id=None, disabled=false) %}
+<div class="form-group {% if required %}required{% endif %}" {% if error_id %}id="{{ error_id }}-container"{% endif %}>
+    <label for="{{ name }}">{{ label }}</label>
+    <select
+        id="{{ name }}"
+        name="{{ name }}"
+        {% if required %}required aria-required="true"{% endif %}
+        {% if disabled %}disabled aria-disabled="true"{% endif %}
+        {% if error_id %}aria-describedby="{% if help_text %}{{ name }}-help {% endif %}{{ error_id }}"{% elif help_text %}aria-describedby="{{ name }}-help"{% endif %}>
+
+        {% for option in options %}
+            {% if option is mapping %}
+                <option value="{{ option.value }}" {% if option.value == selected %}selected{% endif %}>{{ option.label }}</option>
+            {% else %}
+                <option value="{{ option }}" {% if option == selected %}selected{% endif %}>{{ option }}</option>
+            {% endif %}
+        {% endfor %}
+    </select>
+
+    {% if help_text %}
+        <small id="{{ name }}-help" class="form-help">{{ help_text }}</small>
+    {% endif %}
+
+    {% if error_id %}
+        <small id="{{ error_id }}" class="error-message" role="alert"></small>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{% macro checkbox(name, label, checked=false, help_text=None, error_id=None, disabled=false) %}
+<div class="form-group form-checkbox" {% if error_id %}id="{{ error_id }}-container"{% endif %}>
+    <div class="checkbox-wrapper">
+        <label class="checkbox-label" for="{{ name }}">
+            <input type="checkbox"
+                   id="{{ name }}"
+                   name="{{ name }}"
+                   {% if checked %}checked{% endif %}
+                   {% if disabled %}disabled aria-disabled="true"{% endif %}
+                   {% if error_id %}aria-describedby="{% if help_text %}{{ name }}-help {% endif %}{{ error_id }}"{% elif help_text %}aria-describedby="{{ name }}-help"{% endif %}>
+            <span class="checkbox-custom" aria-hidden="true"></span>
+            {{ label }}
+        </label>
+    </div>
+
+    {% if help_text %}
+        <small id="{{ name }}-help" class="form-help">{{ help_text }}</small>
+    {% endif %}
+
+    {% if error_id %}
+        <small id="{{ error_id }}" class="error-message" role="alert"></small>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{% macro radio_group(name, label, options, selected="", help_text=None, error_id=None) %}
+<div class="form-group" {% if error_id %}id="{{ error_id }}-container"{% endif %}>
+    <label class="group-label">{{ label }}</label>
+
+    <div class="radio-group" role="radiogroup" aria-labelledby="{{ name }}-group-label">
+        {% for option in options %}
+            <div class="radio-wrapper">
+                <label class="radio-label" for="{{ name }}-{{ loop.index }}">
+                    <input type="radio"
+                           id="{{ name }}-{{ loop.index }}"
+                           name="{{ name }}"
+                           value="{% if option is mapping %}{{ option.value }}{% else %}{{ option }}{% endif %}"
+                           {% if selected == (option.value if option is mapping else option) %}checked{% endif %}
+                           {% if error_id %}aria-describedby="{% if help_text %}{{ name }}-help {% endif %}{{ error_id }}"{% elif help_text %}aria-describedby="{{ name }}-help"{% endif %}>
+                    <span class="radio-custom" aria-hidden="true"></span>
+                    {% if option is mapping %}{{ option.label }}{% else %}{{ option }}{% endif %}
+                </label>
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if help_text %}
+        <small id="{{ name }}-help" class="form-help">{{ help_text }}</small>
+    {% endif %}
+
+    {% if error_id %}
+        <small id="{{ error_id }}" class="error-message" role="alert"></small>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{% macro form_actions(primary_label="Submit", cancel_label="Cancel", primary_type="submit", cancel_type="button", cancel_class="secondary close-modal") %}
+<div class="form-actions">
+    <button type="{{ primary_type }}" class="button primary">{{ primary_label }}</button>
+    <button type="{{ cancel_type }}" class="button {{ cancel_class }}">{{ cancel_label }}</button>
+</div>
+{% endmacro %}
+
+{% macro required_note() %}
+<div class="required-field-note">
+    Fields marked with <span aria-hidden="true">*</span><span class="sr-only">asterisk</span> are required
+</div>
+{% endmacro %}

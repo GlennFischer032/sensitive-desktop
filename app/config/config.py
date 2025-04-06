@@ -9,15 +9,11 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "")
 
     # Debug options
-    DEBUG_LOGIN_ENABLED = os.environ.get("DEBUG_LOGIN_ENABLED", "false").lower() == "true"
+    DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 
     # API endpoints
     API_URL = os.environ.get("API_URL", "http://localhost:5000")
-    GUACAMOLE_URL = os.environ.get("GUACAMOLE_URL", "http://guacamole:8080")
-    EXTERNAL_GUACAMOLE_URL = os.environ.get("EXTERNAL_GUACAMOLE_URL", GUACAMOLE_URL + "/guacamole")
-
-    # Testing configuration
-    TEST_TOKEN = os.environ.get("TEST_TOKEN", "test-token-for-automated-testing-only")
+    EXTERNAL_GUACAMOLE_URL = os.environ.get("EXTERNAL_GUACAMOLE_URL", "http://guacamole:8080/guacamole")
 
     # Logging configuration
     LOG_LEVEL = logging.INFO
@@ -27,7 +23,7 @@ class Config:
     SESSION_REDIS = os.environ.get("REDIS_URL", "redis://redis:6379/0")
     SESSION_PERMANENT = True
     PERMANENT_SESSION_LIFETIME = 1800  # 30 minutes
-    SESSION_COOKIE_SECURE = False  # Set to False for development
+    SESSION_COOKIE_SECURE = True if os.environ.get("DEBUG", "false").lower() == "false" else False
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_KEY_PREFIX = "desktop_frontend:"

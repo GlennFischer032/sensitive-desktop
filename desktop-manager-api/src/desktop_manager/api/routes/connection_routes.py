@@ -90,9 +90,9 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                 try:
                     # Get PVC from database
                     pvc_query = """
-                    SELECT id, name, namespace, created_by
-                    FROM storage_pvcs
-                    WHERE name = :name
+                    SELECT sp.id, sp.name, sp.namespace, sp.created_by, sp.is_public
+                    FROM storage_pvcs sp
+                    WHERE sp.name = :name
                     """
                     pvc_result, pvc_count = db_client.execute_query(
                         pvc_query,
@@ -107,14 +107,31 @@ def scale_up() -> tuple[Dict[str, Any], int]:
 
                     # Check if user has permission to use this PVC
                     pvc = pvc_result[0]
-                    if (
-                        not request.current_user.is_admin
-                        and pvc["created_by"] != request.current_user.username
-                    ):
-                        return (
-                            jsonify({"error": "You do not have permission to use this PVC"}),
-                            HTTPStatus.FORBIDDEN,
+
+                    # Admins have access to all PVCs
+                    if request.current_user.is_admin:
+                        logging.info("Admin user - access granted to PVC")
+                    # Public PVCs are accessible to all users
+                    elif pvc["is_public"]:
+                        logging.info("Public PVC - access granted to all users")
+                    else:
+                        # Check access table
+                        access_query = """
+                        SELECT id
+                        FROM storage_pvc_access
+                        WHERE pvc_id = :pvc_id AND username = :username
+                        """
+                        _, access_count = db_client.execute_query(
+                            access_query,
+                            {"pvc_id": pvc["id"], "username": request.current_user.username},
                         )
+
+                        if access_count == 0:
+                            return (
+                                jsonify({"error": "You do not have permission to use this PVC"}),
+                                HTTPStatus.FORBIDDEN,
+                            )
+                        logging.info("User has explicit access to PVC from access table")
 
                     logging.info("PVC access verified")
                 except Exception as e:
@@ -576,6 +593,9 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
     For admin users, all connections are returned.
     For non-admin users, only connections created by the user are returned.
 
+    Query Parameters:
+        created_by (str, optional): Filter connections by creator username (admin only)
+
     Returns:
         tuple: A tuple containing:
             - Dict with list of connections
@@ -584,6 +604,9 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
     try:
         # Get authenticated user
         current_user = request.current_user
+
+        # Get optional creator filter (only effective for admin users)
+        creator_filter = request.args.get("created_by")
 
         # Get database client
         db_client = client_factory.get_database_client()
@@ -596,12 +619,22 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
             # Get connections from database - filter by user if not admin
             if current_user.is_admin:
                 logging.debug("Listing connections for admin user")
-                query = """
-                SELECT c.*, dc.name as desktop_configuration_name
-                FROM connections c
-                LEFT JOIN desktop_configurations dc ON c.desktop_configuration_id = dc.id
-                """
-                connections, _ = db_client.execute_query(query)
+                if creator_filter:
+                    logging.debug(f"Filtering connections by creator: {creator_filter}")
+                    query = """
+                    SELECT c.*, dc.name as desktop_configuration_name
+                    FROM connections c
+                    LEFT JOIN desktop_configurations dc ON c.desktop_configuration_id = dc.id
+                    WHERE c.created_by = :username
+                    """
+                    connections, _ = db_client.execute_query(query, {"username": creator_filter})
+                else:
+                    query = """
+                    SELECT c.*, dc.name as desktop_configuration_name
+                    FROM connections c
+                    LEFT JOIN desktop_configurations dc ON c.desktop_configuration_id = dc.id
+                    """
+                    connections, _ = db_client.execute_query(query)
             else:
                 logging.debug("Listing connections for non-admin user")
                 query = """

@@ -37,7 +37,7 @@ class RateLimitError(AuthError):
         )
 
 
-def handle_auth_response(response: requests.Response) -> Tuple[Dict[str, Any], int]:
+def handle_auth_response(response: requests.Response) -> Tuple[AuthResponse, int]:
     """
     Handle authentication API response.
 
@@ -45,7 +45,7 @@ def handle_auth_response(response: requests.Response) -> Tuple[Dict[str, Any], i
         response: Response from auth API
 
     Returns:
-        Tuple[Dict[str, Any], int]: Response data and status code
+        Tuple[AuthResponse, int]: Response data and status code
 
     Raises:
         AuthError: If authentication fails
@@ -62,56 +62,15 @@ def handle_auth_response(response: requests.Response) -> Tuple[Dict[str, Any], i
         if response.status_code != HTTPStatus.OK:
             raise AuthError(data.get("error", "Authentication failed"), response.status_code)
 
-        # Validate response data
         auth_data = AuthResponse(**data)
-        return auth_data.model_dump(), HTTPStatus.OK
+        return auth_data, HTTPStatus.OK
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Request error: {str(e)}")
-        raise AuthError("Failed to connect to authentication service")
+        raise AuthError("Failed to connect to authentication service") from e
     except ValidationError as e:
         logger.error(f"Response validation error: {str(e)}")
-        raise AuthError("Invalid response from authentication service")
-
-
-def login(username: str, password: str) -> Tuple[Dict[str, Any], int]:
-    """
-    Authenticate user with credentials.
-
-    Args:
-        username: Username
-        password: Password
-
-    Returns:
-        Tuple[Dict[str, Any], int]: Authentication response and status code
-
-    Raises:
-        AuthError: If authentication fails
-        RateLimitError: If rate limited
-    """
-    try:
-        response = requests.post(
-            f"{current_app.config['API_URL']}/auth/login",
-            json={"username": username, "password": password},
-            headers={"Content-Type": "application/json"},
-        )
-
-        data, status_code = handle_auth_response(response)
-
-        if status_code == HTTPStatus.OK:
-            session["token"] = data["token"]
-            session["is_admin"] = data["is_admin"]
-            session["username"] = data["username"]
-            session["logged_in"] = True
-
-        return data, status_code
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Login error: {str(e)}")
-        raise AuthError("Network error") from e
-    except Exception as e:
-        logger.error(f"Login error: {str(e)}")
-        raise
+        raise AuthError("Invalid response from authentication service") from e
 
 
 def logout() -> None:
@@ -154,12 +113,13 @@ def refresh_token() -> None:
                 "Authorization": f"Bearer {session['token']}",
                 "Content-Type": "application/json",
             },
+            timeout=10,
         )
 
-        data, status_code = handle_auth_response(response)
+        auth_data, status_code = handle_auth_response(response)
 
         if status_code == HTTPStatus.OK:
-            session["token"] = data["token"]
+            session["token"] = auth_data.token
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Token refresh error: {str(e)}")

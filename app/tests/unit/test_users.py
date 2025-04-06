@@ -4,8 +4,6 @@ import logging
 
 import pytest
 import requests
-import responses
-from flask import Flask, session
 from flask.testing import FlaskClient
 
 from middleware.auth import simulate_login
@@ -23,19 +21,13 @@ def test_view_users_success(client: FlaskClient, responses_mock) -> None:
         simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
-    logger.debug(
-        f"Session after setup: token={TEST_TOKEN[:10]}..., is_admin={TEST_ADMIN['is_admin']}"
-    )
+    logger.debug(f"Session after setup: token={TEST_TOKEN[:10]}..., is_admin={TEST_ADMIN['is_admin']}")
 
     # Mock successful API response
     responses_mock.add(
         responses_mock.GET,
         "http://test-api:5000/api/users/list",
-        match=[
-            responses_mock.matchers.header_matcher(
-                {"Authorization": f"Bearer {TEST_TOKEN}"}
-            )
-        ],
+        match=[responses_mock.matchers.header_matcher({"Authorization": f"Bearer {TEST_TOKEN}"})],
         json={
             "users": [
                 {"username": "user1", "email": "user1@test.com", "is_admin": False},
@@ -302,9 +294,7 @@ def test_delete_self(client: FlaskClient) -> None:
         simulate_login(sess, TEST_TOKEN, is_admin=TEST_ADMIN["is_admin"], username=TEST_ADMIN["username"])
         sess.permanent = True
 
-    response = client.post(
-        f"/users/delete/{TEST_ADMIN['username']}", follow_redirects=True
-    )
+    response = client.post(f"/users/delete/{TEST_ADMIN['username']}", follow_redirects=True)
     assert response.status_code == 200
     assert b"Cannot delete your own account" in response.data
 
@@ -510,7 +500,7 @@ def test_add_user_without_password(client: FlaskClient, responses_mock) -> None:
 
 
 def test_delete_user_client_method(client: FlaskClient, responses_mock) -> None:
-    """Test that the UsersClient.delete_user method correctly uses the /api/users/removeuser endpoint."""
+    """Test that the UsersClient.delete_user correctly uses the /api/users/removeuser endpoint."""
     # Import the client factory
     from clients.factory import client_factory
 

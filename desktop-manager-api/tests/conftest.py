@@ -2,13 +2,13 @@ import os
 import re
 
 import pytest
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import Session
+from sqlalchemy.sql import text
 
 # Import all models to ensure they are registered with SQLAlchemy
 from desktop_manager.config.settings import Settings
 from desktop_manager.core.database import configure_db_for_tests, get_engine
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session
-from sqlalchemy.sql import text
 
 
 # Test settings override
@@ -103,9 +103,7 @@ def convert_mysql_to_sqlite(sql: str) -> str:
         sql,
         flags=re.IGNORECASE,
     )
-    sql = re.sub(
-        r"ON\s+UPDATE\s+CURRENT_TIMESTAMP(?:\(\))?", "", sql, flags=re.IGNORECASE
-    )
+    sql = re.sub(r"ON\s+UPDATE\s+CURRENT_TIMESTAMP(?:\(\))?", "", sql, flags=re.IGNORECASE)
 
     # Clean up any double spaces and trailing commas before closing parenthesis
     sql = re.sub(r",\s*\)", ")", sql)
@@ -132,9 +130,7 @@ def setup_test_db(database_url):
             # Read and execute init.sql
             with open("init.sql") as f:
                 sql_content = f.read()
-                sql_statements = [
-                    stmt.strip() for stmt in sql_content.split(";") if stmt.strip()
-                ]
+                sql_statements = [stmt.strip() for stmt in sql_content.split(";") if stmt.strip()]
                 # Skip the first two statements (CREATE DATABASE and USE)
                 for stmt in sql_statements[2:]:
                     conn.execute(text(stmt))
@@ -174,12 +170,8 @@ def setup_test_db(database_url):
                 )
 
                 # Create indexes for users table
-                conn.execute(
-                    text("CREATE INDEX IF NOT EXISTS idx_username ON users(username)")
-                )
-                conn.execute(
-                    text("CREATE INDEX IF NOT EXISTS idx_email ON users(email)")
-                )
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_username ON users(username)"))
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_email ON users(email)"))
                 conn.execute(text("CREATE INDEX IF NOT EXISTS idx_sub ON users(sub)"))
 
                 # Social Auth Association table
@@ -219,13 +211,9 @@ def setup_test_db(database_url):
                 )
 
                 # Create indexes for pkce_state table
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_state ON pkce_state(state)"))
                 conn.execute(
-                    text("CREATE INDEX IF NOT EXISTS idx_state ON pkce_state(state)")
-                )
-                conn.execute(
-                    text(
-                        "CREATE INDEX IF NOT EXISTS idx_expires ON pkce_state(expires_at)"
-                    )
+                    text("CREATE INDEX IF NOT EXISTS idx_expires ON pkce_state(expires_at)")
                 )
 
                 # Connections table
@@ -276,7 +264,9 @@ def setup_test_db(database_url):
 
                 # Create index for desktop_configurations table
                 conn.execute(
-                    text("CREATE INDEX IF NOT EXISTS idx_desktop_config_name ON desktop_configurations(name)")
+                    text(
+                        "CREATE INDEX IF NOT EXISTS idx_desktop_config_name ON desktop_configurations(name)"
+                    )
                 )
 
                 # Desktop Configuration Access table
@@ -297,10 +287,14 @@ def setup_test_db(database_url):
 
                 # Create indexes for desktop_configuration_access table
                 conn.execute(
-                    text("CREATE INDEX IF NOT EXISTS idx_desktop_config_access_username ON desktop_configuration_access(username)")
+                    text(
+                        "CREATE INDEX IF NOT EXISTS idx_desktop_config_access_username ON desktop_configuration_access(username)"
+                    )
                 )
                 conn.execute(
-                    text("CREATE INDEX IF NOT EXISTS idx_desktop_config_access_config_id ON desktop_configuration_access(desktop_configuration_id)")
+                    text(
+                        "CREATE INDEX IF NOT EXISTS idx_desktop_config_access_config_id ON desktop_configuration_access(desktop_configuration_id)"
+                    )
                 )
 
                 conn.commit()
@@ -344,27 +338,25 @@ def setup_test_session(setup_test_db):
     connection.close()
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_db(setup_test_session):
     """Provide a database session for tests."""
     return setup_test_session
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_engine():
     """Provide the SQLAlchemy engine for tests."""
     return get_engine()
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(monkeypatch):
     """Create a test client with database and settings overrides."""
     from desktop_manager.main import create_app
 
     # Override get_settings
-    monkeypatch.setattr(
-        "desktop_manager.config.settings.get_settings", get_test_settings
-    )
+    monkeypatch.setattr("desktop_manager.config.settings.get_settings", get_test_settings)
 
     # Create test app
     app = create_app()
@@ -374,7 +366,7 @@ def client(monkeypatch):
 
 
 # Mock Guacamole client
-@pytest.fixture()
+@pytest.fixture
 def mock_guacamole_client(mocker):
     """Create a mock Guacamole client."""
     mock = mocker.Mock()
@@ -396,21 +388,16 @@ def mock_database_client(monkeypatch, test_db):
 
     # Patch the client_factory's _database_client attribute
     monkeypatch.setattr(
-        "desktop_manager.clients.factory.client_factory._database_client",
-        mock_client
+        "desktop_manager.clients.factory.client_factory._database_client", mock_client
     )
 
     # Patch the factory method to return our mock client
     monkeypatch.setattr(
-        "desktop_manager.clients.factory.client_factory.get_database_client",
-        lambda: mock_client
+        "desktop_manager.clients.factory.client_factory.get_database_client", lambda: mock_client
     )
 
     # Patch the direct factory function to return our mock client
-    monkeypatch.setattr(
-        "desktop_manager.clients.factory.get_database_client",
-        lambda: mock_client
-    )
+    monkeypatch.setattr("desktop_manager.clients.factory.get_database_client", lambda: mock_client)
 
     return mock_client
 
@@ -423,14 +410,15 @@ def mock_auth_decorators(monkeypatch, test_db):
     with versions that use the test_db session directly.
     """
     from functools import wraps
+
     from flask import jsonify, request
     import jwt
-    from desktop_manager.api.models.user import User
 
     class MockUser:
         """Simple user class for testing that mimics the User model."""
-        def __init__(self, id, username, is_admin):
-            self.id = id
+
+        def __init__(self, user_id, username, is_admin):
+            self.id = user_id
             self.username = username
             self.is_admin = is_admin
             self.email = f"{username}@example.com"
@@ -459,12 +447,12 @@ def mock_auth_decorators(monkeypatch, test_db):
                     payload = jwt.decode(token, "test_secret_key", algorithms=["HS256"])
                     print(f"DEBUG TOKEN PAYLOAD: {payload}")
 
-                    user_id = payload.get('user_id', 999)
-                    username = payload.get('username', "unknown")
-                    is_admin = bool(payload.get('is_admin', False))
+                    user_id = payload.get("user_id", 999)
+                    username = payload.get("username", "unknown")
+                    is_admin = bool(payload.get("is_admin", False))
 
                     # Create mock user
-                    current_user = MockUser(id=user_id, username=username, is_admin=is_admin)
+                    current_user = MockUser(user_id=user_id, username=username, is_admin=is_admin)
                     print(f"DEBUG: Created user from JWT: {current_user}")
 
                     # Set user on request
@@ -476,11 +464,11 @@ def mock_auth_decorators(monkeypatch, test_db):
                     # Mock the userinfo response with a valid 'sub' field
                     # This simulates the userinfo endpoint for OIDC
                     userinfo = {
-                        'success': True,
-                        'sub': '123',  # Add the missing 'sub' field
-                        'email': 'test@example.com',
-                        'name': 'Test User',
-                        'username': 'testuser'
+                        "success": True,
+                        "sub": "123",  # Add the missing 'sub' field
+                        "email": "test@example.com",
+                        "name": "Test User",
+                        "username": "testuser",
                     }
 
                     print(f"DEBUG: Mocked userinfo response: {userinfo}")
@@ -488,26 +476,28 @@ def mock_auth_decorators(monkeypatch, test_db):
                     # Extract user ID from JWT payload if possible
                     try:
                         raw_payload = jwt.decode(token, options={"verify_signature": False})
-                        user_id = raw_payload.get('user_id', 999)
-                        username = raw_payload.get('username', 'testuser')
-                        is_admin = bool(raw_payload.get('is_admin', False))
-                    except:
+                        user_id = raw_payload.get("user_id", 999)
+                        username = raw_payload.get("username", "testuser")
+                        is_admin = bool(raw_payload.get("is_admin", False))
+                    except Exception:
                         # Default values if JWT decoding fails completely
                         user_id = 999
-                        username = 'testuser'
+                        username = "testuser"
                         is_admin = False
 
                     # Create mock user for OIDC
-                    current_user = MockUser(id=user_id, username=username, is_admin=is_admin)
+                    current_user = MockUser(user_id=user_id, username=username, is_admin=is_admin)
                     print(f"DEBUG: Created user from OIDC: {current_user}")
 
                     # Set user on request
                     request.current_user = current_user
 
-                print(f"DEBUG: Set current_user on request with is_admin={request.current_user.is_admin}")
+                print(
+                    f"DEBUG: Set current_user on request with is_admin={request.current_user.is_admin}"
+                )
                 return f(*args, **kwargs)
             except Exception as e:
-                print(f"DEBUG: Exception in mock_token_required: {str(e)}")
+                print(f"DEBUG: Exception in mock_token_required: {e!s}")
                 return jsonify({"message": "Token is invalid!"}), 401
 
         return decorated
@@ -544,21 +534,28 @@ def mock_auth_decorators(monkeypatch, test_db):
 
     # Route-specific patches
     print("DEBUG PATCHING: Patching user_routes decorators")
-    monkeypatch.setattr("desktop_manager.api.routes.user_routes.token_required", mock_token_required)
-    monkeypatch.setattr("desktop_manager.api.routes.user_routes.admin_required", mock_admin_required)
+    monkeypatch.setattr(
+        "desktop_manager.api.routes.user_routes.token_required", mock_token_required
+    )
+    monkeypatch.setattr(
+        "desktop_manager.api.routes.user_routes.admin_required", mock_admin_required
+    )
 
     print("DEBUG PATCHING: Patching connection_routes decorators")
-    monkeypatch.setattr("desktop_manager.api.routes.connection_routes.token_required", mock_token_required)
+    monkeypatch.setattr(
+        "desktop_manager.api.routes.connection_routes.token_required", mock_token_required
+    )
     # Don't patch admin_required for connection_routes since it doesn't use this decorator
 
     # Auth routes
     print("DEBUG PATCHING: Patching auth_routes decorators")
-    monkeypatch.setattr("desktop_manager.api.routes.auth_routes.token_required", mock_token_required)
-    monkeypatch.setattr("desktop_manager.api.routes.auth_routes.admin_required", mock_admin_required)
+    monkeypatch.setattr(
+        "desktop_manager.api.routes.auth_routes.token_required", mock_token_required
+    )
+    monkeypatch.setattr(
+        "desktop_manager.api.routes.auth_routes.admin_required", mock_admin_required
+    )
 
     # Return the mock decorators for potential use in tests
     print("DEBUG PATCHING: Patching finished")
-    return {
-        "token_required": mock_token_required,
-        "admin_required": mock_admin_required
-    }
+    return {"token_required": mock_token_required, "admin_required": mock_admin_required}

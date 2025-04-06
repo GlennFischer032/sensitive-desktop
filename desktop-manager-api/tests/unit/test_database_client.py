@@ -1,11 +1,12 @@
 """Unit tests for database client."""
 
+from unittest.mock import MagicMock, PropertyMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, Mock, PropertyMock
 from sqlalchemy.exc import SQLAlchemyError
 
-from desktop_manager.clients.database import DatabaseClient
 from desktop_manager.clients.base import APIError
+from desktop_manager.clients.database import DatabaseClient
 
 
 @pytest.fixture
@@ -86,8 +87,9 @@ def test_execute_query_non_select(mock_engine):
     engine, connection = mock_engine
 
     # Prepare client
-    with patch("desktop_manager.clients.database.get_settings") as mock_get_settings, \
-         patch.object(DatabaseClient, "engine", new_callable=PropertyMock, return_value=engine):
+    with patch("desktop_manager.clients.database.get_settings") as mock_get_settings, patch.object(
+        DatabaseClient, "engine", new_callable=PropertyMock, return_value=engine
+    ):
         mock_settings = MagicMock()
         mock_settings.database_url = "postgresql://test:test@localhost/test"
         mock_get_settings.return_value = mock_settings
@@ -195,7 +197,7 @@ def test_execute_transaction(mock_engine):
         # Define queries
         queries = [
             ("SELECT * FROM users", None),
-            ("INSERT INTO users (name) VALUES (:name)", {"name": "test"})
+            ("INSERT INTO users (name) VALUES (:name)", {"name": "test"}),
         ]
 
         results = client.execute_transaction(queries)
@@ -228,7 +230,7 @@ def test_execute_transaction_error(mock_engine):
         # Define queries
         queries = [
             ("SELECT * FROM users", None),
-            ("INSERT INTO users (name) VALUES (:name)", {"name": "test"})
+            ("INSERT INTO users (name) VALUES (:name)", {"name": "test"}),
         ]
 
         # Verify the exception is caught and re-raised as APIError
@@ -249,7 +251,7 @@ def test_get_connection_details(mock_engine):
         "id": 1,
         "name": "test_connection",
         "connection_type": "vnc",
-        "ip_address": "127.0.0.1"
+        "ip_address": "127.0.0.1",
     }
 
     # Set up result
@@ -272,7 +274,12 @@ def test_get_connection_details(mock_engine):
         connection.execute.assert_called_once()
 
         # Verify results
-        assert connection_details == {"id": 1, "name": "test_connection", "connection_type": "vnc", "ip_address": "127.0.0.1"}
+        assert connection_details == {
+            "id": 1,
+            "name": "test_connection",
+            "connection_type": "vnc",
+            "ip_address": "127.0.0.1",
+        }
 
 
 def test_get_connection_details_not_found(mock_engine):
@@ -307,9 +314,19 @@ def test_list_connections(mock_engine):
 
     # Mock rows
     mock_row1 = MagicMock()
-    mock_row1._mapping = {"id": 1, "name": "connection1", "connection_type": "vnc", "ip_address": "127.0.0.1"}
+    mock_row1._mapping = {
+        "id": 1,
+        "name": "connection1",
+        "connection_type": "vnc",
+        "ip_address": "127.0.0.1",
+    }
     mock_row2 = MagicMock()
-    mock_row2._mapping = {"id": 2, "name": "connection2", "connection_type": "rdp", "ip_address": "192.168.0.1"}
+    mock_row2._mapping = {
+        "id": 2,
+        "name": "connection2",
+        "connection_type": "rdp",
+        "ip_address": "192.168.0.1",
+    }
 
     # Set up result
     mock_result = MagicMock()
@@ -332,8 +349,18 @@ def test_list_connections(mock_engine):
 
         # Verify results
         assert len(connections) == 2
-        assert connections[0] == {"id": 1, "name": "connection1", "connection_type": "vnc", "ip_address": "127.0.0.1"}
-        assert connections[1] == {"id": 2, "name": "connection2", "connection_type": "rdp", "ip_address": "192.168.0.1"}
+        assert connections[0] == {
+            "id": 1,
+            "name": "connection1",
+            "connection_type": "vnc",
+            "ip_address": "127.0.0.1",
+        }
+        assert connections[1] == {
+            "id": 2,
+            "name": "connection2",
+            "connection_type": "rdp",
+            "ip_address": "192.168.0.1",
+        }
 
 
 def test_list_connections_error(mock_engine):
@@ -364,11 +391,11 @@ def test_add_connection(mock_engine):
     engine, connection = mock_engine
 
     # Create a mock row with real row mapping behavior
-    mock_row = {"id": 1}
 
     # Prepare client
-    with patch("desktop_manager.clients.database.get_settings") as mock_get_settings, \
-         patch.object(DatabaseClient, "engine", new_callable=PropertyMock, return_value=engine):
+    with patch("desktop_manager.clients.database.get_settings") as mock_get_settings, patch.object(
+        DatabaseClient, "engine", new_callable=PropertyMock, return_value=engine
+    ):
         mock_settings = MagicMock()
         mock_settings.database_url = "postgresql://test:test@localhost/test"
         mock_get_settings.return_value = mock_settings
@@ -384,7 +411,7 @@ def test_add_connection(mock_engine):
             connection_data = {
                 "name": "test_connection",
                 "connection_type": "vnc",
-                "ip_address": "127.0.0.1"
+                "ip_address": "127.0.0.1",
             }
 
             connection_id = client.add_connection(connection_data)
@@ -405,8 +432,9 @@ def test_update_connection(mock_engine):
     engine, connection = mock_engine
 
     # Prepare client
-    with patch("desktop_manager.clients.database.get_settings") as mock_get_settings, \
-         patch.object(DatabaseClient, "engine", new_callable=PropertyMock, return_value=engine):
+    with patch("desktop_manager.clients.database.get_settings") as mock_get_settings, patch.object(
+        DatabaseClient, "engine", new_callable=PropertyMock, return_value=engine
+    ):
         mock_settings = MagicMock()
         mock_settings.database_url = "postgresql://test:test@localhost/test"
         mock_get_settings.return_value = mock_settings
@@ -419,10 +447,7 @@ def test_update_connection(mock_engine):
             mock_execute_query.return_value = ([], 1)
 
             # Update connection
-            connection_data = {
-                "name": "updated_connection",
-                "connection_type": "rdp"
-            }
+            connection_data = {"name": "updated_connection", "connection_type": "rdp"}
 
             # This should not raise an exception because we mocked affected rows = 1
             client.update_connection(1, connection_data)
@@ -439,8 +464,9 @@ def test_delete_connection(mock_engine):
     engine, connection = mock_engine
 
     # Prepare client
-    with patch("desktop_manager.clients.database.get_settings") as mock_get_settings, \
-         patch.object(DatabaseClient, "engine", new_callable=PropertyMock, return_value=engine):
+    with patch("desktop_manager.clients.database.get_settings") as mock_get_settings, patch.object(
+        DatabaseClient, "engine", new_callable=PropertyMock, return_value=engine
+    ):
         mock_settings = MagicMock()
         mock_settings.database_url = "postgresql://test:test@localhost/test"
         mock_get_settings.return_value = mock_settings

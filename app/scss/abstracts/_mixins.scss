@@ -23,10 +23,44 @@
   }
 }
 
+// Responsive property mixin
+@mixin responsive-prop($property, $default-value, $sm-value: null, $md-value: null, $lg-value: null) {
+  #{$property}: $default-value;
+
+  @if $sm-value {
+    @include respond-to(sm) {
+      #{$property}: $sm-value;
+    }
+  }
+
+  @if $md-value {
+    @include respond-to(md) {
+      #{$property}: $md-value;
+    }
+  }
+
+  @if $lg-value {
+    @include respond-to(lg) {
+      #{$property}: $lg-value;
+    }
+  }
+}
+
 // Button mixin
 @mixin button-variant($bg-color, $text-color: white, $hover-color: darken($bg-color, 10%)) {
   background-color: $bg-color;
   color: $text-color;
+  border: $border-width solid transparent;
+  border-radius: $border-radius;
+  padding: $spacing-sm $spacing-md;
+  font-weight: $font-weight-medium;
+  font-size: $font-size-base;
+  transition: background-color $transition-fast, transform $transition-fast, box-shadow $transition-fast;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+  cursor: pointer;
+  line-height: $line-height-sm;
 
   &:hover {
     background-color: $hover-color;
@@ -36,6 +70,16 @@
   &:active {
     transform: translateY(1px);
     box-shadow: none;
+  }
+
+  &:focus {
+    @include focus-outline($bg-color);
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 }
 
@@ -81,7 +125,83 @@
   display: inline-block;
   padding: 3px 8px;
   border-radius: 12px;
-  font-size: 0.8em;
+  font-size: $font-size-xs;
   background-color: $bg-color;
   color: $color;
+  font-weight: $font-weight-medium;
+}
+
+// Typography mixins
+@mixin heading($size: lg, $weight: bold, $color: $text-dark) {
+  @if $size == xs {
+    font-size: $font-size-sm;
+  } @else if $size == sm {
+    font-size: $font-size-base;
+  } @else if $size == md {
+    font-size: $font-size-lg;
+  } @else if $size == lg {
+    font-size: $font-size-xl;
+  } @else if $size == xl {
+    font-size: $font-size-xxl;
+  }
+
+  font-weight: $weight;
+  color: $color;
+  line-height: $line-height-sm;
+  margin-bottom: $spacing-md;
+}
+
+// Form control mixin
+@mixin form-control {
+  width: 100%;
+  padding: $spacing-sm;
+  font-size: $font-size-base;
+  line-height: $line-height-base;
+  color: $text-color;
+  background-color: $bg-white;
+  border: $border-width solid $border-color;
+  border-radius: $border-radius;
+  transition: border-color $transition-fast, box-shadow $transition-fast;
+
+  &:focus {
+    border-color: $primary-color;
+    @include focus-outline($primary-color);
+  }
+
+  &::placeholder {
+    color: $text-light;
+    opacity: 1;
+  }
+
+  &:disabled {
+    background-color: $bg-light;
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+}
+
+// Container mixin
+@mixin container($max-width: $container-max-width) {
+  width: 100%;
+  max-width: $max-width;
+  margin-right: auto;
+  margin-left: auto;
+  padding-right: $container-padding;
+  padding-left: $container-padding;
+}
+
+// Status indicator mixin
+@mixin status-indicator($color: $success-color, $size: 10px) {
+  display: inline-block;
+  width: $size;
+  height: $size;
+  border-radius: $border-radius-circle;
+  background-color: $color;
+}
+
+// Grid mixin
+@mixin grid($columns: 1, $gap: $spacing-md) {
+  display: grid;
+  grid-template-columns: repeat($columns, 1fr);
+  grid-gap: $gap;
 }

@@ -3,8 +3,6 @@
 import os
 from unittest import mock
 
-import pytest
-
 from desktop_manager.config.settings import Settings
 
 
@@ -26,13 +24,19 @@ def test_config_defaults():
         assert config.NAMESPACE == "fischer-ns"
         assert config.ADMIN_USERNAME == "admin"
         assert config.ADMIN_PASSWORD == "" or config.ADMIN_PASSWORD is None
-        assert config.RANCHER_API_TOKEN == "token-58z6j:jrkfmqfms2gdlzqv98v8zjfck8nq672fgz2j2jv6t9q67txsds22wc"
+        assert (
+            config.RANCHER_API_TOKEN
+            == "token-58z6j:jrkfmqfms2gdlzqv98v8zjfck8nq672fgz2j2jv6t9q67txsds22wc"
+        )
         assert config.RANCHER_API_URL == "https://rancher.cloud.e-infra.cz"
         assert config.RANCHER_CLUSTER_ID == "c-m-qvndqhf6"
         assert config.RANCHER_REPO_NAME == "cerit-sc"
         assert config.DESKTOP_IMAGE == "cerit.io/desktops/ubuntu-xfce:22.04-user"
         # Verify the DATABASE_URL property works correctly
-        assert config.database_url == f"postgresql://{config.POSTGRES_USER}:{config.POSTGRES_PASSWORD}@{config.POSTGRES_HOST}:{config.POSTGRES_PORT}/{config.POSTGRES_DATABASE}"
+        assert (
+            config.database_url
+            == f"postgresql://{config.POSTGRES_USER}:{config.POSTGRES_PASSWORD}@{config.POSTGRES_HOST}:{config.POSTGRES_PORT}/{config.POSTGRES_DATABASE}"
+        )
 
 
 def test_config_from_env():
@@ -77,4 +81,7 @@ def test_config_from_env():
         assert config.RANCHER_REPO_NAME == "test-rancher-repo-name"
         assert config.DESKTOP_IMAGE == "test-desktop-image"
         # Verify the DATABASE_URL property uses the updated values
-        assert config.database_url == "postgresql://test-user:test-password@test-postgres-host:5433/test-db"
+        assert (
+            config.database_url
+            == "postgresql://test-user:test-password@test-postgres-host:5433/test-db"
+        )

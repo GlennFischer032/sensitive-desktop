@@ -9,29 +9,19 @@ from flask import Flask, jsonify, redirect, render_template, request, session, u
 from flask_cors import CORS
 from flask_session import Session
 
-from app.auth import auth_bp
-from app.configurations import configurations_bp
-from app.connections import connections_bp
-from app.storage import storage_bp
-from app.tokens import tokens_bp
-from app.users import users_bp
+from app.services.auth import auth_bp
+from app.services.configurations import configurations_bp
+from app.services.connections import connections_bp
+from app.services.storage import storage_bp
+from app.services.tokens import tokens_bp
+from app.services.users import users_bp
 from config.config import Config
 from middleware.security import init_security, rate_limiter
-from utils.decorators import login_required
+from middleware.auth import login_required
 
 
-def create_app(config_class=Config):
-    """Create and configure the Flask application."""
-    # Configure logging
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-
-    app = Flask(__name__)
-    app.config.from_object(config_class)
-
-    # Initialize security features
-    init_security(app)
-
+def init_session(app: Flask):
+    """Initialize the session for the application."""
     # Initialize session
     if app.config.get("SESSION_TYPE") != "null":
         # Only use Redis session when not in test mode with null session
@@ -44,16 +34,15 @@ def create_app(config_class=Config):
 
     app.config["SESSION_REFRESH_EACH_REQUEST"] = True
 
-    # Configure CORS with security settings
+
+def init_cors(app: Flask):
     CORS(
         app,
         resources={
             r"/*": {
                 "origins": app.config.get("CORS_ALLOWED_ORIGINS", [app.config["API_URL"]]),
                 "supports_credentials": app.config.get("CORS_SUPPORTS_CREDENTIALS", True),
-                "expose_headers": app.config.get(
-                    "CORS_EXPOSE_HEADERS", ["Content-Range", "X-Total-Count"]
-                ),
+                "expose_headers": app.config.get("CORS_EXPOSE_HEADERS", ["Content-Range", "X-Total-Count"]),
                 "allow_headers": app.config.get(
                     "CORS_ALLOWED_HEADERS",
                     [
@@ -64,13 +53,28 @@ def create_app(config_class=Config):
                         "Origin",
                     ],
                 ),
-                "methods": app.config.get(
-                    "CORS_ALLOWED_METHODS", ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-                ),
+                "methods": app.config.get("CORS_ALLOWED_METHODS", ["GET", "POST", "PUT", "DELETE", "OPTIONS"]),
                 "max_age": app.config.get("CORS_MAX_AGE", 3600),
             }
         },
     )
+
+
+def create_app(config_class=Config):  # noqa: C901, PLR0915
+    """Create and configure the Flask application."""
+    # Configure logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    app = Flask(__name__)
+    app.config.from_object(config_class)
+
+    # Initialize security features
+    init_security(app)
+
+    init_session(app)
+
+    init_cors(app)
 
     # Request validation middleware
     @app.before_request
@@ -103,12 +107,15 @@ def create_app(config_class=Config):
 
         # Validate content length
         max_content_length = app.config.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024)  # 10MB default
-        if max_content_length is not None and request.content_length is not None:
-            if request.content_length > max_content_length:
-                return {
-                    "error": "Request too large",
-                    "message": f"Request exceeds maximum size of {max_content_length / 1024 / 1024}MB",
-                }, HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+        if (
+            max_content_length is not None
+            and request.content_length is not None
+            and request.content_length > max_content_length
+        ):
+            return {
+                "error": "Request too large",
+                "message": f"Request exceeds maximum size of {max_content_length / 1024 / 1024}MB",
+            }, HTTPStatus.REQUEST_ENTITY_TOO_LARGE
 
         # Generate CSP nonce for inline scripts
         if not hasattr(request, "csp_nonce"):
@@ -217,11 +224,7 @@ def create_app(config_class=Config):
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return {
                 "error": "Too many requests",
-                "message": (
-                    f"Please try again in {retry_after} seconds"
-                    if retry_after
-                    else "Too many requests"
-                ),
+                "message": (f"Please try again in {retry_after} seconds" if retry_after else "Too many requests"),
             }, HTTPStatus.TOO_MANY_REQUESTS
 
         return (
@@ -251,7 +254,8 @@ def create_app(config_class=Config):
         def csp_nonce():
             return getattr(request, "csp_nonce", "")
 
-        return {"csp_nonce": csp_nonce}
+        # Add current year for templates
+        return {"csp_nonce": csp_nonce, "year": datetime.now().year}
 
     # Main routes
     @app.route("/")
@@ -265,7 +269,7 @@ def create_app(config_class=Config):
     def test_api_connection():
         try:
             logger.info(f"Testing connection to API at {app.config['API_URL']}")
-            response = requests.get(f"{app.config['API_URL']}/api/health")
+            response = requests.get(f"{app.config['API_URL']}/api/health", timeout=10)
             logger.info(f"API Response: Status={response.status_code}, Content={response.text}")
             return jsonify(
                 {

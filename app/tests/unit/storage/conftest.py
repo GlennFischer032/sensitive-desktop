@@ -1,5 +1,7 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 
 @pytest.fixture
 def mock_storage_client():
@@ -8,6 +10,7 @@ def mock_storage_client():
         client_instance = MagicMock()
         mock.return_value = client_instance
         yield client_instance
+
 
 @pytest.fixture
 def sample_pvcs():
@@ -28,5 +31,5 @@ def sample_pvcs():
             "status": "Bound",
             "created_by": "user1",
             "created_at": "2023-01-02T12:00:00Z",
-        }
+        },
     ]

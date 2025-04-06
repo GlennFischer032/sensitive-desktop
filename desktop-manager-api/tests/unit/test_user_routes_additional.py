@@ -1,19 +1,13 @@
 """Additional unit tests for user routes to improve coverage."""
 
-import json
-from datetime import datetime
 from http import HTTPStatus
-from unittest.mock import patch, MagicMock
 
+from flask import Flask, g, jsonify, request
 import pytest
-import requests
-from flask import Flask, jsonify, request, g, current_app
-from pydantic import ValidationError as PydanticValidationError
 
-from desktop_manager.api.models.user import User
-from desktop_manager.api.schemas.user import UserCreate, UserResponse
 from desktop_manager.clients.base import APIError
 from desktop_manager.core.exceptions import ValidationError
+
 
 @pytest.fixture
 def app_with_mocks(mocker):
@@ -69,7 +63,9 @@ def app_with_mocks(mocker):
         # Check if user exists
         try:
             # Simulate database query
-            result = g.db_client.execute_query("SELECT * FROM users WHERE username = %s", (username,))
+            result = g.db_client.execute_query(
+                "SELECT * FROM users WHERE username = %s", (username,)
+            )
             return jsonify({"exists": bool(result)}), HTTPStatus.OK
         except APIError as e:
             # Re-raise any API errors
@@ -86,10 +82,12 @@ def app_with_mocks(mocker):
 
     return app
 
+
 @pytest.fixture
 def client(app_with_mocks):
     """Create a test client for the app."""
     return app_with_mocks.test_client()
+
 
 @pytest.fixture
 def mock_db_client(app_with_mocks):

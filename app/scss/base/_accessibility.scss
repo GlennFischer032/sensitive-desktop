@@ -1,0 +1,270 @@
+// Accessibility Improvements
+// This file contains accessibility enhancements for the application
+
+// Skip links for keyboard navigation
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: $primary-color;
+  color: white;
+  padding: $spacing-sm;
+  z-index: 10000;
+  transition: top 0.2s;
+
+  &:focus {
+    top: 0;
+  }
+}
+
+// Enhanced focus states
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid $primary-color;
+  outline-offset: 2px;
+}
+
+// High contrast focus for interactive elements
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid $primary-color;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px rgba($primary-color, 0.3);
+}
+
+// Screen reader only utilities
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only-focusable:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+// ARIA attributes for JavaScript interactions
+[aria-hidden="true"] {
+  display: none !important;
+}
+
+[aria-expanded="true"] .expand-icon {
+  transform: rotate(180deg);
+}
+
+// Color contrast helpers
+.high-contrast-text {
+  color: $text-dark !important;
+}
+
+.high-contrast-bg {
+  background-color: $bg-white !important;
+}
+
+// Improved form error indication (both visual and aria)
+.form-group.has-error {
+  .error-message {
+    color: $danger-color;
+    font-weight: $font-weight-medium;
+    margin-top: $spacing-xs;
+
+    &::before {
+      content: "Error: ";
+      font-weight: $font-weight-bold;
+    }
+  }
+
+  input,
+  select,
+  textarea {
+    border-color: $danger-color;
+
+    &:focus {
+      border-color: $danger-color;
+      box-shadow: 0 0 0 3px rgba($danger-color, 0.3);
+    }
+  }
+}
+
+// Accessible modal improvements
+.modal {
+  // Ensure modal content is properly focused for screen readers
+  &[aria-hidden="false"] {
+    .modal-content {
+      outline: none;
+    }
+  }
+
+  .modal-close {
+    // Ensure close button is accessible
+    &::before {
+      content: "\00D7"; // × symbol
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+  }
+}
+
+// Keyboard accessible custom checkboxes and radio buttons
+.checkbox-label,
+.radio-label {
+  position: relative;
+  padding-left: 28px;
+  cursor: pointer;
+  display: inline-block;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+
+    &:focus-visible + .checkbox-custom,
+    &:focus-visible + .radio-custom {
+      outline: 2px solid $primary-color;
+      outline-offset: 2px;
+    }
+
+    &:checked + .checkbox-custom::after {
+      display: block;
+    }
+
+    &:checked + .radio-custom::after {
+      display: block;
+    }
+  }
+
+  .checkbox-custom {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 20px;
+    width: 20px;
+    background-color: white;
+    border: 1px solid $border-color;
+    border-radius: $border-radius-sm;
+
+    &::after {
+      content: "";
+      position: absolute;
+      display: none;
+      left: 7px;
+      top: 3px;
+      width: 5px;
+      height: 10px;
+      border: solid $primary-color;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+  }
+
+  .radio-custom {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 20px;
+    width: 20px;
+    background-color: white;
+    border: 1px solid $border-color;
+    border-radius: 50%;
+
+    &::after {
+      content: "";
+      position: absolute;
+      display: none;
+      top: 5px;
+      left: 5px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: $primary-color;
+    }
+  }
+}
+
+// Notification accessibility
+.notification {
+  position: relative;
+
+  .notification-close {
+    cursor: pointer;
+
+    &::before {
+      content: "\00D7"; // × symbol
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+  }
+}
+
+// Improved table accessibility
+table {
+  &.accessible-table {
+    border-collapse: collapse;
+    width: 100%;
+
+    caption {
+      font-weight: $font-weight-bold;
+      padding: $spacing-sm;
+      text-align: left;
+      color: $text-dark;
+    }
+
+    th {
+      text-align: left;
+      background-color: $bg-light;
+    }
+
+    th, td {
+      padding: $spacing-sm;
+      border: 1px solid $border-color;
+    }
+
+    tr:hover {
+      background-color: rgba($primary-color, 0.05);
+    }
+  }
+}

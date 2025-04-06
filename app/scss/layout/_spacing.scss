@@ -1,0 +1,115 @@
+// Standardized Spacing for Page Sections
+// This file provides consistent spacing classes for page sections
+
+// Section spacing - vertical space between page sections
+.section {
+  margin-bottom: $spacing-xl;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  // Section variants
+  &.section-sm {
+    margin-bottom: $spacing-lg;
+  }
+
+  &.section-lg {
+    margin-bottom: $spacing-xxl;
+  }
+
+  // Content sections
+  .section-content {
+    margin-top: $spacing-md;
+  }
+
+  // Section with border
+  &.section-bordered {
+    border-bottom: $border-width solid $border-color-light;
+    padding-bottom: $spacing-lg;
+
+    &:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+  }
+}
+
+// Section headers
+.section-header {
+  margin-bottom: $spacing-md;
+
+  h1, h2, h3, h4, h5, h6 {
+    margin-bottom: $spacing-sm;
+  }
+
+  // Description text under the heading
+  .section-description {
+    color: $text-muted;
+  }
+}
+
+// Section with cards
+.section-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: $spacing-md;
+  margin-bottom: $spacing-xl;
+}
+
+// Table sections
+.table-section {
+  margin-bottom: $spacing-xl;
+
+  .table-container {
+    margin-top: $spacing-md;
+  }
+}
+
+// Form sections
+.form-section {
+  margin-bottom: $spacing-xl;
+
+  .form-group {
+    margin-bottom: $spacing-md;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+// Detail sections (for user profiles, item details, etc.)
+.detail-section {
+  margin-bottom: $spacing-xl;
+
+  .detail-header {
+    margin-bottom: $spacing-md;
+    padding-bottom: $spacing-sm;
+    border-bottom: $border-width solid $border-color-light;
+  }
+
+  .detail-content {
+    margin-bottom: $spacing-lg;
+  }
+}
+
+// Action sections (for button groups at the bottom of forms, etc.)
+.action-section {
+  margin-top: $spacing-xl;
+  padding-top: $spacing-md;
+  border-top: $border-width solid $border-color-light;
+}
+
+// Page header spacing
+.page-header {
+  margin-bottom: $spacing-xl;
+
+  h1, h2 {
+    margin-bottom: $spacing-sm;
+  }
+
+  .page-description {
+    color: $text-muted;
+  }
+}

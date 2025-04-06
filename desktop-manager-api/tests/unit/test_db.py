@@ -1,10 +1,10 @@
 """Test database setup and connection."""
 
 import pytest
-from desktop_manager.api.models.connection import Connection
-from desktop_manager.api.models.user import User
 from sqlalchemy.sql import text
 
+from desktop_manager.api.models.connection import Connection
+from desktop_manager.api.models.user import User
 from tests.config import TEST_USER
 
 
@@ -34,9 +34,7 @@ def test_create_tables(test_db):
         test_db.commit()
 
         # Verify user was created
-        created_user = (
-            test_db.query(User).filter_by(username=TEST_USER["username"]).first()
-        )
+        created_user = test_db.query(User).filter_by(username=TEST_USER["username"]).first()
         assert created_user is not None
         assert created_user.email == TEST_USER["email"]
         assert created_user.sub == TEST_USER["sub"]
@@ -51,9 +49,7 @@ def test_create_tables(test_db):
         test_db.commit()
 
         # Verify connection was created with correct relationship
-        created_connection = (
-            test_db.query(Connection).filter_by(name="test_connection").first()
-        )
+        created_connection = test_db.query(Connection).filter_by(name="test_connection").first()
         assert created_connection is not None
         assert created_connection.created_by == user.username
     except Exception as e:
@@ -79,6 +75,5 @@ def test_foreign_key_constraint(test_db):
     # The exact exception type might vary between SQLite and MySQL,
     # but there should be some kind of integrity error
     assert any(
-        word in str(exc_info.value).lower()
-        for word in ["foreign", "integrity", "constraint"]
+        word in str(exc_info.value).lower() for word in ["foreign", "integrity", "constraint"]
     )

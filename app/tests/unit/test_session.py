@@ -1,16 +1,12 @@
 """Unit tests for session management."""
 
-import time
-from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from datetime import timedelta
+from unittest.mock import patch
 
-import fakeredis
-import jwt
 import pytest
-from flask import Flask, session
-from werkzeug.exceptions import BadRequest
+from flask import session
 
-from app.auth.auth import is_authenticated, refresh_token
+from app.tests.conftest import TEST_TOKEN, TEST_USER
 from app.utils.session import (
     SessionConfig,
     configure_session,
@@ -19,7 +15,6 @@ from app.utils.session import (
     session_manager,
     validate_session_token,
 )
-from app.tests.conftest import TEST_TOKEN, TEST_USER
 
 
 @pytest.fixture
@@ -32,6 +27,7 @@ def app_with_session(app):
 
     # Create a session directory
     import os
+
     os.makedirs(app.config["SESSION_FILE_DIR"], exist_ok=True)
 
     return app
@@ -39,7 +35,7 @@ def app_with_session(app):
 
 def test_session_config():
     """Test session configuration values."""
-    assert SessionConfig.PERMANENT_SESSION_LIFETIME == timedelta(hours=1)
+    assert timedelta(hours=1) == SessionConfig.PERMANENT_SESSION_LIFETIME
     assert SessionConfig.SESSION_COOKIE_SECURE is True
     assert SessionConfig.SESSION_COOKIE_HTTPONLY is True
     assert SessionConfig.SESSION_COOKIE_SAMESITE == "Lax"
@@ -86,8 +82,9 @@ def test_session_manager_with_auth(app_with_session):
         session["is_admin"] = TEST_USER["is_admin"]
 
         # Mock authentication and token refresh
-        with patch("app.utils.session.is_authenticated", return_value=True), \
-             patch("app.utils.session.refresh_token") as mock_refresh:
+        with patch("app.utils.session.is_authenticated", return_value=True), patch(
+            "app.utils.session.refresh_token"
+        ) as mock_refresh:
             response, status = test_route()
 
             # Verify response

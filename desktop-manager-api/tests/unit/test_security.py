@@ -1,8 +1,8 @@
 """Unit tests for the security module."""
 
+from datetime import timedelta
 import json
 import os
-from datetime import timedelta
 
 from desktop_manager.config.security import (
     PasswordRequirements,
@@ -54,7 +54,7 @@ def test_security_settings_defaults():
     assert settings.RATE_LIMIT_DEFAULT_REQUESTS_PER_HOUR == 500
 
     # Content security settings
-    assert 5 * 1024 * 1024 == settings.MAX_CONTENT_LENGTH
+    assert settings.MAX_CONTENT_LENGTH == 5 * 1024 * 1024
     assert "application/json" in settings.ALLOWED_CONTENT_TYPES
 
     # Security headers
@@ -212,37 +212,21 @@ def test_validate_password_requirements_custom():
         # Replace the function in the module being tested
         import desktop_manager.config.security
 
-        desktop_manager.config.security.get_password_requirements = (
-            custom_get_requirements
-        )
+        desktop_manager.config.security.get_password_requirements = custom_get_requirements
 
         # Test with the custom requirements
         # Valid with the new requirements (no uppercase, no special chars required)
-        assert (
-            desktop_manager.config.security.validate_password_requirements("passw0rd")
-            is True
-        )
+        assert desktop_manager.config.security.validate_password_requirements("passw0rd") is True
 
         # Invalid - too short (less than 8 chars)
-        assert (
-            desktop_manager.config.security.validate_password_requirements("pssw0rd")
-            is False
-        )
+        assert desktop_manager.config.security.validate_password_requirements("pssw0rd") is False
 
         # Invalid - no lowercase
-        assert (
-            desktop_manager.config.security.validate_password_requirements("PASSW0RD")
-            is False
-        )
+        assert desktop_manager.config.security.validate_password_requirements("PASSW0RD") is False
 
         # Invalid - no numbers
-        assert (
-            desktop_manager.config.security.validate_password_requirements("password")
-            is False
-        )
+        assert desktop_manager.config.security.validate_password_requirements("password") is False
 
     finally:
         # Restore the original function
-        desktop_manager.config.security.get_password_requirements = (
-            original_get_requirements
-        )
+        desktop_manager.config.security.get_password_requirements = original_get_requirements

@@ -1,0 +1,55 @@
+{% macro modal(id, title, size="md", aria_label=None) %}
+<div id="{{ id }}" class="modal" role="dialog" aria-modal="true" aria-hidden="true"
+    {% if aria_label %}aria-label="{{ aria_label }}"{% else %}aria-labelledby="{{ id }}-title"{% endif %}
+    tabindex="-1">
+    <div class="modal-content modal-{{ size }}" role="document">
+        <div class="modal-header">
+            <h3 id="{{ id }}-title">{{ title }}</h3>
+            <button type="button" class="modal-close close-modal" aria-label="Close">
+                <span class="sr-only">Close</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            {{ caller() }}
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{% macro confirm_modal(id, title, confirm_text="Confirm", confirm_class="danger", cancel_text="Cancel") %}
+<div id="{{ id }}" class="modal" role="dialog" aria-modal="true" aria-hidden="true"
+    aria-labelledby="{{ id }}-title" tabindex="-1">
+    <div class="modal-content modal-sm" role="document">
+        <div class="modal-header">
+            <h3 id="{{ id }}-title">{{ title }}</h3>
+            <button type="button" class="modal-close close-modal" aria-label="Close">
+                <span class="sr-only">Close</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            {{ caller() }}
+
+            <div class="form-actions">
+                <button id="{{ id }}-confirm" class="button {{ confirm_class }}">{{ confirm_text }}</button>
+                <button class="button secondary close-modal">{{ cancel_text }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{% macro loading(id, text="Loading...") %}
+<div id="{{ id }}" class="loading-container hidden" aria-live="polite">
+    <div class="loading-wave" aria-hidden="true">
+        <div class="loading-bar"></div>
+        <div class="loading-bar"></div>
+        <div class="loading-bar"></div>
+        <div class="loading-bar"></div>
+    </div>
+    <p class="loading-text">{{ text }}</p>
+</div>
+{% endmacro %}
+
+{% macro error_message(id) %}
+<div id="{{ id }}" class="message error hidden" role="alert"></div>
+{% endmacro %}

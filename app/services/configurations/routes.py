@@ -2,20 +2,19 @@
 import logging
 from typing import Dict, Optional
 
-from flask import flash, jsonify, redirect, render_template, request, session, url_for
+from flask import flash, jsonify, redirect, render_template, request, url_for
 from werkzeug.wrappers import Response
 
 from app.clients.base import APIError
-from app.clients.desktop_configurations import DesktopConfigurationsClient
+from app.clients.factory import client_factory
 from app.middleware.auth import admin_required, login_required
 
 from . import configurations_bp
 
 logger = logging.getLogger(__name__)
-desktop_configs_client = DesktopConfigurationsClient()
 
 
-@configurations_bp.route("/list")
+@configurations_bp.route("/")
 @login_required
 def list_configurations() -> str:
     """List all desktop configurations.
@@ -24,11 +23,12 @@ def list_configurations() -> str:
         str: Rendered template with configurations list
     """
     try:
-        configs = desktop_configs_client.list_configurations(session.get("token"))
+        desktop_configs_client = client_factory.get_desktop_configurations_client()
+        configs = desktop_configs_client.list_configurations()
 
         # Get all users for the modal form
         try:
-            users_data = desktop_configs_client.get_users(session.get("token"))
+            users_data = desktop_configs_client.get_users()
             all_users = users_data.get("data", [])
         except APIError as e:
             logger.error(f"Error fetching users: {str(e)}")
@@ -51,49 +51,23 @@ def create_configuration() -> Response | str:
     """
     if request.method == "POST":
         try:
-            # Check if request is JSON
-            if request.is_json:
-                config_data = request.get_json()
-            else:
-                # Fallback to form data
-                is_public = request.form.get("is_public") == "on"
-                config_data = {
-                    "name": request.form.get("name"),
-                    "description": request.form.get("description"),
-                    "image": request.form.get("image"),
-                    "min_cpu": int(request.form.get("min_cpu", 1)),
-                    "max_cpu": int(request.form.get("max_cpu", 4)),
-                    "min_ram": request.form.get("min_ram", "4096Mi"),
-                    "max_ram": request.form.get("max_ram", "16384Mi"),
-                    "is_public": is_public,
-                    "allowed_users": request.form.getlist("allowed_users") if not is_public else [],
-                }
+            config_data = request.get_json()
 
+            desktop_configs_client = client_factory.get_desktop_configurations_client()
             desktop_configs_client.create_configuration(
                 config_data=config_data,
-                token=session.get("token"),
             )
 
-            if request.is_json:
-                return jsonify(
-                    {"success": True, "message": "Configuration created successfully"}
-                ), 201
-            else:
-                flash("Configuration created successfully", "success")
-                return redirect(url_for("configurations.list_configurations"))
+            return jsonify({"success": True, "message": "Configuration created successfully"}), 201
 
         except (APIError, ValueError) as e:
             logger.error(f"Error creating configuration: {str(e)}")
-            if request.is_json:
-                return jsonify({"error": str(e)}), 400
-            else:
-                flash(f"Error creating configuration: {str(e)}", "error")
+            return jsonify({"error": str(e)}), 400
 
     # Get all non-admin users for the form
     try:
-        users_data = desktop_configs_client.get_users(session.get("token"))
+        users_data = desktop_configs_client.get_users()
         all_users = users_data.get("data", [])
-        # Create default configuration data with is_public=True
         default_config = {"is_public": True}
     except APIError as e:
         logger.error(f"Error fetching users: {str(e)}")
@@ -117,54 +91,31 @@ def edit_configuration(config_id: int) -> Response | str:
     try:
         config: Optional[Dict] = None
 
+        desktop_configs_client = client_factory.get_desktop_configurations_client()
+
         if request.method == "GET":
-            config_response = desktop_configs_client.get_configuration(
-                config_id, session.get("token")
-            )
-            config = config_response.get("configuration", {})
+            config_response = desktop_configs_client.get_configuration(config_id)
+            return jsonify(config_response), 200
 
         if request.method == "POST":
-            # Check if request is JSON
-            if request.is_json:
-                config_data = request.get_json()
-            else:
-                # Fallback to form data
-                is_public = request.form.get("is_public") == "on"
-                config_data = {
-                    "name": request.form.get("name"),
-                    "description": request.form.get("description"),
-                    "image": request.form.get("image"),
-                    "min_cpu": int(request.form.get("min_cpu", 1)),
-                    "max_cpu": int(request.form.get("max_cpu", 4)),
-                    "min_ram": request.form.get("min_ram", "4096Mi"),
-                    "max_ram": request.form.get("max_ram", "16384Mi"),
-                    "is_public": is_public,
-                    "allowed_users": request.form.getlist("allowed_users") if not is_public else [],
-                }
+            config_data = request.get_json()
 
             desktop_configs_client.update_configuration(
                 config_id=config_id,
                 config_data=config_data,
-                token=session.get("token"),
             )
 
-            if request.is_json:
-                return jsonify(
-                    {"success": True, "message": "Configuration updated successfully"}
-                ), 200
-            else:
-                flash("Configuration updated successfully", "success")
-                return redirect(url_for("configurations.list_configurations"))
+            return jsonify({"success": True, "message": "Configuration updated successfully"}), 200
 
         # Get all users for the form
         try:
-            users_data = desktop_configs_client.get_users(session.get("token"))
+            users_data = desktop_configs_client.get_users()
             all_users = users_data.get("data", [])
         except APIError as e:
             logger.error(f"Error fetching users: {str(e)}")
             all_users = []
 
-        return render_template("configuration_form.html", configuration=config, users=all_users)
+        return render_template("configurationa.html", configuration=config, users=all_users)
     except APIError as e:
         logger.error(f"Error with configuration {config_id}: {str(e)}")
         flash(f"Error with configuration: {str(e)}", "error")
@@ -183,9 +134,9 @@ def delete_configuration(config_id: int) -> Response:
         Response: Redirect to configurations list
     """
     try:
+        desktop_configs_client = client_factory.get_desktop_configurations_client()
         desktop_configs_client.delete_configuration(
             config_id=config_id,
-            token=session.get("token"),
         )
 
         # Handle AJAX requests
@@ -207,22 +158,3 @@ def delete_configuration(config_id: int) -> Response:
         flash(f"Error deleting configuration: {str(e)}", "error")
 
     return redirect(url_for("configurations.list_configurations"))
-
-
-@configurations_bp.route("/api/configuration/<int:config_id>", methods=["GET"])
-@admin_required
-def get_configuration_api(config_id: int):
-    """Get a desktop configuration via API.
-
-    Args:
-        config_id: ID of the configuration to retrieve
-
-    Returns:
-        JSON response with configuration data
-    """
-    try:
-        config_response = desktop_configs_client.get_configuration(config_id, session.get("token"))
-        return jsonify(config_response), 200
-    except APIError as e:
-        logger.error(f"Error fetching configuration {config_id}: {str(e)}")
-        return jsonify({"error": str(e)}), 400

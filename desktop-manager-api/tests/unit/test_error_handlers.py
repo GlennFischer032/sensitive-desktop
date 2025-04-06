@@ -1,19 +1,23 @@
 """Unit tests for error handlers."""
 
-import pytest
-from pydantic import BaseModel, ValidationError, Field, model_validator
-from flask import Flask, Response
-import json
 from http import HTTPStatus
+import json
 
-from desktop_manager.api.utils.error_handlers import format_validation_error, handle_validation_error
+from flask import Flask, Response
+from pydantic import BaseModel, Field, ValidationError, model_validator
+import pytest
+
+from desktop_manager.api.utils.error_handlers import (
+    format_validation_error,
+    handle_validation_error,
+)
 
 
 class TestModel(BaseModel):
     """Test model for validation errors."""
 
     username: str = Field(..., min_length=3, max_length=50)
-    email: str = Field(..., pattern=r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$')
+    email: str = Field(..., pattern=r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
     age: int = Field(..., ge=18, le=120)
 
 
@@ -153,15 +157,16 @@ def test_format_validation_error_multiple_errors():
 
 def test_format_validation_error_with_general_error():
     """Test format_validation_error with a general error."""
+
     # Create a ValidationError with a general error
     class LimitedModel(BaseModel):
         """Test model with a validator that raises an error not tied to a specific field."""
 
         value: str
 
-        @model_validator(mode='before')
+        @model_validator(mode="before")
         @classmethod
-        def validate_model(cls, data):
+        def validate_model(cls, _):
             """Always raise an error not tied to a specific field."""
             # In Pydantic v2, we need to use ValueError directly instead of ErrorWrapper
             raise ValueError("General validation error")

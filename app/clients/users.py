@@ -1,20 +1,16 @@
 """Users client for API interactions."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from flask import session
 
-from .base import APIError, BaseClient
+from .base import APIError, BaseClient, ClientRequest
 
 
 class UsersClient(BaseClient):
     """Client for user-related API interactions."""
 
-    def list_users(self, token: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_users(self) -> List[Dict[str, Any]]:
         """Get list of users.
-
-        Args:
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             List[Dict[str, Any]]: List of users
@@ -22,17 +18,13 @@ class UsersClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            self.logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint="/api/users/list",
-                token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data.get("users", [])
         except APIError as e:
             self.logger.error(f"Error fetching users: {str(e)}")
@@ -43,7 +35,6 @@ class UsersClient(BaseClient):
         username: str,
         sub: str,
         is_admin: bool = False,
-        token: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Add a new user.
 
@@ -51,7 +42,6 @@ class UsersClient(BaseClient):
             username: Username
             sub: OIDC subject identifier
             is_admin: Whether the user is an admin
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             Dict[str, Any]: Response data
@@ -59,10 +49,6 @@ class UsersClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            self.logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         # Build request data with only the required fields
         data = {
@@ -72,23 +58,22 @@ class UsersClient(BaseClient):
         }
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint="/api/users/createuser",
                 data=data,
-                token=token,
                 timeout=10,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error adding user: {str(e)}")
             raise
 
-    def delete_user(self, username: str, token: Optional[str] = None) -> Dict[str, Any]:
+    def delete_user(self, username: str) -> Dict[str, Any]:
         """Delete a user.
 
         Args:
             username: Username
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             Dict[str, Any]: Response data
@@ -96,29 +81,24 @@ class UsersClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            self.logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint="/api/users/removeuser",
                 data={"username": username},
-                token=token,
                 timeout=10,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error deleting user: {str(e)}")
             raise
 
-    def get_user(self, username: str, token: Optional[str] = None) -> Dict[str, Any]:
+    def get_user(self, username: str) -> Dict[str, Any]:
         """Get user details.
 
         Args:
             username: Username
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             Dict[str, Any]: User details
@@ -126,17 +106,13 @@ class UsersClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            self.logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint=f"/api/users/{username}",
-                token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data.get("user", {})
         except APIError as e:
             self.logger.error(f"Error fetching user details: {str(e)}")
@@ -148,7 +124,6 @@ class UsersClient(BaseClient):
         organization: Optional[str] = None,
         is_admin: Optional[bool] = None,
         locale: Optional[str] = None,
-        token: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Update a user's information.
 
@@ -157,7 +132,6 @@ class UsersClient(BaseClient):
             organization: User's organization
             is_admin: Whether the user is an admin
             locale: User's locale preference
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             Dict[str, Any]: Response data
@@ -165,10 +139,6 @@ class UsersClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            self.logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         # Build request data with only provided fields
         data = {}
@@ -184,13 +154,36 @@ class UsersClient(BaseClient):
             raise APIError("No update fields provided", status_code=400)
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint=f"/api/users/update/{username}",
                 data=data,
-                token=token,
                 timeout=10,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error updating user: {str(e)}")
+            raise
+
+    def verify_user(self, sub: str) -> Tuple[Dict[str, Any], int]:
+        """Verify if a user exists with the provided sub ID.
+
+        Args:
+            sub: OIDC subject identifier
+
+        Returns:
+            Tuple[Dict[str, Any], int]: User data and status code
+
+        Raises:
+            APIError: If verification fails
+        """
+        try:
+            request = ClientRequest(
+                endpoint="/api/users/verify",
+                params={"sub": sub},
+                timeout=5,
+            )
+            return self.get(request=request)
+        except APIError as e:
+            self.logger.error(f"User verification error: {str(e)}")
             raise

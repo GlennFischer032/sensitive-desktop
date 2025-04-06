@@ -1,21 +1,15 @@
 """Unit tests for authentication routes."""
 
-import json
 from datetime import datetime, timedelta
-from unittest.mock import patch
-from unittest.mock import MagicMock
-from unittest.mock import call
+import json
+from unittest.mock import MagicMock, patch
 
+from flask import Flask, jsonify, request
 import jwt
 import pytest
-from flask import Flask, jsonify, request
-from werkzeug.security import generate_password_hash
 
 from desktop_manager.api.models.user import User
 from desktop_manager.api.routes.auth_routes import auth_bp
-from desktop_manager.core import auth
-from desktop_manager.core import security  # Correct import for token decoding
-from desktop_manager.api.schemas.user import UserCreate
 
 
 # Mock decorators
@@ -33,7 +27,7 @@ def mock_admin_required(f):
     return decorated
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_user(test_db):
     """Create a test user in the database."""
     user = User(
@@ -54,7 +48,7 @@ def test_user(test_db):
     return user
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_admin(test_db):
     """Create a test admin user in the database."""
     admin = User(
@@ -75,7 +69,7 @@ def test_admin(test_db):
     return admin
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_guacamole():
     """Mock the Guacamole client and its methods."""
     # Create a MagicMock for GuacamoleClient
@@ -100,7 +94,7 @@ def mock_guacamole():
     # Apply the patch
     with patch(
         "desktop_manager.clients.factory.client_factory.get_guacamole_client",
-        return_value=mock_guacamole_client
+        return_value=mock_guacamole_client,
     ):
         yield {
             "client": mock_guacamole_client,
@@ -111,11 +105,11 @@ def mock_guacamole():
             "delete": mock_guacamole_client.delete_user,
             "client_get": mock_guacamole_client.get,
             "client_post": mock_guacamole_client.post,
-            "mock_response": mock_response
+            "mock_response": mock_response,
         }
 
 
-@pytest.fixture()
+@pytest.fixture
 def admin_token(test_admin):
     """Create a JWT token for the admin user."""
     token_data = {
@@ -127,7 +121,7 @@ def admin_token(test_admin):
     return jwt.encode(token_data, "test_secret_key", algorithm="HS256")
 
 
-@pytest.fixture()
+@pytest.fixture
 def user_token(test_user):
     """Create a JWT token for the regular user."""
     token_data = {
@@ -139,7 +133,7 @@ def user_token(test_user):
     return jwt.encode(token_data, "test_secret_key", algorithm="HS256")
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_app(test_db):
     """Create a test Flask application."""
     app = Flask(__name__)
@@ -163,7 +157,7 @@ def test_app(test_db):
                     "email": user.email,
                     "is_admin": user.is_admin,
                     "password_hash": user.password_hash,
-                    "organization": user.organization
+                    "organization": user.organization,
                 }
                 return [user_dict], 1
             return [], 0
@@ -180,7 +174,7 @@ def test_app(test_db):
                     "email": user.email,
                     "is_admin": user.is_admin,
                     "password_hash": user.password_hash,
-                    "organization": user.organization
+                    "organization": user.organization,
                 }
                 return [user_dict], 1
             return [], 0
@@ -253,22 +247,17 @@ def test_app(test_db):
     # Mock the decorators and database client
     with patch(
         "desktop_manager.clients.factory.client_factory.get_database_client",
-        return_value=mock_db_client
-    ), patch(
-        "desktop_manager.api.routes.auth_routes.token_required", test_token_required
-    ), patch(
+        return_value=mock_db_client,
+    ), patch("desktop_manager.api.routes.auth_routes.token_required", test_token_required), patch(
         "desktop_manager.api.routes.auth_routes.admin_required", test_admin_required
-    ), patch(
-        "desktop_manager.config.settings.get_settings",
-        return_value=mock_settings
-    ):
+    ), patch("desktop_manager.config.settings.get_settings", return_value=mock_settings):
         # Import the blueprint after patching the decorators
         app.register_blueprint(auth_bp, url_prefix="/auth")
 
         yield app
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(test_app):
     """Create a test client."""
     return test_app.test_client()
@@ -277,9 +266,7 @@ def client(test_app):
 # Login tests
 def test_login_success(client, test_user):
     """Test login with password auth disabled."""
-    response = client.post(
-        "/auth/login", json={"username": "testuser", "password": "password123"}
-    )
+    response = client.post("/auth/login", json={"username": "testuser", "password": "password123"})
     data = json.loads(response.data)
     assert response.status_code == 400
     assert data["error"] == "Username/password authentication has been disabled"
@@ -351,7 +338,12 @@ def test_register_non_admin(client, user_token):
     """Test non-admin registration with password auth disabled."""
     response = client.post(
         "/auth/register",
-        json={"username": "newuser", "password": "password123", "email": "new@example.com", "is_admin": True},
+        json={
+            "username": "newuser",
+            "password": "password123",
+            "email": "new@example.com",
+            "is_admin": True,
+        },
         headers={"Authorization": f"Bearer {user_token}"},
     )
     assert response.status_code == 401
@@ -460,9 +452,7 @@ def test_register_guacamole_create_error(client, admin_token, mock_guacamole):
 
 def test_register_guacamole_group_error(client, admin_token, mock_guacamole):
     """Test registration with Guacamole group assignment error."""
-    mock_guacamole["add_to_group"].side_effect = Exception(
-        "Guacamole group assignment failed"
-    )
+    mock_guacamole["add_to_group"].side_effect = Exception("Guacamole group assignment failed")
 
     response = client.post(
         "/auth/register",

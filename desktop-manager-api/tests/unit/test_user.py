@@ -1,15 +1,15 @@
 """Unit tests for user operations."""
 
+from unittest.mock import Mock, patch
+import uuid
+
 import pytest
+from sqlalchemy.orm import Session
+
 from desktop_manager.api.models.user import User
 from desktop_manager.api.schemas.user import UserCreate
 from desktop_manager.api.services.user_service import UserService
 from desktop_manager.core.exceptions import GuacamoleError
-from sqlalchemy.orm import Session
-from werkzeug.security import generate_password_hash
-from unittest.mock import patch, Mock
-import uuid
-
 from tests.config import TEST_ADMIN, TEST_USER
 
 
@@ -211,7 +211,7 @@ def test_delete_nonexistent_user(test_db: Session):
     # No error should be raised
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_guacamole_client():
     """Create a mock Guacamole client."""
     with patch("desktop_manager.clients.factory.get_guacamole_client") as mock_factory:
@@ -234,7 +234,9 @@ def test_delete_user_not_in_guacamole(test_db: Session, mock_guacamole_client, m
 
     # Mock the delete_user method in UserService to simulate Guacamole error
     mock_delete_guac_user = mocker.patch.object(
-        mock_guacamole_client, "delete_user", side_effect=GuacamoleError("User not found in Guacamole")
+        mock_guacamole_client,
+        "delete_user",
+        side_effect=GuacamoleError("User not found in Guacamole"),
     )
 
     # Create UserService with mock
@@ -265,7 +267,9 @@ def test_delete_user_guacamole_error(test_db: Session, mock_guacamole_client, mo
 
     # Mock the delete_user method in UserService to simulate Guacamole network error
     mock_delete_guac_user = mocker.patch.object(
-        mock_guacamole_client, "delete_user", side_effect=GuacamoleError("Network error connecting to Guacamole")
+        mock_guacamole_client,
+        "delete_user",
+        side_effect=GuacamoleError("Network error connecting to Guacamole"),
     )
 
     # Create UserService with mock

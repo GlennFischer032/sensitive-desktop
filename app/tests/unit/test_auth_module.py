@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 import requests
 import responses
-from flask import Flask, session
+from flask import session
 
 from auth.auth import (
     AuthError,
@@ -19,8 +19,7 @@ from auth.auth import (
     logout,
     refresh_token,
 )
-from tests.config import TestConfig
-from tests.conftest import TEST_ADMIN, TEST_TOKEN, TEST_USER
+from tests.conftest import TEST_TOKEN, TEST_USER
 
 
 def test_auth_response_validation_success():
@@ -57,9 +56,7 @@ def test_handle_auth_response_success(responses_mock):
     """Test successful handling of auth response."""
     response = requests.Response()
     response.status_code = HTTPStatus.OK
-    response._content = (
-        b'{"token": "test-token", "is_admin": true, "username": "admin"}'
-    )
+    response._content = b'{"token": "test-token", "is_admin": true, "username": "admin"}'
 
     data, status = handle_auth_response(response)
     assert status == HTTPStatus.OK

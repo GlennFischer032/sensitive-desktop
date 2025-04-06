@@ -1,19 +1,12 @@
 """Unit tests for authentication decorators."""
 
-import time
-from datetime import datetime, timedelta
-from unittest.mock import patch
-
-import jwt
-import pytest
-from flask import Flask, session, url_for
 
 from app.middleware.auth import admin_required, login_required
-from app.tests.conftest import TEST_ADMIN, TEST_TOKEN, TEST_USER
 
 
 def test_login_required_valid_token(app, client):
     """Test access to protected route with valid token."""
+
     # Define a test route using the decorator
     @app.route("/test-protected")
     @login_required
@@ -30,6 +23,7 @@ def test_login_required_valid_token(app, client):
 
 def test_login_required_no_token(app):
     """Test access to protected route without token."""
+
     # Define a test route using the decorator
     @app.route("/test-protected")
     @login_required
@@ -50,6 +44,7 @@ def test_login_required_no_token(app):
 
 def test_admin_required_is_admin(app, admin_client):
     """Test access to admin-only route with admin privileges."""
+
     # Define a test route using the decorator
     @app.route("/test-admin")
     @admin_required
@@ -66,6 +61,7 @@ def test_admin_required_is_admin(app, admin_client):
 
 def test_admin_required_not_admin(app, user_client):
     """Test access to admin-only route without admin privileges."""
+
     # Define a test route using the decorator
     @app.route("/test-admin")
     @admin_required

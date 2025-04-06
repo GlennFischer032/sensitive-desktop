@@ -5,27 +5,32 @@ from functools import wraps
 from http import HTTPStatus
 from typing import Callable, Dict, Optional
 
-from flask import current_app, render_template, request, session
+from flask import current_app, render_template, request
+import redis
 
 logger = logging.getLogger(__name__)
 
 
 class RateLimiter:
-    """Enhanced in-memory rate limiter with configurable limits."""
-
     def __init__(self):
-        self.requests: Dict[str, list] = {}
-        self.cleanup_interval = 3600  # Cleanup old entries every hour
-        self.last_cleanup = time.time()
         self.default_limits = {
             "1s": (10, 1),  # 10 requests per second
             "1m": (30, 60),  # 30 requests per minute
             "1h": (1000, 3600),  # 1000 requests per hour
         }
+        self._redis = None
 
-    def is_rate_limited(
-        self, key: str, limits: Optional[Dict[str, tuple]] = None
-    ) -> tuple[bool, Optional[int]]:
+    def _get_redis_connection(self) -> redis.Redis:
+        """Get Redis connection lazily."""
+        if self._redis is None:
+            redis_url = current_app.config.get("SESSION_REDIS")
+            if isinstance(redis_url, str):
+                self._redis = redis.from_url(redis_url)
+            else:
+                self._redis = redis_url
+        return self._redis
+
+    def is_rate_limited(self, key: str, limits: Optional[Dict[str, tuple]] = None) -> tuple[bool, Optional[int]]:
         """
         Check if a key is rate limited.
 
@@ -37,40 +42,47 @@ class RateLimiter:
             tuple: (is_limited, retry_after)
         """
         now = time.time()
-
-        # Cleanup old entries if needed
-        if now - self.last_cleanup > self.cleanup_interval:
-            self._cleanup()
-            self.last_cleanup = now
-
-        if key not in self.requests:
-            self.requests[key] = []
+        redis_client = self._get_redis_connection()
 
         # Use provided limits or defaults
         check_limits = limits or self.default_limits
 
+        # Redis key prefix for rate limiting
+        prefix = "rate_limit:"
+
         # Check all time windows
-        for _, (limit, window) in check_limits.items():
-            # Remove old requests for this window
-            window_requests = [t for t in self.requests[key] if now - t < window]
+        for window_name, (limit, window) in check_limits.items():
+            # Create a key specific to this window
+            window_key = f"{prefix}{key}:{window_name}"
 
-            if len(window_requests) >= limit:
-                retry_after = int(min(window_requests) + window - now)
-                return True, retry_after
+            # Get current count for this window
+            current_count = 0
 
-        # Add current request timestamp
-        self.requests[key].append(now)
+            # Use Redis sorted set with score as timestamp
+            # First, remove expired timestamps (older than window)
+            redis_client.zremrangebyscore(window_key, 0, now - window)
+
+            # Count remaining timestamps in the window
+            current_count = redis_client.zcard(window_key)
+
+            # Check if limit exceeded
+            if current_count >= limit:
+                # Get oldest timestamp to calculate retry-after
+                oldest = redis_client.zrange(window_key, 0, 0, withscores=True)
+                if oldest:
+                    retry_after = int(oldest[0][1] + window - now)
+                    return True, retry_after
+                return True, window  # Fallback if no timestamps found
+
+        # Add current timestamp to all window keys and set expiry
+        pipeline = redis_client.pipeline()
+        for window_name, (_, window) in check_limits.items():
+            window_key = f"{prefix}{key}:{window_name}"
+            pipeline.zadd(window_key, {str(now): now})
+            pipeline.expire(window_key, window)  # Set TTL on the key
+        pipeline.execute()
+
         return False, None
-
-    def _cleanup(self):
-        """Remove old entries to prevent memory growth."""
-        now = time.time()
-        max_window = max(window for _, (_, window) in self.default_limits.items())
-
-        for key in list(self.requests.keys()):
-            self.requests[key] = [t for t in self.requests[key] if now - t < max_window]
-            if not self.requests[key]:
-                del self.requests[key]
 
 
 # Global rate limiter instance
@@ -117,9 +129,7 @@ def rate_limit(
             client_ip = request.remote_addr
 
             # Build custom limits
-            custom_limits = _build_custom_limits(
-                requests_per_second, requests_per_minute, requests_per_hour
-            )
+            custom_limits = _build_custom_limits(requests_per_second, requests_per_minute, requests_per_hour)
 
             # If not overriding global limits, merge with defaults
             if not override_global and custom_limits:
@@ -176,22 +186,6 @@ def rate_limit(
         return decorated_function
 
     return decorator
-
-
-def admin_required(f: Callable) -> Callable:
-    """Require admin privileges for route."""
-
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get("is_admin"):
-            return {
-                "error": "Forbidden",
-                "message": "Admin privileges required",
-            }, HTTPStatus.FORBIDDEN
-
-        return f(*args, **kwargs)
-
-    return decorated_function
 
 
 def init_security(app):

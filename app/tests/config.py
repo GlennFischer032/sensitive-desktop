@@ -17,7 +17,6 @@ class TestConfig(Config):
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     API_URL = "http://test-api:5000"  # Will be mocked in tests
-    GUACAMOLE_URL = "http://test-guacamole:8080"  # Will be mocked in tests
     SKIP_AUTH_FOR_TESTING = True  # Skip authentication checks in tests
 
     # Security settings for testing

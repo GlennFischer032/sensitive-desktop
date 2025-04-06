@@ -1,5 +1,7 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 
 @pytest.fixture
 def mock_configs_client():
@@ -8,6 +10,7 @@ def mock_configs_client():
         client_instance = MagicMock()
         mock_client.return_value = client_instance
         yield client_instance
+
 
 @pytest.fixture
 def sample_configurations():
@@ -36,5 +39,5 @@ def sample_configurations():
             "is_public": False,
             "image": "desktop-advanced:latest",
             "created_by": "admin",
-        }
+        },
     ]

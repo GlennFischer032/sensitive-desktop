@@ -1,12 +1,11 @@
-import json
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-from flask import Flask, current_app, session
+from flask import current_app, session
 
 from app.clients.base import APIError
 from app.clients.desktop_configurations import DesktopConfigurationsClient
-from app.tests.conftest import TEST_ADMIN, TEST_TOKEN, TEST_USER
+from app.tests.conftest import TEST_TOKEN
 
 
 @pytest.fixture
@@ -100,7 +99,7 @@ def test_create_configuration(config_client, app, mock_api_response):
     # Use patch to simulate session with token
     with app.test_request_context():
         with patch.dict(session, {"token": TEST_TOKEN}):
-            result = client.create_configuration(config_data)
+            client.create_configuration(config_data)
 
     mock_request.assert_called_once()
     expected_url = f"{current_app.config['API_URL']}/api/desktop-config/create"
@@ -117,7 +116,7 @@ def test_create_configuration_validation_error(config_client, app, mock_api_resp
     mock_response.status_code = 400
     mock_response.json.return_value = {
         "error": "Validation error",
-        "details": {"name": ["Name is required"]}
+        "details": {"name": ["Name is required"]},
     }
     mock_response.text = '{"error": "Validation error"}'
     mock_request.return_value = mock_response
@@ -154,7 +153,7 @@ def test_update_configuration_success(config_client, app, mock_api_response):
     # Use patch to simulate session with token
     with app.test_request_context():
         with patch.dict(session, {"token": TEST_TOKEN}):
-            result = client.update_configuration(config_id, config_data)
+            client.update_configuration(config_id, config_data)
 
     mock_request.assert_called_once()
     expected_url = f"{current_app.config['API_URL']}/api/desktop-config/update/{config_id}"
@@ -177,14 +176,14 @@ def test_get_configuration_success(config_client, app, mock_api_response):
     # Use patch to simulate session with token
     with app.test_request_context():
         with patch.dict(session, {"token": TEST_TOKEN}):
-            result = client.get_configuration(config_id)
+            client.get_configuration(config_id)
 
     mock_request.assert_called_once()
     expected_url = f"{current_app.config['API_URL']}/api/desktop-config/get/{config_id}"
     assert mock_request.call_args[1]["url"] == expected_url
 
 
-def test_get_configuration_not_found(config_client, app, mock_api_response):
+def test_get_configuration_not_found(config_client, app):
     """Test getting a configuration that doesn't exist."""
     client, mock_request = config_client
 
@@ -193,7 +192,7 @@ def test_get_configuration_not_found(config_client, app, mock_api_response):
     mock_response.status_code = 404
     mock_response.json.return_value = {
         "error": "Configuration not found",
-        "details": {"message": "No configuration with id 999 exists"}
+        "details": {"message": "No configuration with id 999 exists"},
     }
     mock_response.text = '{"error": "Configuration not found"}'
     mock_request.return_value = mock_response
@@ -245,7 +244,7 @@ def test_delete_configuration_in_use(config_client, app, mock_api_response):
     mock_response.status_code = 400
     mock_response.json.return_value = {
         "error": "Configuration is in use",
-        "details": {"message": "Configuration is in use by active connections"}
+        "details": {"message": "Configuration is in use by active connections"},
     }
     mock_response.text = '{"error": "Configuration is in use"}'
     mock_request.return_value = mock_response

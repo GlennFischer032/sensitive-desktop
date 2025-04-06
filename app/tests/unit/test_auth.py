@@ -1,21 +1,18 @@
 """Unit tests for authentication functionality."""
 
-import json
 from typing import Generator
-from unittest.mock import patch
 
 import pytest
 import requests
 import responses
-from fakeredis import FakeStrictRedis
-from flask import Flask, session, url_for
+from flask import url_for
 from flask.testing import FlaskClient
 
 from tests.config import TestConfig
 from tests.conftest import TEST_ADMIN, TEST_TOKEN, TEST_USER
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_api_auth(responses_mock: responses.RequestsMock) -> Generator:
     """Mock authentication API endpoints."""
     base_url = TestConfig.API_URL
@@ -43,11 +40,7 @@ def mock_api_auth(responses_mock: responses.RequestsMock) -> Generator:
         f"{base_url}/api/auth/login",
         json={"error": "Invalid credentials"},
         status=401,
-        match=[
-            responses.matchers.json_params_matcher(
-                {"username": "wronguser", "password": "wrongpass"}
-            )
-        ],
+        match=[responses.matchers.json_params_matcher({"username": "wronguser", "password": "wrongpass"})],
     )
 
     return responses_mock
@@ -84,7 +77,7 @@ def test_login_failure(client: FlaskClient, responses_mock) -> None:
     response = client.post(
         "/auth/login",
         json={"username": "wronguser", "password": "wrongpass"},
-        follow_redirects=False
+        follow_redirects=False,
     )
 
     # Should redirect to OIDC login
@@ -186,8 +179,8 @@ def test_oidc_callback_success(client: FlaskClient, responses_mock) -> None:
             "user": {
                 "username": TEST_USER["username"],
                 "is_admin": TEST_USER["is_admin"],
-                "email": "test@example.com"
-            }
+                "email": "test@example.com",
+            },
         },
         status=200,
     )
@@ -197,9 +190,7 @@ def test_oidc_callback_success(client: FlaskClient, responses_mock) -> None:
 
     client.application.config["SERVER_NAME"] = "localhost:5001"  # Match used port
 
-    response = client.get(
-        "/auth/oidc/callback?code=test-code&state=test-state", follow_redirects=False
-    )
+    response = client.get("/auth/oidc/callback?code=test-code&state=test-state", follow_redirects=False)
     assert response.status_code == 302  # Should redirect to next URL
 
     with client.session_transaction() as sess:
@@ -236,9 +227,7 @@ def test_oidc_callback_failure(client: FlaskClient, responses_mock) -> None:
         status=400,
     )
 
-    response = client.get(
-        "/auth/oidc/callback?code=invalid-code&state=test-state", follow_redirects=False
-    )
+    response = client.get("/auth/oidc/callback?code=invalid-code&state=test-state", follow_redirects=False)
     assert response.status_code == 302  # Should redirect to login page
     assert "/auth/login" in response.headers["Location"]
 
@@ -251,8 +240,6 @@ def test_oidc_callback_network_error(client: FlaskClient, responses_mock) -> Non
         body=requests.exceptions.ConnectionError(),
     )
 
-    response = client.get(
-        "/auth/oidc/callback?code=test-code&state=test-state", follow_redirects=False
-    )
+    response = client.get("/auth/oidc/callback?code=test-code&state=test-state", follow_redirects=False)
     assert response.status_code == 302  # Should redirect to login page
     assert "/auth/login" in response.headers["Location"]

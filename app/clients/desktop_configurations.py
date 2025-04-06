@@ -1,10 +1,9 @@
 """Client for interacting with desktop configurations API."""
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-from flask import session
 
-from app.clients.base import APIError, BaseClient
+from app.clients.base import APIError, BaseClient, ClientRequest
 
 logger = logging.getLogger(__name__)
 
@@ -12,11 +11,8 @@ logger = logging.getLogger(__name__)
 class DesktopConfigurationsClient(BaseClient):
     """Client for interacting with desktop configurations API."""
 
-    def list_configurations(self, token: Optional[str] = None) -> List[Dict]:
+    def list_configurations(self) -> List[Dict]:
         """List all desktop configurations.
-
-        Args:
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             List[Dict]: List of desktop configurations
@@ -24,17 +20,13 @@ class DesktopConfigurationsClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint="/api/desktop-config/list",
-                token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data.get("configurations", [])
         except APIError as e:
             logger.error(f"Error listing configurations: {str(e)}")
@@ -43,13 +35,11 @@ class DesktopConfigurationsClient(BaseClient):
     def create_configuration(
         self,
         config_data: Dict,
-        token: Optional[str] = None,
     ) -> Dict:
         """Create a new desktop configuration.
 
         Args:
             config_data: Configuration data including name, description, image, CPU, RAM, etc.
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             Dict: Created configuration data
@@ -57,18 +47,14 @@ class DesktopConfigurationsClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint="/api/desktop-config/create",
                 data=config_data,
-                token=token,
                 timeout=30,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             logger.error(f"Error creating configuration: {str(e)}")
@@ -78,14 +64,12 @@ class DesktopConfigurationsClient(BaseClient):
         self,
         config_id: int,
         config_data: Dict,
-        token: Optional[str] = None,
     ) -> Dict:
         """Update an existing desktop configuration.
 
         Args:
             config_id: ID of the configuration to update
             config_data: Updated configuration data
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             Dict: Updated configuration data
@@ -93,18 +77,14 @@ class DesktopConfigurationsClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.put(
+            request = ClientRequest(
                 endpoint=f"/api/desktop-config/update/{config_id}",
                 data=config_data,
-                token=token,
                 timeout=30,
             )
+            data, _ = self.put(request=request)
             return data
         except APIError as e:
             logger.error(f"Error updating configuration {config_id}: {str(e)}")
@@ -113,13 +93,11 @@ class DesktopConfigurationsClient(BaseClient):
     def get_configuration(
         self,
         config_id: int,
-        token: Optional[str] = None,
     ) -> Dict:
         """Get a specific desktop configuration.
 
         Args:
             config_id: ID of the configuration to get
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             Dict: Configuration data
@@ -127,17 +105,13 @@ class DesktopConfigurationsClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint=f"/api/desktop-config/get/{config_id}",
-                token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data
         except APIError as e:
             logger.error(f"Error getting configuration {config_id}: {str(e)}")
@@ -146,13 +120,11 @@ class DesktopConfigurationsClient(BaseClient):
     def delete_configuration(
         self,
         config_id: int,
-        token: Optional[str] = None,
     ) -> Dict:
         """Delete a desktop configuration.
 
         Args:
             config_id: ID of the configuration to delete
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             Dict: Response data
@@ -160,27 +132,20 @@ class DesktopConfigurationsClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.delete(
+            request = ClientRequest(
                 endpoint=f"/api/desktop-config/delete/{config_id}",
-                token=token,
                 timeout=30,
             )
+            data, _ = self.delete(request=request)
             return data
         except APIError as e:
             logger.error(f"Error deleting configuration {config_id}: {str(e)}")
             raise
 
-    def get_users(self, token: Optional[str] = None) -> Dict:
+    def get_users(self) -> Dict:
         """Get list of users for configuration access control.
-
-        Args:
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             Dict: Users data
@@ -188,17 +153,13 @@ class DesktopConfigurationsClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint="/api/users/list",
-                token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return {"data": data.get("users", [])}
         except APIError as e:
             logger.error(f"Error getting users: {str(e)}")
@@ -207,13 +168,11 @@ class DesktopConfigurationsClient(BaseClient):
     def get_configuration_users(
         self,
         config_id: int,
-        token: Optional[str] = None,
     ) -> Dict:
         """Get users with access to a specific configuration.
 
         Args:
             config_id: ID of the configuration
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             Dict: Users data with access to the configuration
@@ -221,27 +180,20 @@ class DesktopConfigurationsClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint=f"/api/desktop-config/access/{config_id}",
-                token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return {"data": data.get("users", [])}
         except APIError as e:
             logger.error(f"Error getting configuration users for {config_id}: {str(e)}")
             raise
 
-    def get_connections(self, token: Optional[str] = None) -> Dict:
+    def get_connections(self) -> Dict:
         """Get connections for identifying which ones use a configuration.
-
-        Args:
-            token: Authentication token. If None, uses token from session.
 
         Returns:
             Dict: Connections data
@@ -249,17 +201,13 @@ class DesktopConfigurationsClient(BaseClient):
         Raises:
             APIError: If request fails
         """
-        token = token or session.get("token")
-        if not token:
-            logger.error("No authentication token available")
-            raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint="/api/connections/list",
-                token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return {"data": data.get("connections", [])}
         except APIError as e:
             logger.error(f"Error getting connections: {str(e)}")
