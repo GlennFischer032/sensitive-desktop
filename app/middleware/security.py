@@ -23,9 +23,7 @@ class RateLimiter:
             "1h": (1000, 3600),  # 1000 requests per hour
         }
 
-    def is_rate_limited(
-        self, key: str, limits: Optional[Dict[str, tuple]] = None
-    ) -> tuple[bool, Optional[int]]:
+    def is_rate_limited(self, key: str, limits: Optional[Dict[str, tuple]] = None) -> tuple[bool, Optional[int]]:
         """
         Check if a key is rate limited.
 
@@ -117,9 +115,7 @@ def rate_limit(
             client_ip = request.remote_addr
 
             # Build custom limits
-            custom_limits = _build_custom_limits(
-                requests_per_second, requests_per_minute, requests_per_hour
-            )
+            custom_limits = _build_custom_limits(requests_per_second, requests_per_minute, requests_per_hour)
 
             # If not overriding global limits, merge with defaults
             if not override_global and custom_limits:

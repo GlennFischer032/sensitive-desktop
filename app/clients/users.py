@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from flask import session
 
-from .base import APIError, BaseClient
+from .base import APIError, BaseClient, ClientRequest
 
 
 class UsersClient(BaseClient):
@@ -28,11 +28,12 @@ class UsersClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint="/api/users/list",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data.get("users", [])
         except APIError as e:
             self.logger.error(f"Error fetching users: {str(e)}")
@@ -72,12 +73,13 @@ class UsersClient(BaseClient):
         }
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint="/api/users/createuser",
                 data=data,
                 token=token,
                 timeout=10,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error adding user: {str(e)}")
@@ -102,12 +104,13 @@ class UsersClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint="/api/users/removeuser",
                 data={"username": username},
                 token=token,
                 timeout=10,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error deleting user: {str(e)}")
@@ -132,11 +135,12 @@ class UsersClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint=f"/api/users/{username}",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data.get("user", {})
         except APIError as e:
             self.logger.error(f"Error fetching user details: {str(e)}")
@@ -184,12 +188,13 @@ class UsersClient(BaseClient):
             raise APIError("No update fields provided", status_code=400)
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint=f"/api/users/update/{username}",
                 data=data,
                 token=token,
                 timeout=10,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error updating user: {str(e)}")

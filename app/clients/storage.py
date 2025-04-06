@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from flask import session
 
-from .base import APIError, BaseClient
+from .base import APIError, BaseClient, ClientRequest
 
 
 class StorageClient(BaseClient):
@@ -28,11 +28,12 @@ class StorageClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint="/api/storage/list",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data.get("volumes", [])
         except APIError as e:
             self.logger.error(f"Error fetching storage volumes: {str(e)}")
@@ -57,11 +58,12 @@ class StorageClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint=f"/api/storage/{volume_id}",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data.get("volume", {})
         except APIError as e:
             self.logger.error(f"Error fetching storage volume details: {str(e)}")
@@ -105,12 +107,13 @@ class StorageClient(BaseClient):
             payload["allowed_users"] = allowed_users
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint="/api/storage/create",
                 data=payload,
                 token=token,
                 timeout=30,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error creating storage volume: {str(e)}")
@@ -135,19 +138,18 @@ class StorageClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.delete(
+            request = ClientRequest(
                 endpoint=f"/api/storage/delete/{volume_id}",
                 token=token,
                 timeout=30,
             )
+            data, _ = self.delete(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error deleting storage volume: {str(e)}")
             raise
 
-    def resize_storage(
-        self, volume_id: str, new_size: str, token: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def resize_storage(self, volume_id: str, new_size: str, token: Optional[str] = None) -> Dict[str, Any]:
         """Resize a storage volume.
 
         Args:
@@ -167,12 +169,13 @@ class StorageClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.put(
+            request = ClientRequest(
                 endpoint=f"/api/storage/resize/{volume_id}",
                 data={"size": new_size},
                 token=token,
                 timeout=30,
             )
+            data, _ = self.put(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error resizing storage volume: {str(e)}")
@@ -197,11 +200,12 @@ class StorageClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint=f"/api/storage-pvcs/{pvc_id}/access",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error fetching PVC access information: {str(e)}")
@@ -235,12 +239,13 @@ class StorageClient(BaseClient):
         }
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint=f"/api/storage-pvcs/{pvc_id}/access",
                 data=payload,
                 token=token,
                 timeout=30,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error updating PVC access: {str(e)}")
@@ -275,20 +280,19 @@ class StorageClient(BaseClient):
         }
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint="/api/storage/attach",
                 data=payload,
                 token=token,
                 timeout=30,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error attaching storage volume: {str(e)}")
             raise
 
-    def detach_storage(
-        self, volume_id: str, connection_name: str, token: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def detach_storage(self, volume_id: str, connection_name: str, token: Optional[str] = None) -> Dict[str, Any]:
         """Detach a storage volume from a connection.
 
         Args:
@@ -313,12 +317,13 @@ class StorageClient(BaseClient):
         }
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint="/api/storage/detach",
                 data=payload,
                 token=token,
                 timeout=30,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error detaching storage volume: {str(e)}")

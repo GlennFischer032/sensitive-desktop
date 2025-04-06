@@ -1,13 +1,10 @@
 """Tests for the configuration routes."""
 import json
-from unittest.mock import patch, MagicMock
+from contextlib import contextmanager
+from unittest.mock import patch
 
 import pytest
-from flask import url_for, template_rendered
-from contextlib import contextmanager
-
-from app.clients.base import APIError
-from app.clients.desktop_configurations import DesktopConfigurationsClient
+from flask import template_rendered
 
 from tests.conftest import TEST_ADMIN, TEST_TOKEN, TEST_USER
 
@@ -15,9 +12,7 @@ from tests.conftest import TEST_ADMIN, TEST_TOKEN, TEST_USER
 @pytest.fixture
 def mock_configs_client():
     """Mock the desktop configurations client."""
-    with patch(
-        "app.configurations.routes.desktop_configs_client"
-    ) as mock_client:
+    with patch("app.configurations.routes.desktop_configs_client") as mock_client:
         yield mock_client
 
 
@@ -52,7 +47,7 @@ def sample_configurations():
             "allowed_users": ["user1", "user2"],
             "created_at": "2023-01-02T00:00:00Z",
             "updated_at": "2023-01-02T00:00:00Z",
-        }
+        },
     ]
 
 
@@ -78,7 +73,7 @@ def sample_users():
                 "username": "admin",
                 "email": "admin@example.com",
                 "is_admin": True,
-            }
+            },
         ]
     }
 
@@ -100,8 +95,10 @@ def admin_client(app):
 def captured_templates(app):
     """Capture templates rendered during test execution."""
     recorded = []
+
     def record(sender, template, context, **extra):
         recorded.append((template, context))
+
     template_rendered.connect(record, app)
     try:
         yield recorded
@@ -115,6 +112,7 @@ class TestBlueprintSetup:
     def test_configurations_blueprint(self):
         """Test that the configurations blueprint is correctly defined."""
         from app.configurations import configurations_bp
+
         assert configurations_bp.name == "configurations"
         assert configurations_bp.url_prefix == "/configurations"
 
@@ -156,7 +154,7 @@ class TestListConfigurations:
                 "is_public": False,
                 "image": "desktop-advanced:latest",
                 "created_by": "admin",
-            }
+            },
         ]
 
         # Mock API response
@@ -171,24 +169,15 @@ class TestListConfigurations:
             assert mock_list.called_with(TEST_TOKEN)
 
     def test_list_configurations_api_error(self, client, responses_mock):
-        """Test configurations listing with API error."""
-        # Set up session
-        with client.session_transaction() as sess:
-            sess["token"] = TEST_TOKEN
-            sess["username"] = TEST_USER["username"]
-            sess["is_admin"] = TEST_USER["is_admin"]
-            sess["logged_in"] = True
-
+        """Test list_configurations route with API error."""
         # Mock API error
         with patch("app.configurations.routes.desktop_configs_client.list_configurations") as mock_list:
             mock_list.side_effect = Exception("API error")
 
-            try:
-                response = client.get("/configurations/list")
-                assert response.status_code in [200, 302, 404]
-            except Exception as e:
-                # The test is expected to raise an exception due to the mock side effect
-                assert "API error" in str(e)
+            with pytest.raises(Exception) as excinfo:
+                client.get("/configurations/list")
+
+            assert "API error" in str(excinfo.value)
 
 
 class TestCreateConfiguration:
@@ -273,17 +262,19 @@ class TestCreateConfiguration:
             "min_ram": "4096Mi",
             "max_ram": "8192Mi",
             "is_public": False,
-            "allowed_users": ["user1", "user2"]
+            "allowed_users": ["user1", "user2"],
         }
 
         # Mock API response
-        with patch("app.clients.desktop_configurations.DesktopConfigurationsClient.create_configuration") as mock_create:
+        with patch(
+            "app.clients.desktop_configurations.DesktopConfigurationsClient.create_configuration"
+        ) as mock_create:
             mock_create.return_value = {"id": 4, **json_data}
 
             response = client.post(
                 "/configurations/create",
                 data=json.dumps(json_data),
-                content_type="application/json"
+                content_type="application/json",
             )
 
             assert response.status_code == 201
@@ -418,12 +409,10 @@ class TestEditConfiguration:
         with patch("app.configurations.routes.desktop_configs_client.get_configuration") as mock_get_config:
             mock_get_config.side_effect = Exception("API error")
 
-            try:
-                response = client.get("/configurations/edit/999", follow_redirects=True)
-                assert response.status_code in [200, 302, 404]
-            except Exception as e:
-                # The test is expected to raise an exception due to the mock side effect
-                assert "API error" in str(e)
+            with pytest.raises(Exception) as excinfo:
+                client.get("/configurations/edit/999", follow_redirects=True)
+
+            assert "API error" in str(excinfo.value)
 
 
 class TestDeleteConfiguration:
@@ -462,7 +451,7 @@ class TestDeleteConfiguration:
 
             response = client.post(
                 "/configurations/delete/1",
-                headers={"X-Requested-With": "XMLHttpRequest", "Content-Type": "application/json"}
+                headers={"X-Requested-With": "XMLHttpRequest", "Content-Type": "application/json"},
             )
 
             assert response.status_code == 200
@@ -506,7 +495,7 @@ class TestDeleteConfiguration:
 
             response = client.post(
                 "/configurations/delete/1",
-                headers={"X-Requested-With": "XMLHttpRequest", "Content-Type": "application/json"}
+                headers={"X-Requested-With": "XMLHttpRequest", "Content-Type": "application/json"},
             )
 
             assert response.status_code == 400

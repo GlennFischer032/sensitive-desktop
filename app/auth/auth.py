@@ -68,50 +68,10 @@ def handle_auth_response(response: requests.Response) -> Tuple[Dict[str, Any], i
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Request error: {str(e)}")
-        raise AuthError("Failed to connect to authentication service")
+        raise AuthError("Failed to connect to authentication service") from e
     except ValidationError as e:
         logger.error(f"Response validation error: {str(e)}")
-        raise AuthError("Invalid response from authentication service")
-
-
-def login(username: str, password: str) -> Tuple[Dict[str, Any], int]:
-    """
-    Authenticate user with credentials.
-
-    Args:
-        username: Username
-        password: Password
-
-    Returns:
-        Tuple[Dict[str, Any], int]: Authentication response and status code
-
-    Raises:
-        AuthError: If authentication fails
-        RateLimitError: If rate limited
-    """
-    try:
-        response = requests.post(
-            f"{current_app.config['API_URL']}/auth/login",
-            json={"username": username, "password": password},
-            headers={"Content-Type": "application/json"},
-        )
-
-        data, status_code = handle_auth_response(response)
-
-        if status_code == HTTPStatus.OK:
-            session["token"] = data["token"]
-            session["is_admin"] = data["is_admin"]
-            session["username"] = data["username"]
-            session["logged_in"] = True
-
-        return data, status_code
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Login error: {str(e)}")
-        raise AuthError("Network error") from e
-    except Exception as e:
-        logger.error(f"Login error: {str(e)}")
-        raise
+        raise AuthError("Invalid response from authentication service") from e
 
 
 def logout() -> None:
@@ -154,6 +114,7 @@ def refresh_token() -> None:
                 "Authorization": f"Bearer {session['token']}",
                 "Content-Type": "application/json",
             },
+            timeout=10,
         )
 
         data, status_code = handle_auth_response(response)

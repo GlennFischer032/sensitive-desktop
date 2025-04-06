@@ -1,12 +1,10 @@
 """Mock implementations for testing."""
 
-import logging
-from typing import Dict, List, Any, Tuple, Optional
-from werkzeug.security import generate_password_hash
 from datetime import datetime
+import logging
+from typing import Any, Dict
 
-from desktop_manager.api.models.user import User
-from desktop_manager.core.exceptions import APIError
+from werkzeug.security import generate_password_hash
 
 
 class MockDatabaseClient:
@@ -37,17 +35,18 @@ class MockDatabaseClient:
                 else:
                     is_admin = bool(user_id % 2 == 1)
 
-                    if "username" in params and params["username"] and (
-                        "admin" in params["username"]
+                    if (
+                        "username" in params
+                        and params["username"]
+                        and ("admin" in params["username"])
                     ):
                         is_admin = True
 
-                    if is_admin:
-                        username = f"test_admin_{user_id:08x}"
-                    else:
-                        username = f"user{user_id}"
+                    username = f"test_admin_{user_id:08x}" if is_admin else f"user{user_id}"
 
-                self.logger.info(f"Returning mock user: id={user_id}, username={username}, is_admin={is_admin}")
+                self.logger.info(
+                    f"Returning mock user: id={user_id}, username={username}, is_admin={is_admin}"
+                )
                 return [{"id": user_id, "username": username, "is_admin": is_admin}], 1
             return [], 0
 
@@ -65,14 +64,26 @@ class MockDatabaseClient:
         if "SELECT * FROM users WHERE username = :username" in query:
             username = params.get("username")
             if username == "testuser" or username.startswith("test_user_"):
-                return [{"id": 1, "username": username, "password": "hashed_password", "is_admin": False}], 1
+                return [
+                    {
+                        "id": 1,
+                        "username": username,
+                        "password": "hashed_password",
+                        "is_admin": False,
+                    }
+                ], 1
             if username == "admin" or username.startswith("test_admin_"):
-                return [{"id": 2, "username": username, "password": "hashed_password", "is_admin": True}], 1
+                return [
+                    {"id": 2, "username": username, "password": "hashed_password", "is_admin": True}
+                ], 1
             # Nonexistent user for testing
             return [], 0
 
         # Check user exists by username or email
-        if "SELECT username, email FROM users WHERE username = :username OR email = :email" in query:
+        if (
+            "SELECT username, email FROM users WHERE username = :username OR email = :email"
+            in query
+        ):
             username = params.get("username")
             email = params.get("email")
             if username == "testuser" or email == "test@example.com":
@@ -84,8 +95,22 @@ class MockDatabaseClient:
         if "SELECT id, username, email, is_admin" in query:
             # Return mock list of users
             return [
-                {"id": 1, "username": "testuser", "email": "test@example.com", "is_admin": False, "created_at": None, "last_login": None},
-                {"id": 2, "username": "admin", "email": "admin@example.com", "is_admin": True, "created_at": None, "last_login": None}
+                {
+                    "id": 1,
+                    "username": "testuser",
+                    "email": "test@example.com",
+                    "is_admin": False,
+                    "created_at": None,
+                    "last_login": None,
+                },
+                {
+                    "id": 2,
+                    "username": "admin",
+                    "email": "admin@example.com",
+                    "is_admin": True,
+                    "created_at": None,
+                    "last_login": None,
+                },
             ], 2
 
         # List all users with created_at and last_login
@@ -93,8 +118,22 @@ class MockDatabaseClient:
             # Return mock list of users with valid created_at
             current_time = datetime.now()
             return [
-                {"id": 1, "username": "testuser", "email": "test@example.com", "is_admin": False, "created_at": current_time, "last_login": None},
-                {"id": 2, "username": "admin", "email": "admin@example.com", "is_admin": True, "created_at": current_time, "last_login": None}
+                {
+                    "id": 1,
+                    "username": "testuser",
+                    "email": "test@example.com",
+                    "is_admin": False,
+                    "created_at": current_time,
+                    "last_login": None,
+                },
+                {
+                    "id": 2,
+                    "username": "admin",
+                    "email": "admin@example.com",
+                    "is_admin": True,
+                    "created_at": current_time,
+                    "last_login": None,
+                },
             ], 2
 
         # Check user authentication

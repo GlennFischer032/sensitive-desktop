@@ -62,7 +62,7 @@ def get_modification_time(directory):
 def main():
     scss_dir = sys.argv[1] if len(sys.argv) > 1 else "app/scss"
 
-    target_file = sys.argv[2] if len(sys.argv) > 2 else "app/static/style.css"
+    target_file = sys.argv[2] if len(sys.argv) > 2 else "app/static/style.css"  # noqa: PLR2004
 
     main_scss = os.path.join(scss_dir, "main.scss")
 

@@ -5,7 +5,7 @@ from typing import Any, Dict, Tuple
 
 from flask import session
 
-from .base import APIError, BaseClient
+from .base import APIError, BaseClient, ClientRequest
 
 
 class AuthClient(BaseClient):
@@ -28,8 +28,7 @@ class AuthClient(BaseClient):
             DeprecationWarning: Always, as this method is deprecated
         """
         warnings.warn(
-            "Username/password authentication has been deprecated. "
-            "Use OIDC authentication instead.",
+            "Username/password authentication has been deprecated. " "Use OIDC authentication instead.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -64,11 +63,12 @@ class AuthClient(BaseClient):
             APIError: If token validation fails
         """
         try:
-            return self.get(
+            request = ClientRequest(
                 endpoint="/api/auth/verify",
                 token=token,
                 timeout=5,
             )
+            return self.get(request=request)
         except APIError as e:
             self.logger.error(f"Token validation error: {str(e)}")
             raise

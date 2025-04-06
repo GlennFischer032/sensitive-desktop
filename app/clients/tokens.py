@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from flask import session
 
-from .base import APIError, BaseClient
+from .base import APIError, BaseClient, ClientRequest
 
 
 class TokensClient(BaseClient):
@@ -31,11 +31,12 @@ class TokensClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint="/api/tokens",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error fetching tokens: {str(e)}")
@@ -76,12 +77,13 @@ class TokensClient(BaseClient):
             data["description"] = description
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint="/api/tokens",
                 data=data,
                 token=token,
                 timeout=10,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error creating token: {str(e)}")
@@ -106,11 +108,12 @@ class TokensClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint=f"/api/tokens/{token_id}",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error fetching token details: {str(e)}")
@@ -135,11 +138,12 @@ class TokensClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.delete(
+            request = ClientRequest(
                 endpoint=f"/api/tokens/{token_id}",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.delete(request=request)
             return data
         except APIError as e:
             self.logger.error(f"Error revoking token: {str(e)}")

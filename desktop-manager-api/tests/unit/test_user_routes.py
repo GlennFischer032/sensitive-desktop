@@ -1,21 +1,19 @@
 """Unit tests for user routes."""
 
 from datetime import datetime
-import uuid
 from functools import wraps
 from http import HTTPStatus
-from unittest.mock import Mock, patch, MagicMock
-import time
-import logging
 import sys
+import time
+from unittest.mock import MagicMock, Mock, patch
+import uuid
 
+from flask import Blueprint, Flask, jsonify, request
 import jwt
 import pytest
-from desktop_manager.api.models.user import User
-from desktop_manager.api.routes.user_routes import users_bp
-from flask import Flask, g, jsonify, request, Blueprint
-from sqlalchemy import text, create_engine
+from sqlalchemy import text
 
+from desktop_manager.api.models.user import User
 from tests.config import TEST_ADMIN, TEST_USER
 
 
@@ -47,30 +45,23 @@ def mock_token_required(f):
                     id=user_id,
                     username=f"mock_user_{user_id}",
                     email=f"mock{user_id}@example.com",
-                    is_admin=is_admin
+                    is_admin=is_admin,
                 )
                 request.current_user = mock_user
             except Exception as e:
-                print(f"DEBUG: Error in mock_token_required: {str(e)}")
+                print(f"DEBUG: Error in mock_token_required: {e!s}")
                 # Still succeed for testing
                 mock_user = User(
-                    id=999,
-                    username="mock_user",
-                    email="mock@example.com",
-                    is_admin=True
+                    id=999, username="mock_user", email="mock@example.com", is_admin=True
                 )
                 request.current_user = mock_user
         else:
             # Use a default mock user
-            mock_user = User(
-                id=999,
-                username="mock_user",
-                email="mock@example.com",
-                is_admin=True
-            )
+            mock_user = User(id=999, username="mock_user", email="mock@example.com", is_admin=True)
             request.current_user = mock_user
 
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -80,6 +71,7 @@ def mock_admin_required(f):
         print("DEBUG: mock_admin_required decorator called")
         # Always succeed
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -89,7 +81,7 @@ auth_module_mock.token_required = mock_token_required
 auth_module_mock.admin_required = mock_admin_required
 
 # Add the mock to sys.modules before user_routes is imported
-sys.modules['desktop_manager.core.auth'] = auth_module_mock
+sys.modules["desktop_manager.core.auth"] = auth_module_mock
 
 
 @pytest.fixture(autouse=True)
@@ -111,7 +103,7 @@ def setup_database(test_db, test_engine):
     test_db.commit()
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_user(test_db):
     """Create a test user for the tests."""
     # Generate unique email and username for each test
@@ -127,7 +119,7 @@ def test_user(test_db):
     return user
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_admin(test_db):
     """Create a test admin user for the tests."""
     # Generate unique email and username for each test
@@ -153,11 +145,9 @@ def admin_token():
         "username": f"test_admin_{unique_id}",
         "is_admin": True,
         "exp": int(time.time()) + 3600 * 24 * 365,
-        "sub": 1  # Use user_id as sub
+        "sub": 1,  # Use user_id as sub
     }
-    token = jwt.encode(
-        payload, "test_secret_key", algorithm="HS256"
-    )
+    token = jwt.encode(payload, "test_secret_key", algorithm="HS256")
     return token
 
 
@@ -170,15 +160,13 @@ def user_token():
         "username": f"test_user_{unique_id}",
         "is_admin": False,
         "exp": int(time.time()) + 3600 * 24 * 365,
-        "sub": 2  # Use user_id as sub
+        "sub": 2,  # Use user_id as sub
     }
-    token = jwt.encode(
-        payload, "test_secret_key", algorithm="HS256"
-    )
+    token = jwt.encode(payload, "test_secret_key", algorithm="HS256")
     return token
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_guacamole():
     """Mock all Guacamole-related functions."""
     # Create mock guacamole token
@@ -198,8 +186,7 @@ def mock_guacamole():
         return_value=True,
     )
     add_patch = patch(
-        "desktop_manager.clients.guacamole.GuacamoleClient.add_user_to_group",
-        return_value=True
+        "desktop_manager.clients.guacamole.GuacamoleClient.add_user_to_group", return_value=True
     )
     delete_patch = patch(
         "desktop_manager.clients.guacamole.GuacamoleClient.delete_user",
@@ -242,7 +229,7 @@ def mock_guacamole():
         "sub": "123",  # Add the missing sub field
         "email": "test@example.com",
         "name": "Test User",
-        "preferred_username": "testuser"
+        "preferred_username": "testuser",
     }
     mock_oidc_response.raise_for_status = Mock()
 
@@ -291,7 +278,7 @@ def mock_guacamole():
     client_post_patch.stop()
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_app(test_db, mock_guacamole):
     """Create a test Flask application with mocked dependencies."""
     app = Flask(__name__)
@@ -314,7 +301,7 @@ def test_app(test_db, mock_guacamole):
                     "username": user.username,
                     "email": user.email,
                     "is_admin": user.is_admin,
-                    "organization": user.organization
+                    "organization": user.organization,
                 }
                 return [user_dict], 1
             return [], 0
@@ -360,17 +347,14 @@ def test_app(test_db, mock_guacamole):
                     id=user_id,
                     username=f"user_{user_id}",
                     email="test@example.com",
-                    is_admin=is_admin
+                    is_admin=is_admin,
                 )
                 request.current_user = current_user
             except Exception as e:
                 print(f"DEBUG: Error decoding token: {e}")
                 # Use default admin user
                 current_user = User(
-                    id=1,
-                    username="admin",
-                    email="admin@example.com",
-                    is_admin=True
+                    id=1, username="admin", email="admin@example.com", is_admin=True
                 )
                 request.current_user = current_user
         else:
@@ -383,15 +367,17 @@ def test_app(test_db, mock_guacamole):
             return jsonify({"error": "User not found"}), HTTPStatus.NOT_FOUND
 
         # Return user details
-        return jsonify({
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "organization": user.organization,
-                "is_admin": user.is_admin
+        return jsonify(
+            {
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "organization": user.organization,
+                    "is_admin": user.is_admin,
+                }
             }
-        }), HTTPStatus.OK
+        ), HTTPStatus.OK
 
     @user_test_bp.route("/update/<username>", methods=["POST"])
     def update_user(username):
@@ -412,17 +398,14 @@ def test_app(test_db, mock_guacamole):
                     id=user_id,
                     username=f"user_{user_id}",
                     email="test@example.com",
-                    is_admin=is_admin
+                    is_admin=is_admin,
                 )
                 request.current_user = current_user
             except Exception as e:
                 print(f"DEBUG: Error decoding token: {e}")
                 # Use default admin user
                 current_user = User(
-                    id=1,
-                    username="admin",
-                    email="admin@example.com",
-                    is_admin=True
+                    id=1, username="admin", email="admin@example.com", is_admin=True
                 )
                 request.current_user = current_user
         else:
@@ -456,16 +439,18 @@ def test_app(test_db, mock_guacamole):
         test_db.commit()
 
         # Return updated user details
-        return jsonify({
-            "message": "User updated successfully",
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "organization": user.organization,
-                "is_admin": user.is_admin
+        return jsonify(
+            {
+                "message": "User updated successfully",
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "organization": user.organization,
+                    "is_admin": user.is_admin,
+                },
             }
-        }), HTTPStatus.OK
+        ), HTTPStatus.OK
 
     # Add /removeuser endpoint
     @user_test_bp.route("/removeuser", methods=["POST"])
@@ -486,10 +471,7 @@ def test_app(test_db, mock_guacamole):
 
             # Set up current_user
             current_user = User(
-                id=user_id,
-                username=f"user_{user_id}",
-                email="test@example.com",
-                is_admin=is_admin
+                id=user_id, username=f"user_{user_id}", email="test@example.com", is_admin=is_admin
             )
             request.current_user = current_user
         except Exception as e:
@@ -536,10 +518,7 @@ def test_app(test_db, mock_guacamole):
 
             # Set up current_user
             current_user = User(
-                id=user_id,
-                username=f"user_{user_id}",
-                email="test@example.com",
-                is_admin=is_admin
+                id=user_id, username=f"user_{user_id}", email="test@example.com", is_admin=is_admin
             )
             request.current_user = current_user
         except Exception as e:
@@ -557,10 +536,14 @@ def test_app(test_db, mock_guacamole):
         required_fields = ["username", "password", "email"]
         for field in required_fields:
             if field not in request.json:
-                return jsonify({"error": f"Missing required field: {field}"}), HTTPStatus.BAD_REQUEST
+                return jsonify(
+                    {"error": f"Missing required field: {field}"}
+                ), HTTPStatus.BAD_REQUEST
 
         # Check if username already exists
-        existing_user = test_db.query(User).filter(User.username == request.json["username"]).first()
+        existing_user = (
+            test_db.query(User).filter(User.username == request.json["username"]).first()
+        )
         if existing_user:
             return jsonify({"error": "Username already exists"}), HTTPStatus.CONFLICT
 
@@ -569,7 +552,7 @@ def test_app(test_db, mock_guacamole):
             username=request.json["username"],
             email=request.json["email"],
             is_admin=request.json.get("is_admin", False),
-            organization=request.json.get("organization", "")
+            organization=request.json.get("organization", ""),
         )
 
         test_db.add(new_user)
@@ -587,8 +570,8 @@ def test_app(test_db, mock_guacamole):
                 "username": new_user.username,
                 "email": new_user.email,
                 "organization": new_user.organization,
-                "is_admin": new_user.is_admin
-            }
+                "is_admin": new_user.is_admin,
+            },
         }
 
         return jsonify(response_data), HTTPStatus.CREATED
@@ -617,10 +600,7 @@ def test_app(test_db, mock_guacamole):
 
             # Set up current_user
             current_user = User(
-                id=user_id,
-                username=f"user_{user_id}",
-                email="test@example.com",
-                is_admin=is_admin
+                id=user_id, username=f"user_{user_id}", email="test@example.com", is_admin=is_admin
             )
             request.current_user = current_user
         except Exception as e:
@@ -641,26 +621,28 @@ def test_app(test_db, mock_guacamole):
         # This specifically handles the case where the test is using Bearer token
         if "Authorization" in request.headers and "Bearer " in request.headers["Authorization"]:
             current_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            return jsonify({
-                "users": [
-                    {
-                        "id": 1,
-                        "username": "user1",
-                        "email": "user1@example.com",
-                        "is_admin": False,
-                        "created_at": current_time_str,
-                        "last_login": None
-                    },
-                    {
-                        "id": 2,
-                        "username": "admin1",
-                        "email": "admin1@example.com",
-                        "is_admin": True,
-                        "created_at": current_time_str,
-                        "last_login": None
-                    }
-                ]
-            }), HTTPStatus.OK
+            return jsonify(
+                {
+                    "users": [
+                        {
+                            "id": 1,
+                            "username": "user1",
+                            "email": "user1@example.com",
+                            "is_admin": False,
+                            "created_at": current_time_str,
+                            "last_login": None,
+                        },
+                        {
+                            "id": 2,
+                            "username": "admin1",
+                            "email": "admin1@example.com",
+                            "is_admin": True,
+                            "created_at": current_time_str,
+                            "last_login": None,
+                        },
+                    ]
+                }
+            ), HTTPStatus.OK
 
         # For other cases, use the test database as before
         users = test_db.query(User).all()
@@ -668,15 +650,21 @@ def test_app(test_db, mock_guacamole):
         # Format response to match the expected format in tests
         user_list = []
         for user in users:
-            user_list.append({
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "organization": user.organization,
-                "is_admin": user.is_admin,
-                "created_at": user.created_at.strftime("%Y-%m-%d %H:%M:%S") if user.created_at else None,
-                "last_login": user.last_login.strftime("%Y-%m-%d %H:%M:%S") if user.last_login else None
-            })
+            user_list.append(
+                {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "organization": user.organization,
+                    "is_admin": user.is_admin,
+                    "created_at": user.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                    if user.created_at
+                    else None,
+                    "last_login": user.last_login.strftime("%Y-%m-%d %H:%M:%S")
+                    if user.last_login
+                    else None,
+                }
+            )
 
         return jsonify({"users": user_list}), HTTPStatus.OK
 
@@ -700,12 +688,14 @@ def test_app(test_db, mock_guacamole):
     app.register_blueprint(user_test_bp)
 
     # Apply database client patch
-    with patch("desktop_manager.clients.factory.client_factory.get_database_client", return_value=mock_db_client), \
-         patch("desktop_manager.config.settings.get_settings", return_value=mock_settings):
+    with patch(
+        "desktop_manager.clients.factory.client_factory.get_database_client",
+        return_value=mock_db_client,
+    ), patch("desktop_manager.config.settings.get_settings", return_value=mock_settings):
         return app
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_client(test_app):
     """Create a test client."""
     with test_app.test_client() as client:
@@ -724,7 +714,10 @@ def test_remove_user_success(test_client, admin_token):
     ) as mock_login:
         # First query to check if user exists
         mock_execute_query.side_effect = [
-            ([{"id": 1, "username": "test_user", "is_admin": False}], 1),  # User exists (rows, count)
+            (
+                [{"id": 1, "username": "test_user", "is_admin": False}],
+                1,
+            ),  # User exists (rows, count)
             ([], 1),  # Delete operation successful (rows, count)
         ]
         mock_login.return_value = "mock_token"
@@ -733,7 +726,7 @@ def test_remove_user_success(test_client, admin_token):
         response = test_client.post(
             "/removeuser",
             json={"username": "test_user"},
-            headers={"Authorization": f"Bearer {admin_token}"}
+            headers={"Authorization": f"Bearer {admin_token}"},
         )
 
         # Include 404 as it's returned when the mock doesn't match the expected pattern
@@ -741,7 +734,7 @@ def test_remove_user_success(test_client, admin_token):
             HTTPStatus.OK,
             HTTPStatus.UNAUTHORIZED,
             HTTPStatus.FORBIDDEN,
-            HTTPStatus.NOT_FOUND
+            HTTPStatus.NOT_FOUND,
         ]
 
         if response.status_code == HTTPStatus.OK:
@@ -798,7 +791,11 @@ def test_remove_user_missing_input(test_client, admin_token):
     )
 
     # Should be BAD_REQUEST, but may be UNAUTHORIZED or FORBIDDEN due to permission issues
-    assert response.status_code in [HTTPStatus.BAD_REQUEST, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN]
+    assert response.status_code in [
+        HTTPStatus.BAD_REQUEST,
+        HTTPStatus.UNAUTHORIZED,
+        HTTPStatus.FORBIDDEN,
+    ]
 
 
 def test_remove_user_guacamole_error(test_client, admin_token):
@@ -811,7 +808,10 @@ def test_remove_user_guacamole_error(test_client, admin_token):
         "desktop_manager.clients.guacamole.GuacamoleClient.login"
     ) as mock_login:
         # First query to check if user exists
-        mock_execute_query.return_value = ([{"id": 1, "username": "test_user", "is_admin": False}], 1)  # User exists (rows, count)
+        mock_execute_query.return_value = (
+            [{"id": 1, "username": "test_user", "is_admin": False}],
+            1,
+        )  # User exists (rows, count)
         mock_login.return_value = "mock_token"
         mock_delete_user.side_effect = Exception("Guacamole error")
 
@@ -826,7 +826,7 @@ def test_remove_user_guacamole_error(test_client, admin_token):
             HTTPStatus.UNAUTHORIZED,
             HTTPStatus.FORBIDDEN,
             HTTPStatus.OK,  # In case implementation handles the error gracefully
-            HTTPStatus.NOT_FOUND  # In case our mock doesn't match the expected pattern
+            HTTPStatus.NOT_FOUND,  # In case our mock doesn't match the expected pattern
         ]
 
 
@@ -847,7 +847,18 @@ def test_create_user_success(test_client, admin_token):
         # First check if user exists, then insert
         mock_execute_query.side_effect = [
             ([], 0),  # User doesn't exist yet
-            ([{"id": 1, "username": "test_user", "email": "test@example.com", "is_admin": False, "created_at": datetime.now()}], 1),  # Result of insert
+            (
+                [
+                    {
+                        "id": 1,
+                        "username": "test_user",
+                        "email": "test@example.com",
+                        "is_admin": False,
+                        "created_at": datetime.now(),
+                    }
+                ],
+                1,
+            ),  # Result of insert
         ]
         mock_login.return_value = "mock_token"
         mock_create_user.return_value = None
@@ -856,7 +867,11 @@ def test_create_user_success(test_client, admin_token):
 
         response = test_client.post(
             "/createuser",
-            json={"username": "test_user", "password": "test_password", "email": "test@example.com"},
+            json={
+                "username": "test_user",
+                "password": "test_password",
+                "email": "test@example.com",
+            },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
 
@@ -889,7 +904,18 @@ def test_create_admin_user(test_client, admin_token):
         # First check if user exists, then insert
         mock_execute_query.side_effect = [
             ([], 0),  # User doesn't exist yet
-            ([{"id": 1, "username": "admin_user", "email": "admin@example.com", "is_admin": True, "created_at": datetime.now()}], 1),  # Result of insert
+            (
+                [
+                    {
+                        "id": 1,
+                        "username": "admin_user",
+                        "email": "admin@example.com",
+                        "is_admin": True,
+                        "created_at": datetime.now(),
+                    }
+                ],
+                1,
+            ),  # Result of insert
         ]
         mock_login.return_value = "mock_token"
         mock_create_user.return_value = None
@@ -988,7 +1014,10 @@ def test_create_duplicate_user(test_client, test_user, admin_token):
         # Simulate an admin user fetched first, then duplicate user check
         mock_execute_query.side_effect = [
             ([{"id": 1, "username": "test_admin", "is_admin": True}], 1),  # Admin user check
-            ([{"username": test_user.username, "email": "existing@example.com"}], 1),  # Duplicate username check
+            (
+                [{"username": test_user.username, "email": "existing@example.com"}],
+                1,
+            ),  # Duplicate username check
         ]
 
         response = test_client.post(
@@ -1002,7 +1031,11 @@ def test_create_duplicate_user(test_client, test_user, admin_token):
         )
 
         # Should be CONFLICT or BAD_REQUEST for duplicate user
-        assert response.status_code in [HTTPStatus.CONFLICT, HTTPStatus.BAD_REQUEST, HTTPStatus.UNAUTHORIZED]
+        assert response.status_code in [
+            HTTPStatus.CONFLICT,
+            HTTPStatus.BAD_REQUEST,
+            HTTPStatus.UNAUTHORIZED,
+        ]
 
 
 def test_create_user_guacamole_error(test_client, admin_token):
@@ -1038,7 +1071,7 @@ def test_create_user_guacamole_error(test_client, admin_token):
             HTTPStatus.UNAUTHORIZED,
             HTTPStatus.FORBIDDEN,
             HTTPStatus.CREATED,  # In case implementation handles the error gracefully
-            HTTPStatus.BAD_REQUEST  # In case validation fails
+            HTTPStatus.BAD_REQUEST,  # In case validation fails
         ]
 
 
@@ -1050,9 +1083,7 @@ def test_list_users_empty(test_client, admin_token):
     ) as mock_execute_query:
         mock_execute_query.return_value = ([], 0)  # No users found (rows, count)
 
-        response = test_client.get(
-            "/list", headers={"X-Access-Token": admin_token}
-        )
+        response = test_client.get("/list", headers={"X-Access-Token": admin_token})
 
         assert response.status_code in [
             HTTPStatus.OK,
@@ -1074,21 +1105,33 @@ def test_list_users_populated(test_client, admin_token):
         current_time = datetime.now()
         mock_execute_query.return_value = (
             [
-                {"id": 1, "username": "user1", "email": "user1@example.com", "is_admin": False, "created_at": current_time, "last_login": None},
-                {"id": 2, "username": "admin1", "email": "admin1@example.com", "is_admin": True, "created_at": current_time, "last_login": None},
+                {
+                    "id": 1,
+                    "username": "user1",
+                    "email": "user1@example.com",
+                    "is_admin": False,
+                    "created_at": current_time,
+                    "last_login": None,
+                },
+                {
+                    "id": 2,
+                    "username": "admin1",
+                    "email": "admin1@example.com",
+                    "is_admin": True,
+                    "created_at": current_time,
+                    "last_login": None,
+                },
             ],
-            2
+            2,
         )  # Two users found (rows, count)
 
-        response = test_client.get(
-            "/list", headers={"Authorization": f"Bearer {admin_token}"}
-        )
+        response = test_client.get("/list", headers={"Authorization": f"Bearer {admin_token}"})
 
         assert response.status_code in [
             HTTPStatus.OK,
             HTTPStatus.UNAUTHORIZED,
             HTTPStatus.FORBIDDEN,
-            HTTPStatus.INTERNAL_SERVER_ERROR  # For validation errors
+            HTTPStatus.INTERNAL_SERVER_ERROR,  # For validation errors
         ]
 
         if response.status_code == HTTPStatus.OK:
@@ -1107,9 +1150,7 @@ def test_list_users_non_admin(test_client, user_token):
     """Test listing users as a non-admin user."""
     # Patch the admin_required decorator to test proper behavior
     with patch("desktop_manager.core.auth.admin_required", lambda func: func):
-        response = test_client.get(
-            "/list", headers={"Authorization": f"Bearer {user_token}"}
-        )
+        response = test_client.get("/list", headers={"Authorization": f"Bearer {user_token}"})
 
         # Non-admin should not be allowed to list users
         assert response.status_code in [HTTPStatus.FORBIDDEN, HTTPStatus.UNAUTHORIZED]
@@ -1159,10 +1200,7 @@ def test_get_user_success(test_client, test_user, user_token):
     """Test getting a user successfully."""
     username = test_user.username
 
-    response = test_client.get(
-        f"/{username}",
-        headers={"Authorization": f"Bearer {user_token}"}
-    )
+    response = test_client.get(f"/{username}", headers={"Authorization": f"Bearer {user_token}"})
 
     assert response.status_code == HTTPStatus.OK
     data = response.get_json()
@@ -1173,8 +1211,7 @@ def test_get_user_success(test_client, test_user, user_token):
 def test_get_user_nonexistent(test_client, admin_token):
     """Test getting a nonexistent user."""
     response = test_client.get(
-        "/nonexistentuser",
-        headers={"Authorization": f"Bearer {admin_token}"}
+        "/nonexistentuser", headers={"Authorization": f"Bearer {admin_token}"}
     )
 
     assert response.status_code == HTTPStatus.NOT_FOUND
@@ -1196,15 +1233,10 @@ def test_update_user_success(test_client, test_user, admin_token):
     """Test updating a user successfully."""
     username = test_user.username
 
-    update_data = {
-        "email": "updated_email@example.com",
-        "organization": "Updated Organization"
-    }
+    update_data = {"email": "updated_email@example.com", "organization": "Updated Organization"}
 
     response = test_client.post(
-        f"/update/{username}",
-        json=update_data,
-        headers={"Authorization": f"Bearer {admin_token}"}
+        f"/update/{username}", json=update_data, headers={"Authorization": f"Bearer {admin_token}"}
     )
 
     assert response.status_code == HTTPStatus.OK
@@ -1217,14 +1249,12 @@ def test_update_user_success(test_client, test_user, admin_token):
 
 def test_update_user_nonexistent(test_client, admin_token):
     """Test updating a nonexistent user."""
-    update_data = {
-        "email": "updated_email@example.com"
-    }
+    update_data = {"email": "updated_email@example.com"}
 
     response = test_client.post(
         "/update/nonexistentuser",
         json=update_data,
-        headers={"Authorization": f"Bearer {admin_token}"}
+        headers={"Authorization": f"Bearer {admin_token}"},
     )
 
     assert response.status_code == HTTPStatus.NOT_FOUND
@@ -1236,14 +1266,9 @@ def test_update_user_unauthorized(test_client, test_user):
     """Test updating a user without authentication."""
     username = test_user.username
 
-    update_data = {
-        "email": "updated_email@example.com"
-    }
+    update_data = {"email": "updated_email@example.com"}
 
-    response = test_client.post(
-        f"/update/{username}",
-        json=update_data
-    )
+    response = test_client.post(f"/update/{username}", json=update_data)
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
     data = response.get_json()
@@ -1255,14 +1280,12 @@ def test_update_user_non_admin(test_client, test_admin, user_token):
     """Test updating a user as a non-admin user."""
     admin_username = test_admin.username
 
-    update_data = {
-        "email": "updated_email@example.com"
-    }
+    update_data = {"email": "updated_email@example.com"}
 
     response = test_client.post(
         f"/update/{admin_username}",
         json=update_data,
-        headers={"Authorization": f"Bearer {user_token}"}
+        headers={"Authorization": f"Bearer {user_token}"},
     )
 
     assert response.status_code == HTTPStatus.FORBIDDEN
@@ -1275,9 +1298,7 @@ def test_update_user_missing_input(test_client, test_user, admin_token):
     username = test_user.username
 
     response = test_client.post(
-        f"/update/{username}",
-        json={},
-        headers={"Authorization": f"Bearer {admin_token}"}
+        f"/update/{username}", json={}, headers={"Authorization": f"Bearer {admin_token}"}
     )
 
     assert response.status_code == HTTPStatus.BAD_REQUEST
@@ -1289,14 +1310,10 @@ def test_update_user_invalid_input(test_client, test_user, admin_token):
     """Test updating a user with invalid input."""
     username = test_user.username
 
-    update_data = {
-        "email": "not_an_email"
-    }
+    update_data = {"email": "not_an_email"}
 
     response = test_client.post(
-        f"/update/{username}",
-        json=update_data,
-        headers={"Authorization": f"Bearer {admin_token}"}
+        f"/update/{username}", json=update_data, headers={"Authorization": f"Bearer {admin_token}"}
     )
 
     assert response.status_code == HTTPStatus.BAD_REQUEST

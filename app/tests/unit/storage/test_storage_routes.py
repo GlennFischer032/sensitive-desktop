@@ -1,10 +1,8 @@
 import json
-import requests
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-from flask import Flask, url_for
-from werkzeug.exceptions import Forbidden
+import requests
 
 from app.clients.base import APIError
 from app.tests.conftest import TEST_ADMIN, TEST_TOKEN, TEST_USER
@@ -45,7 +43,7 @@ def test_view_pvcs_success(client, responses_mock):
                 "status": "Bound",
                 "created_by": "user1",
                 "created_at": "2023-01-02T12:00:00Z",
-            }
+            },
         ]
     }
     responses_mock.add(
@@ -112,7 +110,7 @@ def test_view_pvcs_network_error(client, responses_mock):
     responses_mock.add(
         responses_mock.GET,
         "http://test-api:5000/api/storage-pvcs/list",
-        body=requests.ConnectionError("Connection refused")
+        body=requests.ConnectionError("Connection refused"),
     )
 
     response = client.get("/storage/pvcs")
@@ -131,11 +129,7 @@ def test_get_pvc_access_success(client, mock_storage_client):
         sess.permanent = True
 
     # Mock response data
-    access_data = {
-        "id": 1,
-        "is_public": False,
-        "allowed_users": ["user1", "admin"]
-    }
+    access_data = {"id": 1, "is_public": False, "allowed_users": ["user1", "admin"]}
 
     # Configure mock
     mock_storage_client.get_pvc_access.return_value = access_data
@@ -181,26 +175,15 @@ def test_update_pvc_access_success(client, mock_storage_client):
         sess.permanent = True
 
     # Mock response data
-    update_data = {
-        "id": 1,
-        "is_public": True,
-        "allowed_users": ["user1", "user2", "admin"]
-    }
+    update_data = {"id": 1, "is_public": True, "allowed_users": ["user1", "user2", "admin"]}
 
     # Request data
-    request_data = {
-        "is_public": True,
-        "allowed_users": ["user1", "user2", "admin"]
-    }
+    request_data = {"is_public": True, "allowed_users": ["user1", "user2", "admin"]}
 
     # Configure mock
     mock_storage_client.update_pvc_access.return_value = update_data
 
-    response = client.post(
-        "/storage/pvcs/1/access",
-        data=json.dumps(request_data),
-        content_type="application/json"
-    )
+    response = client.post("/storage/pvcs/1/access", data=json.dumps(request_data), content_type="application/json")
 
     # In test environment, the connection may fail with 503
     assert response.status_code in [200, 503]
@@ -223,16 +206,9 @@ def test_update_pvc_access_non_admin(client, mock_storage_client):
         sess.permanent = True
 
     # Request data
-    request_data = {
-        "is_public": True,
-        "allowed_users": ["user1", "user2", "admin"]
-    }
+    request_data = {"is_public": True, "allowed_users": ["user1", "user2", "admin"]}
 
-    response = client.post(
-        "/storage/pvcs/1/access",
-        data=json.dumps(request_data),
-        content_type="application/json"
-    )
+    response = client.post("/storage/pvcs/1/access", data=json.dumps(request_data), content_type="application/json")
 
     # Should be either forbidden (403) for non-admin users or a redirect (302)
     assert response.status_code in [302, 403]
@@ -309,11 +285,7 @@ def test_create_pvc_success(client, responses_mock):
         sess.permanent = True
 
     # Request data
-    request_data = {
-        "name": "new-test-pvc",
-        "size": "5Gi",
-        "storageClass": "standard"
-    }
+    request_data = {"name": "new-test-pvc", "size": "5Gi", "storageClass": "standard"}
 
     # Mock API response
     response_data = {
@@ -332,11 +304,7 @@ def test_create_pvc_success(client, responses_mock):
         status=201,
     )
 
-    response = client.post(
-        "/storage/pvcs",
-        data=json.dumps(request_data),
-        content_type="application/json"
-    )
+    response = client.post("/storage/pvcs", data=json.dumps(request_data), content_type="application/json")
 
     assert response.status_code == 201
     result = json.loads(response.data)
@@ -355,17 +323,9 @@ def test_create_pvc_non_admin(client, responses_mock):
         sess.permanent = True
 
     # Request data
-    request_data = {
-        "name": "new-test-pvc",
-        "size": "5Gi",
-        "storageClass": "standard"
-    }
+    request_data = {"name": "new-test-pvc", "size": "5Gi", "storageClass": "standard"}
 
-    response = client.post(
-        "/storage/pvcs",
-        data=json.dumps(request_data),
-        content_type="application/json"
-    )
+    response = client.post("/storage/pvcs", data=json.dumps(request_data), content_type="application/json")
 
     # Should be either forbidden (403) for non-admin users or a redirect (302)
     assert response.status_code in [302, 403]
@@ -384,20 +344,8 @@ def test_get_pvc_connections_success(client, responses_mock):
     # Mock API response
     connections_data = {
         "connections": [
-            {
-                "id": 101,
-                "name": "conn-1",
-                "pvc_id": 1,
-                "user_id": "user1",
-                "status": "Active"
-            },
-            {
-                "id": 102,
-                "name": "conn-2",
-                "pvc_id": 1,
-                "user_id": "admin",
-                "status": "Active"
-            }
+            {"id": 101, "name": "conn-1", "pvc_id": 1, "user_id": "user1", "status": "Active"},
+            {"id": 102, "name": "conn-2", "pvc_id": 1, "user_id": "admin", "status": "Active"},
         ]
     }
 

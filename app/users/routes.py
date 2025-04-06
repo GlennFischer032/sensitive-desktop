@@ -89,72 +89,97 @@ def add_user():
         sub = request.form.get("sub")
 
         if not username or not sub:
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return jsonify({"error": "Username and OIDC Subject Identifier are required"}), 400
-            flash("Username and OIDC Subject Identifier are required", "error")
-            return redirect(url_for("users.view_users"))
+            return _handle_missing_required_fields()
 
         data = {"username": username, "is_admin": is_admin, "sub": sub}
 
         try:
-            current_app.logger.info("Adding new user...")
-            current_app.logger.info(f"User data: {data}")
-
-            users_client = client_factory.get_users_client()
-
-            users_client.add_user(**data)
-
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return jsonify(
-                    {
-                        "message": "User added successfully. User information will be filled from OIDC during their first login.",
-                        "username": username,
-                    }
-                ), 201
-
-            flash(
-                "User added successfully. User information will be filled from OIDC during their first login.",
-                "success",
-            )
-            return redirect(url_for("users.view_users"))
+            return _create_user(data)
         except APIError as e:
-            current_app.logger.error(f"Failed to add user: {e.message}")
-
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                if e.details:
-                    return jsonify({"error": e.message, "details": e.details}), e.status_code
-                return jsonify({"error": e.message}), e.status_code
-
-            if e.details:
-                # Handle validation errors
-                error_messages = []
-                for field, errors in e.details.items():
-                    for error in errors:
-                        error_messages.append(f"{field.title()}: {error}")
-                flash("\n".join(error_messages), "error")
-            else:
-                flash(f"Failed to add user: {e.message}", "error")
+            return _handle_api_error(e, username)
         except Exception as e:
-            current_app.logger.error(f"Unexpected error: {str(e)}")
-
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return jsonify({"error": str(e)}), 500
-
-            flash(f"Error: {str(e)}", "error")
-
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"error": "Failed to add user"}), 500
-
-        return redirect(url_for("users.view_users"))
+            return _handle_unexpected_error(e)
 
     # For GET requests, redirect to the users page where the modal is available
+    return redirect(url_for("users.view_users"))
+
+
+def _handle_missing_required_fields():
+    """Handle missing required fields for user creation."""
+    error_msg = "Username and OIDC Subject Identifier are required"
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"error": error_msg}), 400
+
+    flash(error_msg, "error")
+    return redirect(url_for("users.view_users"))
+
+
+def _create_user(data):
+    """Create a new user with the provided data."""
+    current_app.logger.info("Adding new user...")
+    current_app.logger.info(f"User data: {data}")
+
+    users_client = client_factory.get_users_client()
+    users_client.add_user(**data)
+
+    success_msg = "User added successfully. User information will be filled from OIDC during their first login."
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify(
+            {
+                "message": success_msg,
+                "username": data["username"],
+            }
+        ), 201
+
+    flash(success_msg, "success")
+    return redirect(url_for("users.view_users"))
+
+
+def _handle_api_error(e):
+    """Handle API error during user operations."""
+    current_app.logger.error(f"Failed to add user: {e.message}")
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        if e.details:
+            return jsonify({"error": e.message, "details": e.details}), e.status_code
+        return jsonify({"error": e.message}), e.status_code
+
+    if e.details:
+        # Handle validation errors
+        error_messages = _format_validation_errors(e.details)
+        flash("\n".join(error_messages), "error")
+    else:
+        flash(f"Failed to add user: {e.message}", "error")
+
+    return redirect(url_for("users.view_users"))
+
+
+def _format_validation_errors(error_details):
+    """Format validation errors from API response."""
+    error_messages = []
+    for field, errors in error_details.items():
+        for error in errors:
+            error_messages.append(f"{field.title()}: {error}")
+    return error_messages
+
+
+def _handle_unexpected_error(e):
+    """Handle unexpected error during user operations."""
+    current_app.logger.error(f"Unexpected error: {str(e)}")
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"error": str(e)}), 500
+
+    flash(f"Error: {str(e)}", "error")
     return redirect(url_for("users.view_users"))
 
 
 @users_bp.route("/delete/<username>", methods=["POST"])
 @login_required
 @admin_required
-def delete_user(username):
+def delete_user(username):  # noqa
     try:
         current_app.logger.info(f"Attempting to delete user: {username}")
         if username == session.get("username"):
@@ -239,7 +264,7 @@ def remove_user(username):
 @users_bp.route("/update/<username>", methods=["POST"])
 @login_required
 @admin_required
-def update_user(username):
+def update_user(username):  # noqa
     try:
         current_app.logger.info(f"Updating user: {username}")
         data = request.get_json()

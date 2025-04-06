@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import requests
 from flask import current_app
+from pydantic import BaseModel
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import RequestException, Timeout
 
@@ -15,9 +16,7 @@ logger = logging.getLogger(__name__)
 class APIError(Exception):
     """Exception raised for API errors."""
 
-    def __init__(
-        self, message: str, status_code: int = 500, details: Optional[Dict[str, Any]] = None
-    ):
+    def __init__(self, message: str, status_code: int = 500, details: Optional[Dict[str, Any]] = None):
         """Initialize APIError.
 
         Args:
@@ -29,6 +28,17 @@ class APIError(Exception):
         self.status_code = status_code
         self.details = details or {}
         super().__init__(self.message)
+
+
+class ClientRequest(BaseModel):
+    """Model for API request parameters."""
+
+    endpoint: str
+    token: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+    params: Optional[Dict[str, Any]] = None
+    timeout: Optional[int] = None
+    headers: Optional[Dict[str, str]] = None
 
 
 class BaseClient:
@@ -86,7 +96,7 @@ class BaseClient:
         except ValueError:
             data = {"error": "Invalid JSON response", "raw": response.text}
 
-        if not 200 <= response.status_code < 300:
+        if not HTTPStatus.OK <= response.status_code < HTTPStatus.MULTIPLE_CHOICES:
             error_message = data.get("error", "Unknown error occurred")
             self.logger.error(f"API error: {error_message}, Status: {response.status_code}")
             raise APIError(
@@ -97,26 +107,12 @@ class BaseClient:
 
         return data, response.status_code
 
-    def _request(
-        self,
-        method: str,
-        endpoint: str,
-        token: Optional[str] = None,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[Dict[str, Any], int]:
+    def _request(self, method: str, request: ClientRequest) -> Tuple[Dict[str, Any], int]:
         """Make a request to the API.
 
         Args:
             method: HTTP method
-            endpoint: API endpoint
-            token: Authentication token
-            data: Request data
-            params: Query parameters
-            timeout: Request timeout in seconds
-            headers: Additional headers
+            request: Request parameters
 
         Returns:
             Tuple[Dict[str, Any], int]: Response data and status code
@@ -124,168 +120,87 @@ class BaseClient:
         Raises:
             APIError: If request fails
         """
-        url = f"{self._get_base_url()}{endpoint}"
-        request_headers = self._get_headers(token)
-        if headers:
-            request_headers.update(headers)
+        url = f"{self._get_base_url()}{request.endpoint}"
+        request_headers = self._get_headers(request.token)
+        if request.headers:
+            request_headers.update(request.headers)
 
-        request_timeout = timeout if timeout is not None else self.timeout
+        request_timeout = request.timeout if request.timeout is not None else self.timeout
 
         self.logger.debug(f"Making {method} request to {url}")
         try:
             # Ensure we have the right Content-Type header
-            if method.upper() in ["POST", "PUT"] and data is not None:
+            if method.upper() in ["POST", "PUT"] and request.data is not None:
                 request_headers["Content-Type"] = "application/json"
 
             response = requests.request(
                 method=method,
                 url=url,
-                json=data,
-                params=params,
+                json=request.data,
+                params=request.params,
                 headers=request_headers,
                 timeout=request_timeout,
             )
             return self._handle_response(response)
-        except Timeout:
+        except Timeout as e:
             self.logger.error(f"Request to {url} timed out after {request_timeout}s")
             raise APIError(
                 message=f"Request timed out after {request_timeout} seconds",
                 status_code=HTTPStatus.GATEWAY_TIMEOUT,
-            )
+            ) from e
         except RequestsConnectionError as e:
             self.logger.error(f"Connection error to {url}: {str(e)}")
             raise APIError(
                 message=f"Connection error: {str(e)}",
                 status_code=HTTPStatus.SERVICE_UNAVAILABLE,
-            )
+            ) from e
         except RequestException as e:
             self.logger.error(f"Request error to {url}: {str(e)}")
             raise APIError(
                 message=f"Request error: {str(e)}",
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
-            )
+            ) from e
 
-    def get(
-        self,
-        endpoint: str,
-        token: Optional[str] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[Dict[str, Any], int]:
+    def get(self, request: ClientRequest) -> Tuple[Dict[str, Any], int]:
         """Make a GET request to the API.
 
         Args:
-            endpoint: API endpoint
-            token: Authentication token
-            params: Query parameters
-            timeout: Request timeout in seconds
-            headers: Additional headers
+            request: Request parameters
 
         Returns:
             Tuple[Dict[str, Any], int]: Response data and status code
         """
-        return self._request(
-            method="GET",
-            endpoint=endpoint,
-            token=token,
-            params=params,
-            timeout=timeout,
-            headers=headers,
-        )
+        return self._request(method="GET", request=request)
 
-    def post(
-        self,
-        endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        token: Optional[str] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[Dict[str, Any], int]:
+    def post(self, request: ClientRequest) -> Tuple[Dict[str, Any], int]:
         """Make a POST request to the API.
 
         Args:
-            endpoint: API endpoint
-            data: Request data
-            token: Authentication token
-            params: Query parameters
-            timeout: Request timeout in seconds
-            headers: Additional headers
+            request: Request parameters
 
         Returns:
             Tuple[Dict[str, Any], int]: Response data and status code
         """
-        return self._request(
-            method="POST",
-            endpoint=endpoint,
-            token=token,
-            data=data,
-            params=params,
-            timeout=timeout,
-            headers=headers,
-        )
+        return self._request(method="POST", request=request)
 
-    def put(
-        self,
-        endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        token: Optional[str] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[Dict[str, Any], int]:
+    def put(self, request: ClientRequest) -> Tuple[Dict[str, Any], int]:
         """Make a PUT request to the API.
 
         Args:
-            endpoint: API endpoint
-            data: Request data
-            token: Authentication token
-            params: Query parameters
-            timeout: Request timeout in seconds
-            headers: Additional headers
+            request: Request parameters
 
         Returns:
             Tuple[Dict[str, Any], int]: Response data and status code
         """
-        return self._request(
-            method="PUT",
-            endpoint=endpoint,
-            token=token,
-            data=data,
-            params=params,
-            timeout=timeout,
-            headers=headers,
-        )
+        return self._request(method="PUT", request=request)
 
-    def delete(
-        self,
-        endpoint: str,
-        token: Optional[str] = None,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[Dict[str, Any], int]:
+    def delete(self, request: ClientRequest) -> Tuple[Dict[str, Any], int]:
         """Make a DELETE request to the API.
 
         Args:
-            endpoint: API endpoint
-            token: Authentication token
-            data: Request data
-            params: Query parameters
-            timeout: Request timeout in seconds
-            headers: Additional headers
+            request: Request parameters
 
         Returns:
             Tuple[Dict[str, Any], int]: Response data and status code
         """
-        return self._request(
-            method="DELETE",
-            endpoint=endpoint,
-            token=token,
-            data=data,
-            params=params,
-            timeout=timeout,
-            headers=headers,
-        )
+        return self._request(method="DELETE", request=request)

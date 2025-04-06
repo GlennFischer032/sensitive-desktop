@@ -1,8 +1,5 @@
 """Unit tests for connections functionality."""
 
-import pytest
-import responses
-from flask import Flask, session
 from flask.testing import FlaskClient
 
 from middleware.auth import simulate_login
@@ -20,11 +17,7 @@ def test_view_connections_success(client: FlaskClient, responses_mock) -> None:
     responses_mock.add(
         responses_mock.GET,
         "http://test-api:5000/api/connections/list",
-        match=[
-            responses_mock.matchers.header_matcher(
-                {"Authorization": f"Bearer {TEST_TOKEN}"}
-            )
-        ],
+        match=[responses_mock.matchers.header_matcher({"Authorization": f"Bearer {TEST_TOKEN}"})],
         json={
             "connections": [
                 {"name": "test-conn-1", "status": "running"},
@@ -116,9 +109,7 @@ def test_add_connection_success(client: FlaskClient, responses_mock) -> None:
                     "Content-Type": "application/json",
                 }
             ),
-            responses_mock.matchers.json_params_matcher(
-                {"name": "test-connection", "persistent_home": False}
-            ),
+            responses_mock.matchers.json_params_matcher({"name": "test-connection", "persistent_home": False}),
         ],
         json={"message": "Connection created"},
         status=200,
@@ -137,7 +128,7 @@ def test_add_connection_success(client: FlaskClient, responses_mock) -> None:
     response = client.post(
         "/connections/add",
         data={"connection_name": "test-connection-ajax"},
-        headers={"X-Requested-With": "XMLHttpRequest"}
+        headers={"X-Requested-With": "XMLHttpRequest"},
     )
     assert response.status_code == 200
     assert response.is_json
@@ -158,11 +149,7 @@ def test_add_connection_missing_name(client: FlaskClient) -> None:
     assert b"Connection name is required" in response.data
 
     # Test AJAX request
-    response = client.post(
-        "/connections/add",
-        data={},
-        headers={"X-Requested-With": "XMLHttpRequest"}
-    )
+    response = client.post("/connections/add", data={}, headers={"X-Requested-With": "XMLHttpRequest"})
     assert response.status_code == 400
     assert response.is_json
     assert response.json["status"] == "error"
@@ -197,7 +184,7 @@ def test_add_connection_api_error(client: FlaskClient, responses_mock) -> None:
     response = client.post(
         "/connections/add",
         data={"connection_name": "test-connection-ajax"},
-        headers={"X-Requested-With": "XMLHttpRequest"}
+        headers={"X-Requested-With": "XMLHttpRequest"},
     )
     assert response.status_code == 400
     assert response.is_json
@@ -231,7 +218,7 @@ def test_add_connection_network_error(client: FlaskClient, responses_mock) -> No
     response = client.post(
         "/connections/add",
         data={"connection_name": "test-connection-ajax"},
-        headers={"X-Requested-With": "XMLHttpRequest"}
+        headers={"X-Requested-With": "XMLHttpRequest"},
     )
     assert response.status_code == 500
     assert response.is_json

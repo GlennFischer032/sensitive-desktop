@@ -1,4 +1,5 @@
 import re
+from http import HTTPStatus
 
 import requests
 from flask import (
@@ -18,6 +19,9 @@ from app.middleware.security import rate_limit
 from app.utils.decorators import login_required
 
 from . import connections_bp
+
+# Constants
+MAX_CONNECTION_NAME_LENGTH = 12
 
 
 @connections_bp.route("/")
@@ -71,93 +75,7 @@ def view_connections():
 def add_connection():
     if request.method == "POST":
         try:
-            connection_name = request.form.get("connection_name")
-            if not connection_name:
-                error_msg = "Connection name is required"
-                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return jsonify({"status": "error", "error": error_msg}), 400
-                flash(error_msg, "error")
-                return redirect(url_for("connections.add_connection"))
-
-            # Validate name against required pattern and length
-            name_pattern = re.compile(
-                r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-            )
-            if not name_pattern.match(connection_name):
-                error_msg = (
-                    "Connection name must start and end with an alphanumeric character "
-                    "and contain only lowercase letters, numbers, and hyphens"
-                )
-                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return jsonify({"status": "error", "error": error_msg}), 400
-                flash(error_msg, "error")
-                return redirect(url_for("connections.add_connection"))
-
-            # Check for the 12 character limit
-            if len(connection_name) > 12:
-                error_msg = "Connection name is too long. Maximum length is 12 characters."
-                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                    return jsonify({"status": "error", "error": error_msg}), 400
-                flash(error_msg, "error")
-                return redirect(url_for("connections.add_connection"))
-
-            # Get desktop configuration if specified
-            desktop_configuration_id = request.form.get("desktop_configuration_id")
-            desktop_configuration = None
-            if desktop_configuration_id:
-                desktop_configs_client = client_factory.get_desktop_configurations_client()
-                config_response = desktop_configs_client.get_configuration(
-                    int(desktop_configuration_id)
-                )
-                # Extract the configuration from the response
-                desktop_configuration = config_response.get("configuration", {})
-                current_app.logger.debug(
-                    f"Retrieved desktop configuration: {desktop_configuration}"
-                )
-
-            # Get persistent home setting
-            persistent_home_value = request.form.get("persistent_home", "off")
-            persistent_home = persistent_home_value != "off"
-
-            # Get external PVC if specified (admin only)
-            external_pvc = request.form.get("external_pvc")
-            if external_pvc and not session.get("is_admin", False):
-                current_app.logger.warning("Non-admin user attempted to use external PVC")
-                external_pvc = None  # Clear it for non-admins
-
-            if external_pvc:
-                current_app.logger.info(f"Using external PVC: {external_pvc}")
-
-            # Create connection
-            connections_client = client_factory.get_connections_client()
-            connection_data = {
-                "name": connection_name,
-                "persistent_home": persistent_home,
-            }
-
-            if desktop_configuration:
-                connection_data.update(
-                    {
-                        "desktop_configuration_id": desktop_configuration.get("id"),
-                        "min_cpu": desktop_configuration.get("min_cpu"),
-                        "max_cpu": desktop_configuration.get("max_cpu"),
-                        "min_ram": desktop_configuration.get("min_ram"),
-                        "max_ram": desktop_configuration.get("max_ram"),
-                    }
-                )
-
-            # Add external PVC if specified
-            if external_pvc:
-                connection_data["external_pvc"] = external_pvc
-
-            connections_client.add_connection(**connection_data)
-
-            success_msg = "Connection created successfully"
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return jsonify({"status": "success", "message": success_msg}), 200
-
-            flash(success_msg, "success")
-            return redirect(url_for("connections.view_connections"))
+            return _handle_add_connection_post()
         except APIError as e:
             current_app.logger.error(f"Failed to add connection: {e.message}")
             if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -170,6 +88,125 @@ def add_connection():
             flash(f"Error adding connection: {str(e)}")
 
     # For GET requests or if POST fails, fetch desktop configurations for the form
+    return _handle_add_connection_get()
+
+
+def _handle_add_connection_post():
+    """Handle POST request for add_connection route."""
+    connection_name = request.form.get("connection_name")
+    if not connection_name:
+        error_msg = "Connection name is required"
+        return _return_connection_error(error_msg, 400)
+
+    # Validate name against required pattern and length
+    name_validation_result = _validate_connection_name(connection_name)
+    if name_validation_result:
+        return name_validation_result
+
+    # Get desktop configuration if specified
+    desktop_configuration = _get_desktop_configuration()
+
+    # Get persistent home setting
+    persistent_home_value = request.form.get("persistent_home", "off")
+    persistent_home = persistent_home_value != "off"
+
+    # Get external PVC if specified (admin only)
+    external_pvc = _get_external_pvc()
+
+    # Create connection
+    connection_data = _prepare_connection_data(connection_name, persistent_home, desktop_configuration, external_pvc)
+
+    connections_client = client_factory.get_connections_client()
+    connections_client.add_connection(**connection_data)
+
+    success_msg = "Connection created successfully"
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"status": "success", "message": success_msg}), 200
+
+    flash(success_msg, "success")
+    return redirect(url_for("connections.view_connections"))
+
+
+def _validate_connection_name(connection_name):
+    """Validate connection name and return error response if invalid."""
+    # Validate name against required pattern and length
+    name_pattern = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
+    if not name_pattern.match(connection_name):
+        error_msg = (
+            "Connection name must start and end with an alphanumeric character "
+            "and contain only lowercase letters, numbers, and hyphens"
+        )
+        return _return_connection_error(error_msg, 400)
+
+    # Check for the 12 character limit
+    if len(connection_name) > MAX_CONNECTION_NAME_LENGTH:
+        error_msg = "Connection name is too long. Maximum length is 12 characters."
+        return _return_connection_error(error_msg, 400)
+
+    return None
+
+
+def _return_connection_error(error_msg, status_code=400):
+    """Return appropriate error response for connection operations."""
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"status": "error", "error": error_msg}), status_code
+    flash(error_msg, "error")
+    return redirect(url_for("connections.add_connection"))
+
+
+def _get_desktop_configuration():
+    """Get desktop configuration if specified in the request."""
+    desktop_configuration_id = request.form.get("desktop_configuration_id")
+    desktop_configuration = None
+    if desktop_configuration_id:
+        desktop_configs_client = client_factory.get_desktop_configurations_client()
+        config_response = desktop_configs_client.get_configuration(int(desktop_configuration_id))
+        # Extract the configuration from the response
+        desktop_configuration = config_response.get("configuration", {})
+        current_app.logger.debug(f"Retrieved desktop configuration: {desktop_configuration}")
+    return desktop_configuration
+
+
+def _get_external_pvc():
+    """Get external PVC if specified and user is admin."""
+    external_pvc = request.form.get("external_pvc")
+    if external_pvc and not session.get("is_admin", False):
+        current_app.logger.warning("Non-admin user attempted to use external PVC")
+        external_pvc = None  # Clear it for non-admins
+
+    if external_pvc:
+        current_app.logger.info(f"Using external PVC: {external_pvc}")
+
+    return external_pvc
+
+
+def _prepare_connection_data(connection_name, persistent_home, desktop_configuration, external_pvc):
+    """Prepare connection data for API call."""
+    connection_data = {
+        "name": connection_name,
+        "persistent_home": persistent_home,
+    }
+
+    if desktop_configuration:
+        connection_data.update(
+            {
+                "desktop_configuration_id": desktop_configuration.get("id"),
+                "min_cpu": desktop_configuration.get("min_cpu"),
+                "max_cpu": desktop_configuration.get("max_cpu"),
+                "min_ram": desktop_configuration.get("min_ram"),
+                "max_ram": desktop_configuration.get("max_ram"),
+            }
+        )
+
+    # Add external PVC if specified
+    if external_pvc:
+        connection_data["external_pvc"] = external_pvc
+
+    return connection_data
+
+
+def _handle_add_connection_get():
+    """Handle GET request for add_connection route."""
     try:
         desktop_configs_client = client_factory.get_desktop_configurations_client()
         desktop_configurations = desktop_configs_client.list_configurations()
@@ -244,7 +281,7 @@ def direct_connect(connection_id):
         response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
 
         # Check for successful response
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             # Get the Guacamole auth URL from the response
             data = response.json()
             guacamole_url = data.get("auth_url")
@@ -292,7 +329,7 @@ def guacamole_dashboard():
         response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
 
         # Check for successful response
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             # Get the Guacamole auth URL from the response
             data = response.json()
             guacamole_url = data.get("auth_url")
@@ -342,9 +379,7 @@ def resume_connection(connection_name):
 
         # If it's an AJAX request, return JSON error response
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify(
-                {"status": "error", "message": f"Failed to resume connection: {e.message}"}
-            ), 400
+            return jsonify({"status": "error", "message": f"Failed to resume connection: {e.message}"}), 400
 
         flash(f"Failed to resume connection: {e.message}")
         return redirect(url_for("connections.view_connections"))
@@ -354,9 +389,7 @@ def resume_connection(connection_name):
 
         # If it's an AJAX request, return JSON error response
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify(
-                {"status": "error", "message": f"Error resuming connection: {str(e)}"}
-            ), 500
+            return jsonify({"status": "error", "message": f"Error resuming connection: {str(e)}"}), 500
 
         flash(f"Error resuming connection: {str(e)}")
         return redirect(url_for("connections.view_connections"))
@@ -406,9 +439,7 @@ def permanent_delete_connection(connection_name):
 
         # If it's an AJAX request, return JSON error response
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify(
-                {"status": "error", "message": f"Error permanently deleting connection: {str(e)}"}
-            ), 500
+            return jsonify({"status": "error", "message": f"Error permanently deleting connection: {str(e)}"}), 500
 
         flash(f"Error permanently deleting connection: {str(e)}")
         return redirect(url_for("connections.view_connections"))

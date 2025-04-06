@@ -1,11 +1,12 @@
 """Unit tests for the rancher client module."""
 
+from dataclasses import dataclass, field
 import json
-from dataclasses import dataclass, field, asdict
 from unittest.mock import Mock, patch
 
 import pytest
 import requests
+
 from desktop_manager.clients.base import APIError
 from desktop_manager.clients.rancher import RancherClient
 
@@ -30,11 +31,11 @@ class DesktopValues:
             "desktop": self.desktop,
             "name": self.name,
             "password": self.vnc_password,
-            "image": self.image
+            "image": self.image,
         }
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_settings():
     """Provide mock settings."""
     with patch("desktop_manager.clients.rancher.get_settings") as mock_get_settings:
@@ -49,7 +50,7 @@ def mock_settings():
         yield settings
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_requests_post():
     """Mock requests.post."""
     with patch("desktop_manager.clients.rancher.requests.post") as mock_post:
@@ -60,7 +61,7 @@ def mock_requests_post():
         yield mock_post
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_requests_get():
     """Mock requests.get."""
     with patch("desktop_manager.clients.rancher.requests.get") as mock_get:
@@ -71,7 +72,7 @@ def mock_requests_get():
         yield mock_get
 
 
-@pytest.fixture()
+@pytest.fixture
 def rancher_client(mock_settings):
     """Create a RancherClient instance."""
     return RancherClient()
@@ -80,7 +81,9 @@ def rancher_client(mock_settings):
 def test_install_success(rancher_client, mock_requests_post):
     """Test successful Helm chart installation."""
     # Create test values
-    values = DesktopValues(desktop="test-desktop", name="test-connection", vnc_password="test-password")
+    values = DesktopValues(
+        desktop="test-desktop", name="test-connection", vnc_password="test-password"
+    )
 
     # Mock the response
     mock_response = Mock()
@@ -98,7 +101,10 @@ def test_install_success(rancher_client, mock_requests_post):
     # Verify requests.post was called with correct arguments
     mock_requests_post.assert_called_once()
     args, kwargs = mock_requests_post.call_args
-    assert args[0] == "https://rancher.example.com/k8s/clusters/test-cluster/v1/catalog.cattle.io.clusterrepos/test-repo?action=install"
+    assert (
+        args[0]
+        == "https://rancher.example.com/k8s/clusters/test-cluster/v1/catalog.cattle.io.clusterrepos/test-repo?action=install"
+    )
     assert kwargs["headers"] == {
         "Authorization": "Bearer test-token",
         "Content-Type": "application/json",
@@ -125,7 +131,9 @@ def test_install_error(rancher_client, mock_requests_post):
     mock_requests_post.return_value.text = "Internal Server Error"
 
     # Create test values
-    values = DesktopValues(desktop="test-desktop", name="test-connection", vnc_password="test-password")
+    values = DesktopValues(
+        desktop="test-desktop", name="test-connection", vnc_password="test-password"
+    )
 
     # Call install method and verify it raises an APIError
     with pytest.raises(APIError) as excinfo:
@@ -142,7 +150,9 @@ def test_install_request_exception(rancher_client, mock_requests_post):
     mock_requests_post.side_effect = requests.RequestException("Connection error")
 
     # Create test values
-    values = DesktopValues(desktop="test-desktop", name="test-connection", vnc_password="test-password")
+    values = DesktopValues(
+        desktop="test-desktop", name="test-connection", vnc_password="test-password"
+    )
 
     # Call install method and verify it raises an APIError
     with pytest.raises(APIError) as excinfo:

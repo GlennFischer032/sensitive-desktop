@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime, timedelta
+from http import HTTPStatus
 
 import jwt
 import requests
@@ -89,7 +90,7 @@ def oidc_callback():
             timeout=10,
         )
 
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.OK:
             error_message = response.json().get("error", "Unknown error occurred")
             logger.error(f"OIDC callback failed: {error_message}")
             flash("Authentication failed. Please try again.", "error")
@@ -129,7 +130,7 @@ def oidc_login():
         # TODO: Add OIDC login method to auth client
         response = requests.get(f"{current_app.config['API_URL']}/api/auth/oidc/login", timeout=5)
 
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.OK:
             raise ValueError("Failed to get authorization URL from backend")
 
         data = response.json()
@@ -148,7 +149,7 @@ def oidc_login():
 
 @auth_bp.route("/debug-login", methods=["GET", "POST"])
 @rate_limit(requests_per_minute=5, requests_per_hour=20)
-def debug_login():
+def debug_login():  # noqa
     """Debug login route that bypasses OIDC authentication for development purposes."""
     # Only allow access if debug login is enabled
     if not current_app.config.get("DEBUG_LOGIN_ENABLED", False):
@@ -196,11 +197,12 @@ def debug_login():
             response = requests.get(api_url, params={"sub": sub}, timeout=5)
 
             logger.debug(f"Verify response status: {response.status_code}")
-            if response.status_code != 200:
+            if response.status_code != HTTPStatus.OK:
                 logger.error(f"User verification failed for sub {sub}: {response.text}")
                 return jsonify(
                     {
-                        "error": "User with this sub does not exist in the database. Please ask an admin to create the user first."
+                        "error": "User with this sub does not exist in the database. "
+                        "Please ask an admin to create the user first."
                     }
                 ), 404
 
@@ -210,9 +212,7 @@ def debug_login():
 
             # Override form values with actual values from database
             username = user_data.get("username", "")
-            is_admin = (
-                data.get("is_admin", False) if override_admin else user_data.get("is_admin", False)
-            )
+            is_admin = data.get("is_admin", False) if override_admin else user_data.get("is_admin", False)
 
             if not username:
                 logger.error(f"No username returned for sub {sub}")

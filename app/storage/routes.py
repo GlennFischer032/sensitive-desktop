@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 import requests
 from flask import (
     current_app,
@@ -33,7 +35,7 @@ def view_pvcs():
         api_url = f"{current_app.config['API_URL']}/api/storage-pvcs/list"
         response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
 
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.OK:
             error_message = f"Failed to fetch storage PVCs: {response.text}"
             current_app.logger.error(error_message)
             flash(error_message, "error")
@@ -46,18 +48,14 @@ def view_pvcs():
         users = []
         if session.get("is_admin"):
             users_url = f"{current_app.config['API_URL']}/api/users/list"
-            users_response = requests.get(
-                users_url, headers={"Authorization": f"Bearer {token}"}, timeout=10
-            )
+            users_response = requests.get(users_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
 
-            if users_response.status_code == 200:
+            if users_response.status_code == HTTPStatus.OK:
                 users_data = users_response.json()
                 users = users_data.get("users", [])
 
         current_app.logger.info(f"Retrieved {len(pvcs)} storage PVCs")
-        return render_template(
-            "storage_pvcs.html", pvcs=pvcs, users=users, is_admin=session.get("is_admin", False)
-        )
+        return render_template("storage_pvcs.html", pvcs=pvcs, users=users, is_admin=session.get("is_admin", False))
     except Exception as e:
         current_app.logger.error(f"Error fetching storage PVCs: {str(e)}")
         flash(f"Error fetching storage PVCs: {str(e)}", "error")
@@ -123,7 +121,7 @@ def get_pvc(pvc_id):
         api_url = f"{current_app.config['API_URL']}/api/storage-pvcs/{pvc_id}"
         response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
 
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.OK:
             return jsonify({"error": response.text}), response.status_code
 
         return jsonify(response.json())
@@ -181,7 +179,7 @@ def get_pvc_connections(pvc_id):
         api_url = f"{current_app.config['API_URL']}/api/storage-pvcs/connections/{pvc_id}"
         response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
 
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.OK:
             return jsonify({"error": response.text}), response.status_code
 
         return jsonify(response.json())
@@ -203,7 +201,7 @@ def get_users_list():
         api_url = f"{current_app.config['API_URL']}/api/users/list"
         response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
 
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.OK:
             return jsonify({"error": response.text}), response.status_code
 
         return jsonify(response.json())
@@ -223,11 +221,9 @@ def delete_pvc(pvc_name):
             return jsonify({"error": "Authentication required"}), 401
 
         api_url = f"{current_app.config['API_URL']}/api/storage-pvcs/{pvc_name}"
-        response = requests.delete(
-            api_url, headers={"Authorization": f"Bearer {token}"}, timeout=30
-        )
+        response = requests.delete(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=30)
 
-        if response.status_code != 200:
+        if response.status_code != HTTPStatus.OK:
             return jsonify({"error": response.text}), response.status_code
 
         return jsonify(response.json())

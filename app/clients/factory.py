@@ -114,9 +114,7 @@ class ClientFactory:
         Returns:
             DesktopConfigurationClient: Desktop configuration client
         """
-        return DesktopConfigurationsClient(
-            current_app.config["API_URL"], current_app.config["AUTH_TOKEN"]
-        )
+        return DesktopConfigurationsClient(current_app.config["API_URL"], current_app.config["AUTH_TOKEN"])
 
     def get_storage_pvc_client(self) -> StorageClient:
         """Get StoragePVCClient.

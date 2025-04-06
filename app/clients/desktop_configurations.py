@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 from flask import session
 
-from app.clients.base import APIError, BaseClient
+from app.clients.base import APIError, BaseClient, ClientRequest
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +30,12 @@ class DesktopConfigurationsClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint="/api/desktop-config/list",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data.get("configurations", [])
         except APIError as e:
             logger.error(f"Error listing configurations: {str(e)}")
@@ -63,12 +64,13 @@ class DesktopConfigurationsClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.post(
+            request = ClientRequest(
                 endpoint="/api/desktop-config/create",
                 data=config_data,
                 token=token,
                 timeout=30,
             )
+            data, _ = self.post(request=request)
             return data
         except APIError as e:
             logger.error(f"Error creating configuration: {str(e)}")
@@ -99,12 +101,13 @@ class DesktopConfigurationsClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.put(
+            request = ClientRequest(
                 endpoint=f"/api/desktop-config/update/{config_id}",
                 data=config_data,
                 token=token,
                 timeout=30,
             )
+            data, _ = self.put(request=request)
             return data
         except APIError as e:
             logger.error(f"Error updating configuration {config_id}: {str(e)}")
@@ -133,11 +136,12 @@ class DesktopConfigurationsClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint=f"/api/desktop-config/get/{config_id}",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return data
         except APIError as e:
             logger.error(f"Error getting configuration {config_id}: {str(e)}")
@@ -166,11 +170,12 @@ class DesktopConfigurationsClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.delete(
+            request = ClientRequest(
                 endpoint=f"/api/desktop-config/delete/{config_id}",
                 token=token,
                 timeout=30,
             )
+            data, _ = self.delete(request=request)
             return data
         except APIError as e:
             logger.error(f"Error deleting configuration {config_id}: {str(e)}")
@@ -194,11 +199,12 @@ class DesktopConfigurationsClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint="/api/users/list",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return {"data": data.get("users", [])}
         except APIError as e:
             logger.error(f"Error getting users: {str(e)}")
@@ -227,11 +233,12 @@ class DesktopConfigurationsClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint=f"/api/desktop-config/access/{config_id}",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return {"data": data.get("users", [])}
         except APIError as e:
             logger.error(f"Error getting configuration users for {config_id}: {str(e)}")
@@ -255,11 +262,12 @@ class DesktopConfigurationsClient(BaseClient):
             raise APIError("Authentication required", status_code=401)
 
         try:
-            data, _ = self.get(
+            request = ClientRequest(
                 endpoint="/api/connections/list",
                 token=token,
                 timeout=10,
             )
+            data, _ = self.get(request=request)
             return {"data": data.get("connections", [])}
         except APIError as e:
             logger.error(f"Error getting connections: {str(e)}")

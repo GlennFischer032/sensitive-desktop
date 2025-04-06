@@ -75,9 +75,7 @@ def create_configuration() -> Response | str:
             )
 
             if request.is_json:
-                return jsonify(
-                    {"success": True, "message": "Configuration created successfully"}
-                ), 201
+                return jsonify({"success": True, "message": "Configuration created successfully"}), 201
             else:
                 flash("Configuration created successfully", "success")
                 return redirect(url_for("configurations.list_configurations"))
@@ -118,9 +116,7 @@ def edit_configuration(config_id: int) -> Response | str:
         config: Optional[Dict] = None
 
         if request.method == "GET":
-            config_response = desktop_configs_client.get_configuration(
-                config_id, session.get("token")
-            )
+            config_response = desktop_configs_client.get_configuration(config_id, session.get("token"))
             config = config_response.get("configuration", {})
 
         if request.method == "POST":
@@ -149,9 +145,7 @@ def edit_configuration(config_id: int) -> Response | str:
             )
 
             if request.is_json:
-                return jsonify(
-                    {"success": True, "message": "Configuration updated successfully"}
-                ), 200
+                return jsonify({"success": True, "message": "Configuration updated successfully"}), 200
             else:
                 flash("Configuration updated successfully", "success")
                 return redirect(url_for("configurations.list_configurations"))

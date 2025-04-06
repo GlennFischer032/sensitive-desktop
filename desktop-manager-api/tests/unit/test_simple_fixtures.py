@@ -1,10 +1,12 @@
 """Simplified fixtures for testing routes."""
 
-import pytest
-from flask import Flask, g, jsonify, request
 from http import HTTPStatus
 
-from desktop_manager.core.exceptions import ValidationError, APIError
+from flask import Flask, g, jsonify, request
+import pytest
+
+from desktop_manager.core.exceptions import APIError, ValidationError
+
 
 @pytest.fixture
 def app_with_mocks(mocker):
@@ -60,7 +62,9 @@ def app_with_mocks(mocker):
         # Check if user exists
         try:
             # Simulate database query
-            result = g.db_client.execute_query("SELECT * FROM users WHERE username = %s", (username,))
+            result = g.db_client.execute_query(
+                "SELECT * FROM users WHERE username = %s", (username,)
+            )
             return jsonify({"exists": bool(result)}), HTTPStatus.OK
         except APIError as e:
             # Re-raise any API errors
@@ -77,10 +81,12 @@ def app_with_mocks(mocker):
 
     return app
 
+
 @pytest.fixture
 def client(app_with_mocks):
     """Create a test client for the app."""
     return app_with_mocks.test_client()
+
 
 @pytest.fixture
 def mock_db_client(app_with_mocks):
@@ -93,9 +99,7 @@ def test_create_user_validation_error(client, mock_db_client):
     """Test user creation with validation error."""
     # Make request with validation error (missing username)
     response = client.post(
-        "/test_create_user",
-        json={"email": "test@example.com"},
-        content_type="application/json"
+        "/test_create_user", json={"email": "test@example.com"}, content_type="application/json"
     )
 
     # Should be BAD_REQUEST
@@ -111,7 +115,7 @@ def test_create_user_custom_validation_error(client, mock_db_client):
     response = client.post(
         "/test_create_user",
         json={"username": "baduser", "email": "test@example.com"},
-        content_type="application/json"
+        content_type="application/json",
     )
 
     # Should be BAD_REQUEST
@@ -124,13 +128,15 @@ def test_create_user_custom_validation_error(client, mock_db_client):
 def test_create_user_database_error(client, mock_db_client):
     """Test user creation with database error."""
     # Configure mock to raise database error
-    mock_db_client.execute_query.side_effect = APIError("Database error", HTTPStatus.INTERNAL_SERVER_ERROR)
+    mock_db_client.execute_query.side_effect = APIError(
+        "Database error", HTTPStatus.INTERNAL_SERVER_ERROR
+    )
 
     # Make request
     response = client.post(
         "/test_create_user",
         json={"username": "testuser", "email": "test@example.com"},
-        content_type="application/json"
+        content_type="application/json",
     )
 
     # Should be INTERNAL_SERVER_ERROR

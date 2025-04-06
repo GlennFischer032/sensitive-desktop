@@ -2,20 +2,22 @@
 
 import base64
 import datetime
+from functools import wraps
 import hashlib
+from http import HTTPStatus
 import json
 import secrets
-from functools import wraps
-from http import HTTPStatus
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 from urllib.parse import parse_qs, urlparse
 
+from flask import Flask
 import pytest
 import requests
+from sqlalchemy import text
+
 from desktop_manager.api.models.user import PKCEState, SocialAuthAssociation, User
 from desktop_manager.api.routes.oidc_routes import oidc_bp
-from flask import Flask
-from sqlalchemy import text
+
 
 # Constants for testing
 TEST_STATE = "test_state_123456"
@@ -82,7 +84,7 @@ def setup_database(test_db, test_engine):
     test_db.commit()
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_app():
     """Create a test Flask application with OIDC configuration."""
     app = Flask(__name__)
@@ -95,9 +97,7 @@ def test_app():
     app.config["SOCIAL_AUTH_OIDC_CLIENT_ID"] = "test_client_id"
     app.config["SOCIAL_AUTH_OIDC_CLIENT_SECRET"] = "test_client_secret"
     app.config["SOCIAL_AUTH_LOGIN_REDIRECT_URL"] = "https://frontend.test"
-    app.config[
-        "SOCIAL_AUTH_VERIFICATION_CALLBACK_URL"
-    ] = "https://api.test/auth/oidc/callback"
+    app.config["SOCIAL_AUTH_VERIFICATION_CALLBACK_URL"] = "https://api.test/auth/oidc/callback"
 
     # Mock database client
     mock_db_client = MagicMock()
@@ -116,7 +116,7 @@ def test_app():
                         "email": "test@example.com",
                         "is_admin": False,
                         "sub": sub,
-                        "organization": "Test Org"
+                        "organization": "Test Org",
                     }
                 ], 1
             return [], 0
@@ -143,13 +143,9 @@ def test_app():
 
     with patch(
         "desktop_manager.clients.factory.client_factory.get_database_client",
-        return_value=mock_db_client
-    ), patch(
-        "desktop_manager.config.settings.get_settings",
-        return_value=mock_settings
-    ), patch(
-        "desktop_manager.api.routes.oidc_routes.ensure_all_users_group",
-        mock_ensure_all_users_group
+        return_value=mock_db_client,
+    ), patch("desktop_manager.config.settings.get_settings", return_value=mock_settings), patch(
+        "desktop_manager.api.routes.oidc_routes.ensure_all_users_group", mock_ensure_all_users_group
     ):
         # Register the blueprint
         app.register_blueprint(oidc_bp)
@@ -159,14 +155,14 @@ def test_app():
             yield app
 
 
-@pytest.fixture()
+@pytest.fixture
 def test_client(test_app):
     """Create a test client."""
     with test_app.test_client() as client:
         yield client
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_guacamole():
     """Mock Guacamole API calls."""
     mock_guacamole_client = MagicMock()
@@ -189,10 +185,10 @@ def mock_guacamole():
 
     with patch(
         "desktop_manager.clients.factory.client_factory.get_guacamole_client",
-        return_value=mock_guacamole_client
+        return_value=mock_guacamole_client,
     ), patch(
         "desktop_manager.api.routes.oidc_routes.ensure_all_users_group",
-        return_value="all_users_group_id"
+        return_value="all_users_group_id",
     ):
         yield {
             "client": mock_guacamole_client,
@@ -203,18 +199,18 @@ def mock_guacamole():
             "delete": mock_guacamole_client.delete_user,
             "client_get": mock_guacamole_client.get,
             "client_post": mock_guacamole_client.post,
-            "mock_response": mock_response
+            "mock_response": mock_response,
         }
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_pkce_verifier():
     """Mock a PKCE code verifier."""
     # Return a fixed code verifier for testing
     return "test_code_verifier"
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_pkce_challenge(mock_pkce_verifier):
     """Generate a PKCE code challenge from the mock verifier."""
     # Generate the S256 challenge method
@@ -226,7 +222,7 @@ def mock_pkce_challenge(mock_pkce_verifier):
     return code_challenge
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_oidc_userinfo():
     """Mock OIDC userinfo response."""
     return {
@@ -240,16 +236,14 @@ def mock_oidc_userinfo():
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def stored_pkce_state(test_db):
     """Create a test PKCE state in the database."""
     state = secrets.token_urlsafe(32)
     code_verifier = "test_code_verifier"
     expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
 
-    pkce_state = PKCEState(
-        state=state, code_verifier=code_verifier, expires_at=expires_at
-    )
+    pkce_state = PKCEState(state=state, code_verifier=code_verifier, expires_at=expires_at)
     test_db.add(pkce_state)
     test_db.commit()
     test_db.refresh(pkce_state)
@@ -300,9 +294,7 @@ def test_oidc_login_db_failure(test_client, test_db):
 def test_oidc_callback_success(test_client, stored_pkce_state, mock_guacamole):
     """Test successful OIDC callback handling."""
     # Mock successful token and userinfo responses
-    with patch(
-        "desktop_manager.api.routes.oidc_routes.requests.post"
-    ) as mock_post, patch(
+    with patch("desktop_manager.api.routes.oidc_routes.requests.post") as mock_post, patch(
         "desktop_manager.api.routes.oidc_routes.requests.get"
     ) as mock_get, patch(
         "desktop_manager.api.routes.oidc_routes.get_pkce_verifier"
@@ -317,7 +309,7 @@ def test_oidc_callback_success(test_client, stored_pkce_state, mock_guacamole):
             "sub": "test_subject_id",
             "email": "test.user@example.com",
             "name": "Test User",
-            "preferred_username": "oidc_test_user"
+            "preferred_username": "oidc_test_user",
         }
 
         # Mock token response
@@ -410,9 +402,7 @@ def test_oidc_callback_invalid_state(test_client):
 
 def test_oidc_callback_token_error(test_client, stored_pkce_state):
     """Test OIDC callback with token retrieval error."""
-    with patch(
-        "desktop_manager.api.routes.oidc_routes.requests.post"
-    ) as mock_post, patch(
+    with patch("desktop_manager.api.routes.oidc_routes.requests.post") as mock_post, patch(
         "desktop_manager.api.routes.oidc_routes.get_pkce_verifier"
     ) as mock_get_verifier, patch(
         "desktop_manager.api.routes.oidc_routes.jwt.decode"
@@ -421,10 +411,7 @@ def test_oidc_callback_token_error(test_client, stored_pkce_state):
         mock_get_verifier.return_value = "test_code_verifier"
 
         # Mock the JWT decode (not used in this test but added for consistency)
-        mock_jwt_decode.return_value = {
-            "sub": "test_subject_id",
-            "email": "test.user@example.com"
-        }
+        mock_jwt_decode.return_value = {"sub": "test_subject_id", "email": "test.user@example.com"}
 
         # Simulate error response from token endpoint
         mock_error_response = Mock()
@@ -449,9 +436,7 @@ def test_oidc_callback_token_error(test_client, stored_pkce_state):
 
 def test_oidc_callback_userinfo_error(test_client, stored_pkce_state):
     """Test OIDC callback with userinfo retrieval error."""
-    with patch(
-        "desktop_manager.api.routes.oidc_routes.requests.post"
-    ) as mock_post, patch(
+    with patch("desktop_manager.api.routes.oidc_routes.requests.post") as mock_post, patch(
         "desktop_manager.api.routes.oidc_routes.requests.get"
     ) as mock_get, patch(
         "desktop_manager.api.routes.oidc_routes.get_pkce_verifier"
@@ -466,7 +451,7 @@ def test_oidc_callback_userinfo_error(test_client, stored_pkce_state):
             "sub": "test_subject_id",
             "email": "test.user@example.com",
             "name": "Test User",
-            "preferred_username": "oidc_test_user"
+            "preferred_username": "oidc_test_user",
         }
 
         # Mock successful token response
@@ -502,9 +487,7 @@ def test_oidc_callback_userinfo_error(test_client, stored_pkce_state):
 
 def test_oidc_callback_missing_user_fields(test_client, stored_pkce_state):
     """Test OIDC callback with missing user fields in userinfo."""
-    with patch(
-        "desktop_manager.api.routes.oidc_routes.requests.post"
-    ) as mock_post, patch(
+    with patch("desktop_manager.api.routes.oidc_routes.requests.post") as mock_post, patch(
         "desktop_manager.api.routes.oidc_routes.requests.get"
     ) as mock_get, patch(
         "desktop_manager.api.routes.oidc_routes.get_pkce_verifier"
@@ -518,7 +501,7 @@ def test_oidc_callback_missing_user_fields(test_client, stored_pkce_state):
         mock_jwt_decode.return_value = {
             "sub": "test_subject_id",
             "name": "Test User",
-            "preferred_username": "oidc_test_user"
+            "preferred_username": "oidc_test_user",
         }
 
         # Mock successful token response
@@ -558,9 +541,7 @@ def test_oidc_callback_missing_user_fields(test_client, stored_pkce_state):
         assert "username" in response_data["user"]
 
 
-def test_oidc_callback_existing_user(
-    test_client, test_db, stored_pkce_state, mock_guacamole
-):
+def test_oidc_callback_existing_user(test_client, test_db, stored_pkce_state, mock_guacamole):
     """Test OIDC callback for an existing user."""
     # Create a user with the same OIDC subject ID
     existing_user = User(
@@ -581,9 +562,7 @@ def test_oidc_callback_existing_user(
     test_db.commit()
 
     # Mock successful token and userinfo responses
-    with patch(
-        "desktop_manager.api.routes.oidc_routes.requests.post"
-    ) as mock_post, patch(
+    with patch("desktop_manager.api.routes.oidc_routes.requests.post") as mock_post, patch(
         "desktop_manager.api.routes.oidc_routes.requests.get"
     ) as mock_get, patch(
         "desktop_manager.api.routes.oidc_routes.get_pkce_verifier"
@@ -598,7 +577,7 @@ def test_oidc_callback_existing_user(
             "sub": "test_subject_id",
             "email": "existing@example.com",
             "name": "Updated User",
-            "preferred_username": "updated_user"
+            "preferred_username": "updated_user",
         }
 
         # Mock token response
@@ -666,7 +645,7 @@ def test_oidc_callback_network_error(test_client, stored_pkce_state):
     """Test OIDC callback when a network error occurs."""
     with patch(
         "desktop_manager.api.routes.oidc_routes.requests.post",
-        side_effect=requests.exceptions.RequestException("Network error")
+        side_effect=requests.exceptions.RequestException("Network error"),
     ), patch(
         "desktop_manager.api.routes.oidc_routes.get_pkce_verifier"
     ) as mock_get_verifier, patch(
@@ -676,10 +655,7 @@ def test_oidc_callback_network_error(test_client, stored_pkce_state):
         mock_get_verifier.return_value = "test_code_verifier"
 
         # Mock the JWT decode (not used in this test but added for consistency)
-        mock_jwt_decode.return_value = {
-            "sub": "test_subject_id",
-            "email": "test.user@example.com"
-        }
+        mock_jwt_decode.return_value = {"sub": "test_subject_id", "email": "test.user@example.com"}
 
         response = test_client.post(
             "/auth/oidc/callback",

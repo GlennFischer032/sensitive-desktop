@@ -32,7 +32,8 @@ def main():
     # Check if CSS file exists
     if not os.path.exists(css_file):
         print(
-            f"Error: CSS file {css_file} does not exist. Run 'pysassc app/scss/main.scss app/static/style.css' to generate it."
+            f"Error: CSS file {css_file} does not exist. "
+            "Run 'pysassc app/scss/main.scss app/static/style.css' to generate it."
         )
         return 1
 

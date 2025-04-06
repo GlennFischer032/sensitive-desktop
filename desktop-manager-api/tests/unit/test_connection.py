@@ -1,13 +1,12 @@
 """Unit tests for connection operations."""
 
 import pytest
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
 from desktop_manager.api.models.connection import Connection
 from desktop_manager.api.models.user import User
 from desktop_manager.api.schemas.user import UserCreate
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
-from werkzeug.security import generate_password_hash
-
 from tests.config import TEST_CONNECTION, TEST_USER
 
 
@@ -65,9 +64,7 @@ def test_create_connection(test_db: Session):
     assert connection.id is not None
     assert connection.name == TEST_CONNECTION["name"]
     assert connection.created_by == user.username
-    assert (
-        connection.guacamole_connection_id == TEST_CONNECTION["guacamole_connection_id"]
-    )
+    assert connection.guacamole_connection_id == TEST_CONNECTION["guacamole_connection_id"]
     assert connection.created_at is not None
 
 

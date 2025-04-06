@@ -1,7 +1,5 @@
 """Test configuration and fixtures."""
 
-import os
-import shutil
 from typing import Any, Dict
 from unittest.mock import patch
 
@@ -9,8 +7,6 @@ import fakeredis
 import pytest
 import redis
 import responses
-from flask import Flask, session
-from flask.testing import FlaskClient
 
 from app import create_app
 from middleware.security import rate_limiter
@@ -29,10 +25,10 @@ def mock_session_setup():
     This automatically applies to all tests.
     """
     # No need to create session directories as we're now using memory-based sessions
-    yield
+    return
 
 
-@pytest.fixture()
+@pytest.fixture
 def app():
     """Create and configure a new app instance for each test."""
     app = create_app(TestConfig)
@@ -54,7 +50,7 @@ def app():
         yield app
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(app):
     """Create a test client for the app."""
     app.config["PRESERVE_CONTEXT_ON_EXCEPTION"] = False
@@ -77,7 +73,7 @@ def client(app):
         yield client
 
 
-@pytest.fixture()
+@pytest.fixture
 def user_client(app):
     """Create a test client with regular user permissions."""
     with app.test_client() as client:
@@ -92,7 +88,7 @@ def user_client(app):
         yield client
 
 
-@pytest.fixture()
+@pytest.fixture
 def admin_client(app):
     """Create a test client with admin permissions."""
     with app.test_client() as client:
@@ -107,7 +103,7 @@ def admin_client(app):
         yield client
 
 
-@pytest.fixture()
+@pytest.fixture
 def redis_mock():
     """Mock Redis for rate limiting."""
     redis_mock = fakeredis.FakeRedis()
@@ -115,7 +111,7 @@ def redis_mock():
         yield redis_mock
 
 
-@pytest.fixture()
+@pytest.fixture
 def responses_mock():
     """Create a mock for external API responses."""
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
@@ -126,17 +122,17 @@ def responses_mock():
 def mock_login_required():
     """Mock authentication decorators to always allow access in tests."""
     import unittest.mock
-    import middleware.auth
 
     # Create a pass-through decorator
     def mock_decorator(f):
         return f
 
     # Apply the mocks
-    with unittest.mock.patch('middleware.auth.login_required', mock_decorator), \
-         unittest.mock.patch('app.middleware.auth.login_required', mock_decorator), \
-         unittest.mock.patch('middleware.auth.admin_required', mock_decorator), \
-         unittest.mock.patch('app.middleware.auth.admin_required', mock_decorator):
+    with unittest.mock.patch("middleware.auth.login_required", mock_decorator), unittest.mock.patch(
+        "app.middleware.auth.login_required", mock_decorator
+    ), unittest.mock.patch("middleware.auth.admin_required", mock_decorator), unittest.mock.patch(
+        "app.middleware.auth.admin_required", mock_decorator
+    ):
         yield
 
 
@@ -146,9 +142,9 @@ def mock_redis():
     fake_redis = fakeredis.FakeStrictRedis()
     with pytest.MonkeyPatch.context() as mp:
         # Mock both Redis and from_url to ensure all Redis connections are mocked
-        mp.setattr(redis, "Redis", lambda *args, **kwargs: fake_redis)
-        mp.setattr(redis, "from_url", lambda *args, **kwargs: fake_redis)
-        mp.setattr(redis, "StrictRedis", lambda *args, **kwargs: fake_redis)
+        mp.setattr(redis, "Redis", lambda *_, **__: fake_redis)
+        mp.setattr(redis, "from_url", lambda *_, **__: fake_redis)
+        mp.setattr(redis, "StrictRedis", lambda *_, **__: fake_redis)
         yield fake_redis
 
 
@@ -163,13 +159,13 @@ def reset_rate_limiter():
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def auth_headers() -> Dict[str, str]:
     """Return mock authentication headers."""
     return {"Authorization": f"Bearer {TEST_TOKEN}"}
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_api_response() -> Dict[str, Any]:
     """Mock API response data."""
     return {
@@ -179,7 +175,7 @@ def mock_api_response() -> Dict[str, Any]:
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_api_auth(responses_mock):
     """Mock external API responses."""
     # Add default login response

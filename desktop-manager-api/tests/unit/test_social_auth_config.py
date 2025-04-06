@@ -38,9 +38,7 @@ def test_social_auth_config_defaults():
             config.SOCIAL_AUTH_OIDC_CLIENT_SECRET = "test-mock-client-secret"
 
             # Test OIDC provider settings
-            assert (
-                config.SOCIAL_AUTH_OIDC_PROVIDER_URL == "https://login.e-infra.cz/oidc"
-            )
+            assert config.SOCIAL_AUTH_OIDC_PROVIDER_URL == "https://login.e-infra.cz/oidc"
             assert config.SOCIAL_AUTH_OIDC_CLIENT_ID == "test-mock-client-id"
             assert config.SOCIAL_AUTH_OIDC_CLIENT_SECRET == "test-mock-client-secret"
 
@@ -127,9 +125,7 @@ def test_get_social_auth_config():
         assert config_dict["SOCIAL_AUTH_AUTHENTICATION_BACKENDS"] == (
             "social_core.backends.open_id_connect.OpenIdConnectAuth",
         )
-        assert (
-            config_dict["SOCIAL_AUTH_OIDC_OIDC_ENDPOINT"] == "https://test-provider.com"
-        )
+        assert config_dict["SOCIAL_AUTH_OIDC_OIDC_ENDPOINT"] == "https://test-provider.com"
         assert config_dict["SOCIAL_AUTH_OIDC_KEY"] == "test-client-id"
         assert config_dict["SOCIAL_AUTH_OIDC_SECRET"] == "test-client-secret"
 
@@ -147,11 +143,5 @@ def test_get_social_auth_config():
         # Test user fields and pipeline
         assert "SOCIAL_AUTH_USER_FIELDS" in config_dict
         assert "SOCIAL_AUTH_PIPELINE" in config_dict
-        assert (
-            "desktop_manager.core.auth.create_user"
-            in config_dict["SOCIAL_AUTH_PIPELINE"]
-        )
-        assert (
-            "desktop_manager.core.auth.create_jwt_token"
-            in config_dict["SOCIAL_AUTH_PIPELINE"]
-        )
+        assert "desktop_manager.core.auth.create_user" in config_dict["SOCIAL_AUTH_PIPELINE"]
+        assert "desktop_manager.core.auth.create_jwt_token" in config_dict["SOCIAL_AUTH_PIPELINE"]
