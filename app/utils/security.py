@@ -1,10 +1,9 @@
 """Security utilities for the application."""
 
 import secrets
-import time
-from typing import Dict, List, Optional
+from typing import List
 
-from flask import request, session
+from flask import session
 
 
 class ContentSecurityPolicyGenerator:

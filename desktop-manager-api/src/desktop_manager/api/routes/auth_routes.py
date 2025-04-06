@@ -1,11 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from flask import Blueprint, current_app, jsonify, request
-import jwt
 
-from desktop_manager.api.models.user import User
 from desktop_manager.clients.factory import client_factory
-from desktop_manager.config.settings import get_settings
 from desktop_manager.core.auth import admin_required, token_required
 
 

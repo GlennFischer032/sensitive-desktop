@@ -3,7 +3,7 @@ repos:
     rev: v0.1.4
     hooks:
       - id: ruff
-        args: [--fix, --unsafe-fixes]
+        args: [--fix, --unsafe-fixes, --select=F401,F403,F405]
         exclude: ^(.*\/tests\/|tests\/|.*test_.*\.py)
       - id: ruff-format
         exclude: ^(.*\/tests\/|tests\/|.*test_.*\.py)

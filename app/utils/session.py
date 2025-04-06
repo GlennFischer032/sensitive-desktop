@@ -4,7 +4,7 @@ from functools import wraps
 from http import HTTPStatus
 from typing import Any, Dict, Optional
 
-from flask import request, session
+from flask import session
 
 from app.auth.auth import AuthError, is_authenticated, refresh_token
 

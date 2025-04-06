@@ -1,6 +1,6 @@
 """Connections client for API interactions."""
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from flask import session
 

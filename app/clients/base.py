@@ -2,7 +2,7 @@
 
 import logging
 from http import HTTPStatus
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 
 import requests
 from flask import current_app

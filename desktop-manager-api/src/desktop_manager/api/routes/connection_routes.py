@@ -3,9 +3,8 @@ import logging
 import re
 from typing import Any, Dict, Tuple
 
-from flask import Blueprint, jsonify, redirect, request
+from flask import Blueprint, jsonify, request
 
-from desktop_manager.api.models.connection import Connection
 from desktop_manager.clients.factory import client_factory
 from desktop_manager.clients.rancher import DesktopValues
 from desktop_manager.config.settings import get_settings
@@ -921,57 +920,98 @@ def direct_connect(connection_id: str):
 
             connection = result[0]
 
-            # Initialize the JSON auth utility
-            guacamole_json_auth = GuacamoleJsonAuth()
+            # Check if user has permission to access this connection
+            if not current_user.is_admin and connection["created_by"] != current_user.username:
+                return (
+                    jsonify({"error": "You do not have permission to access this connection"}),
+                    HTTPStatus.FORBIDDEN,
+                )
 
-            # Construct hostname from connection name
-            settings = get_settings()
-            target_host = f"{settings.NAMESPACE}-{connection['name']}.dyn.cloud.e-infra.cz"
+            # Get the Guacamole connection ID
+            guacamole_connection_id = connection.get("guacamole_connection_id")
+            if not guacamole_connection_id:
+                return jsonify({"error": "No Guacamole connection ID found"}), HTTPStatus.NOT_FOUND
 
-            # Format connection parameters for JSON auth
-            connection_info = {
-                "protocol": "vnc",
-                "parameters": {
-                    "hostname": target_host,
-                    "port": "5900",  # Fixed VNC port
-                    "password": connection.get(
-                        "password", ""
-                    ),  # Password is stored in Guacamole, not in our DB
-                    "enable-audio": "true",
-                    "color-depth": "24",
-                    "cursor": "local",
-                    "swap-red-blue": "false",
-                    "read-only": "false",
-                },
-            }
+            # Get Guacamole client
+            guacamole_client = client_factory.get_guacamole_client()
 
-            # Format for Guacamole JSON auth
-            connections = {connection["name"]: connection_info}
+            # Get auth token for direct connection
+            token = guacamole_client.login()
 
-            # Generate auth token
-            token = guacamole_json_auth.generate_auth_data(
-                username=current_user.username,
-                connections=connections,
-                expires_in_ms=1800000,  # 30 minutes
+            # Verify the connection exists in Guacamole
+            connection_exists = guacamole_client.check_connection_exists(
+                token, guacamole_connection_id
             )
+            if not connection_exists:
+                # Try to recreate the connection if it doesn't exist
+                logging.warning(
+                    "Guacamole connection %s not found, attempting to recreate",
+                    guacamole_connection_id,
+                )
+                try:
+                    settings = get_settings()
+                    target_host = f"{settings.NAMESPACE}-{connection['name']}.dyn.cloud.e-infra.cz"
 
-            # Construct the URL
+                    # We don't have the original VNC password stored in our database
+                    # We'll need to create a new one and update the connection
+                    vnc_password = generate_random_string(12)
+
+                    # Create new connection in Guacamole
+                    new_guacamole_connection_id = guacamole_client.create_connection(
+                        token,
+                        connection["name"],
+                        target_host,
+                        vnc_password,
+                    )
+
+                    # Update the connection in our database
+                    update_query = """
+                    UPDATE connections
+                    SET guacamole_connection_id = :new_id
+                    WHERE id = :connection_id
+                    """
+                    db_client.execute_query(
+                        update_query,
+                        {"new_id": new_guacamole_connection_id, "connection_id": connection_id},
+                    )
+
+                    # Grant permission to user
+                    guacamole_client.grant_permission(
+                        token, current_user.username, new_guacamole_connection_id
+                    )
+
+                    # Use the new connection ID
+                    guacamole_connection_id = new_guacamole_connection_id
+                    logging.info("Created new Guacamole connection: %s", guacamole_connection_id)
+                except Exception as e:
+                    logging.error("Failed to recreate Guacamole connection: %s", str(e))
+                    return jsonify(
+                        {"error": "Failed to recreate Guacamole connection"}
+                    ), HTTPStatus.INTERNAL_SERVER_ERROR
+
+            # Generate auth token directly for this specific connection
+            settings = get_settings()
+
+            # Use the Guacamole REST API auth token to direct to the specific connection
+            auth_token = guacamole_client.get_auth_token(token)
+
+            # Construct the URL to go directly to the connection
             guacamole_external_url = settings.EXTERNAL_GUACAMOLE_URL.rstrip("/")
             if not guacamole_external_url:
                 guacamole_external_url = "http://localhost:8080/guacamole"
 
-            # The URL should include the "data" parameter with the token
-            import urllib.parse
+            # Format direct connection URL with the specific connection ID
+            direct_url = (
+                f"{guacamole_external_url}/#/client/{guacamole_connection_id}?token={auth_token}"
+            )
 
-            encoded_token = urllib.parse.quote_plus(token)
-            auth_url = f"{guacamole_external_url}/#/?data={encoded_token}"
-
-            # Return the auth URL in the response instead of redirecting
+            # Return the auth URL in the response
             return jsonify(
                 {
-                    "auth_url": auth_url,
+                    "auth_url": direct_url,
                     "connection_id": connection_id,
                     "connection_name": connection["name"],
+                    "guacamole_connection_id": guacamole_connection_id,
                 }
             ), HTTPStatus.OK
 

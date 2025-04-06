@@ -4,7 +4,7 @@ This module provides the base client class and error handling for all clients.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 
 import requests
 from requests.exceptions import RequestException, Timeout

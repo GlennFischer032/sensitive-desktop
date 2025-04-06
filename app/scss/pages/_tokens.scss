@@ -1,0 +1,206 @@
+// API Tokens page styles
+.tokens-page {
+  .tokens-list {
+    margin-top: 2rem;
+  }
+
+  .token-box {
+    background-color: var(--box-bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    position: relative;
+    transition: all 0.2s ease;
+
+    &:hover {
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    }
+
+    .token-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+
+      h3 {
+        margin: 0;
+        color: var(--heading-color);
+        font-size: 1.25rem;
+      }
+    }
+
+    .token-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      text-transform: uppercase;
+
+      &.badge-active {
+        background-color: var(--success-color);
+        color: white;
+      }
+
+      &.badge-revoked {
+        background-color: var(--danger-color);
+        color: white;
+      }
+
+      &.badge-expired {
+        background-color: var(--warning-color);
+        color: var(--text-color);
+      }
+    }
+
+    .token-details {
+      p {
+        margin: 0.5rem 0;
+        font-size: 0.9rem;
+      }
+
+      strong {
+        font-weight: 600;
+        color: var(--label-color);
+      }
+    }
+
+    .token-actions {
+      margin-top: 1.25rem;
+      text-align: right;
+    }
+  }
+
+  .token-value {
+    font-family: var(--monospace-font);
+    background-color: var(--code-bg-color);
+    padding: 0.75rem;
+    border-radius: 0.25rem;
+    margin: 1rem 0;
+    word-break: break-all;
+    position: relative;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--code-color);
+    border: 1px solid var(--code-border-color);
+  }
+
+  .copy-button {
+    position: absolute;
+    right: 0.5rem;
+    top: 0.5rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background-color: var(--primary-color-dark);
+    }
+  }
+
+  .new-token {
+    border-left: 4px solid var(--success-color);
+    background-color: var(--success-light-color);
+  }
+}
+
+// Modal styles
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+
+  &.visible {
+    opacity: 1;
+  }
+
+  .modal-content {
+    background-color: var(--modal-bg-color, #fff);
+    padding: 2rem;
+    border-radius: 0.5rem;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    position: relative;
+    transform: translateY(-20px);
+    transition: transform 0.3s ease;
+
+    h2, h3 {
+      margin-top: 0;
+      color: var(--heading-color);
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: var(--label-color);
+      }
+
+      .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 0.25rem;
+        font-size: 0.95rem;
+        background-color: var(--input-bg-color, #fff);
+        color: var(--text-color);
+
+        &:focus {
+          outline: none;
+          border-color: var(--primary-color);
+          box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.25);
+        }
+      }
+    }
+
+    .form-actions {
+      text-align: right;
+      margin-top: 1.5rem;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+
+      .button {
+        margin-left: 0.5rem;
+      }
+    }
+  }
+
+  &.visible .modal-content {
+    transform: translateY(0);
+  }
+
+  .close-button {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-muted-color);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--text-color);
+    }
+  }
+}

@@ -29,8 +29,32 @@ def view_connections():
         connections_client = client_factory.get_connections_client()
         connections = connections_client.list_connections()
 
+        # Fetch desktop configurations for the add connection modal
+        try:
+            desktop_configs_client = client_factory.get_desktop_configurations_client()
+            desktop_configurations = desktop_configs_client.list_configurations()
+        except Exception as e:
+            current_app.logger.error(f"Error fetching desktop configurations: {str(e)}")
+            desktop_configurations = []
+
+        # Fetch storage PVCs for admin users
+        storage_pvcs = []
+        is_admin = session.get("is_admin", False)
+        if is_admin:
+            try:
+                storage_client = client_factory.get_storage_client()
+                storage_pvcs = storage_client.list_pvcs()
+            except Exception as e:
+                current_app.logger.error(f"Error fetching storage PVCs: {str(e)}")
+
         current_app.logger.info(f"Found {len(connections)} connections")
-        return render_template("connections.html", connections=connections)
+        return render_template(
+            "connections.html",
+            connections=connections,
+            desktop_configurations=desktop_configurations,
+            is_admin=is_admin,
+            storage_pvcs=storage_pvcs,
+        )
     except APIError as e:
         current_app.logger.error(f"Error fetching connections: {e.message}")
         flash(f"Failed to fetch connections: {e.message}")
@@ -49,7 +73,10 @@ def add_connection():
         try:
             connection_name = request.form.get("connection_name")
             if not connection_name:
-                flash("Connection name is required", "error")
+                error_msg = "Connection name is required"
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify({"status": "error", "error": error_msg}), 400
+                flash(error_msg, "error")
                 return redirect(url_for("connections.add_connection"))
 
             # Validate name against required pattern and length
@@ -57,16 +84,21 @@ def add_connection():
                 r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
             )
             if not name_pattern.match(connection_name):
-                flash(
+                error_msg = (
                     "Connection name must start and end with an alphanumeric character "
-                    "and contain only lowercase letters, numbers, and hyphens",
-                    "error",
+                    "and contain only lowercase letters, numbers, and hyphens"
                 )
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify({"status": "error", "error": error_msg}), 400
+                flash(error_msg, "error")
                 return redirect(url_for("connections.add_connection"))
 
             # Check for the 12 character limit
             if len(connection_name) > 12:
-                flash("Connection name is too long. Maximum length is 12 characters.", "error")
+                error_msg = "Connection name is too long. Maximum length is 12 characters."
+                if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                    return jsonify({"status": "error", "error": error_msg}), 400
+                flash(error_msg, "error")
                 return redirect(url_for("connections.add_connection"))
 
             # Get desktop configuration if specified
@@ -119,13 +151,22 @@ def add_connection():
                 connection_data["external_pvc"] = external_pvc
 
             connections_client.add_connection(**connection_data)
-            flash("Connection created successfully", "success")
+
+            success_msg = "Connection created successfully"
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"status": "success", "message": success_msg}), 200
+
+            flash(success_msg, "success")
             return redirect(url_for("connections.view_connections"))
         except APIError as e:
             current_app.logger.error(f"Failed to add connection: {e.message}")
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"status": "error", "error": e.message}), 400
             flash(f"Failed to add connection: {e.message}")
         except Exception as e:
             current_app.logger.error(f"Error adding connection: {str(e)}")
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return jsonify({"status": "error", "error": str(e)}), 500
             flash(f"Error adding connection: {str(e)}")
 
     # For GET requests or if POST fails, fetch desktop configurations for the form
@@ -196,6 +237,9 @@ def direct_connect(connection_id):
         # Construct the API URL for direct connection
         api_url = f"{current_app.config['API_URL']}/api/connections/direct-connect/{connection_id}"
 
+        # Log the request for debugging
+        current_app.logger.info(f"Making API request to {api_url}")
+
         # Make the request to the API with auth token
         response = requests.get(api_url, headers={"Authorization": f"Bearer {token}"}, timeout=10)
 
@@ -205,8 +249,13 @@ def direct_connect(connection_id):
             data = response.json()
             guacamole_url = data.get("auth_url")
 
+            # Log the received data
+            current_app.logger.info(f"Received connection data: {data}")
+
             if guacamole_url:
-                # Redirect to the Guacamole auth URL
+                # Just use the auth URL directly without modification
+                # The backend should already have properly configured it for direct connection
+                current_app.logger.info(f"Redirecting to Guacamole URL: {guacamole_url}")
                 return redirect(guacamole_url)
             else:
                 flash("Invalid response from API: missing auth_url")
