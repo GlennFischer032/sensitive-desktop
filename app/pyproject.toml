@@ -33,15 +33,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "pytest-flask>=1.2.0",
-    "fakeredis>=2.0.0",
-    "responses>=0.23.0",
-    "freezegun>=1.2.0"
-]
 
 dev = [
     "libsass",
@@ -60,7 +51,6 @@ packages = [
     "clients",
     "config",
     "middleware",
-
     "utils",
     "services.auth",
     "services.configurations",
@@ -68,53 +58,17 @@ packages = [
     "services.storage",
     "services.tokens",
     "services.users",
-    "services.users.api_routes",
-    "services.tokens.api_routes",
-    "services.auth.api_routes",
-    "services.configurations.api_routes",
-    "services.connections.api_routes",
-    "services.storage.api_routes",
-
 ]
 
 [tool.black]
-line-length = 100
+line-length = 120
 target-version = ['py311']
 
 [tool.isort]
 profile = "black"
 multi_line_output = 3
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-addopts = "-v --cov --cov-report=term-missing"
-filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::UserWarning",
-]
 
-[tool.coverage.run]
-source = ["."]
-omit = [
-    "tests/*",
-    "**/tests/*",
-    "**/__init__.py",
-    ".venv/*",
-    "setup.py",
-]
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if __name__ == .__main__.:",
-    "raise NotImplementedError",
-    "if TYPE_CHECKING:",
-    "pass",
-]
 
 # Ruff configuration
 [tool.ruff]
@@ -145,18 +99,6 @@ select = [
 
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
-[tool.ruff.lint.per-file-ignores]
-# Tests can use assert and more complex function calls
-"tests/**/*" = [
-    "S101", "ARG002", "B011", "PLR2004",
-    "S105", "S106", "S108", "PT011", "ARG001",
-    "E501", "C901", "PLR0911", "PLR0915", "SIM117", "D"
-]
-"**/test_*.py" = [
-    "S101", "ARG002", "B011", "PLR2004",
-    "S105", "S106", "S108", "PT011", "ARG001",
-    "E501", "C901", "PLR0911", "PLR0915", "SIM117", "D"
-]
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
@@ -172,7 +114,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.ruff.lint.isort]
-known-third-party = ["flask", "redis", "pydantic", "requests", "werkzeug", "pytest"]
+known-third-party = ["flask", "redis", "pydantic", "requests", "werkzeug"]
 
 [tool.ruff.lint.mccabe]
 # Flag overly complex functions with complexity > 10

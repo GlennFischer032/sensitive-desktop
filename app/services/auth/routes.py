@@ -18,7 +18,6 @@ from flask import (
 
 from app.clients.factory import client_factory
 from app.middleware.security import rate_limit
-from app.middleware.auth import login_required
 
 from . import auth_bp
 
@@ -42,7 +41,6 @@ def login():
 
 
 @auth_bp.route("/logout")
-@login_required  # Ensure user is logged in before logging out
 def logout():
     """Logout endpoint
     This endpoint logs out the current user and redirects to the login page.

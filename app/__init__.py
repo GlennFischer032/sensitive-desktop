@@ -3,7 +3,6 @@ import secrets
 from datetime import datetime
 from http import HTTPStatus
 
-import redis
 import requests
 from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_cors import CORS
@@ -26,6 +25,7 @@ from app.utils.swagger import auto_document_blueprint
 from config.config import Config
 from middleware.security import init_security, rate_limiter
 from middleware.auth import login_required
+from app.clients.factory import client_factory
 
 
 def init_session(app: Flask):
@@ -33,8 +33,9 @@ def init_session(app: Flask):
     # Initialize session
     if app.config.get("SESSION_TYPE") != "null":
         # Only use Redis session when not in test mode with null session
-        redis_client = redis.from_url(app.config["SESSION_REDIS"])
-        app.config["SESSION_REDIS"] = redis_client
+        redis_client = client_factory.get_redis_client(app=app)
+        redis_client.configure_with_app(app)
+        app.config["SESSION_REDIS"] = redis_client.get_client_for_session()
         Session(app)
     else:
         # For testing, we'll use the default Flask session (signed cookies)

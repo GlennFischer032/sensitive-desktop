@@ -1,12 +1,12 @@
 import logging
-import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import wraps
 from http import HTTPStatus
 from typing import Callable, Dict, Optional
 
 from flask import current_app, render_template, request
-import redis
+
+from app.clients.factory import client_factory
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +19,7 @@ class RateLimiter:
             "1h": (1000, 3600),  # 1000 requests per hour
         }
         self._redis = None
-
-    def _get_redis_connection(self) -> redis.Redis:
-        """Get Redis connection lazily."""
-        if self._redis is None:
-            redis_url = current_app.config.get("SESSION_REDIS")
-            if isinstance(redis_url, str):
-                self._redis = redis.from_url(redis_url)
-            else:
-                self._redis = redis_url
-        return self._redis
+        self._app = None
 
     def is_rate_limited(self, key: str, limits: Optional[Dict[str, tuple]] = None) -> tuple[bool, Optional[int]]:
         """
@@ -41,8 +32,9 @@ class RateLimiter:
         Returns:
             tuple: (is_limited, retry_after)
         """
-        now = time.time()
-        redis_client = self._get_redis_connection()
+        # Use the RedisClient's is_rate_limited method directly
+        now = datetime.now().timestamp()
+        redis_client = client_factory.get_redis_client()
 
         # Use provided limits or defaults
         check_limits = limits or self.default_limits

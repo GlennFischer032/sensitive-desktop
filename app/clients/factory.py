@@ -1,12 +1,13 @@
 """Client factory for API clients."""
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from flask import current_app
+from flask import Flask, current_app
 
 from .auth import AuthClient
 from .connections import ConnectionsClient
 from .desktop_configurations import DesktopConfigurationsClient
+from .redis_client import RedisClient
 from .storage import StorageClient
 from .tokens import TokensClient
 from .users import UsersClient
@@ -90,6 +91,28 @@ class ClientFactory:
                 base_url=current_app.config["API_URL"],
             )
         return self._clients["tokens"]
+
+    def get_redis_client(self, app: Optional[Flask] = None) -> RedisClient:
+        """Get RedisClient.
+
+        Args:
+            app: Optional Flask app instance. If provided, uses app.config instead of current_app.
+
+        Returns:
+            RedisClient: Redis client
+        """
+        if "redis" not in self._clients:
+            redis_url = None
+            if app is not None:
+                redis_url = app.config.get("SESSION_REDIS")
+            else:
+                try:
+                    redis_url = current_app.config.get("SESSION_REDIS")
+                except RuntimeError:
+                    pass
+
+            self._clients["redis"] = RedisClient(redis_url=redis_url)
+        return self._clients["redis"]
 
 
 # Factory instance
