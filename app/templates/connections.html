@@ -40,18 +40,18 @@
                     {% if not conn.is_stopped %}
                     <div class="button-group-actions">
                         <a href="{{ url_for('connections.direct_connect', connection_id=conn.id) }}" target="_blank" class="button small connect-btn">Connect</a>
-                        <form action="{{ url_for('connections.stop_connection', connection_name=conn.name) }}" method="post"
+                        <form action="{{ url_for('connections_api.stop_connection', connection_name=conn.name) }}" method="POST"
                             onsubmit="handleStop(event, '{{ conn.name }}')">
                             <button type="submit" class="button small danger delete-btn">Stop</button>
                         </form>
                     </div>
                     {% else %}
                     <div class="button-group-actions">
-                        <form action="{{ url_for('connections.resume_connection', connection_name=conn.name) }}" method="post"
+                        <form action="{{ url_for('connections_api.resume_connection', connection_name=conn.name) }}" method="POST"
                               onsubmit="handleResume(event, '{{ conn.name }}')">
                             <button type="submit" class="button small success resume-btn">Resume</button>
                         </form>
-                        <form action="{{ url_for('connections.delete_connection', connection_name=conn.name) }}" method="post"
+                        <form action="{{ url_for('connections_api.delete_connection', connection_name=conn.name) }}" method="DELETE"
                               onsubmit="handleDelete(event, '{{ conn.name }}')">
                             <button type="submit" class="button small danger permanent-delete-btn">Delete</button>
                         </form>
@@ -84,7 +84,7 @@
         <div class="form-group">
             <label for="name" class="required">Connection Name:</label>
             <input type="text" id="name" name="connection_name" required
-                   pattern="^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+                   pattern="^[a-z0-9][a-z0-9\-]*[a-z0-9]$"
                    maxlength="12" oninput="validateConnectionName(this)">
             <div id="name-feedback" class="invalid-feedback" style="display: none; color: red; margin-top: 5px;"></div>
         </div>
@@ -140,7 +140,6 @@
 const UUID_LENGTH = 9;
 const MAX_TOTAL_LENGTH = 53;
 const MAX_INPUT_LENGTH = 12; // Limit user input to 12 characters
-const NAME_REGEX = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$/;
 
 function validateConnectionName(input) {
     const nameInput = input.value.toLowerCase();
@@ -173,6 +172,7 @@ function validateConnectionName(input) {
     }
 
     // Check regex pattern
+    const NAME_REGEX = /^[a-z0-9][a-z0-9\-]*[a-z0-9]$/;
     if (!NAME_REGEX.test(nameInput)) {
         feedback.textContent = 'Name must start and end with an alphanumeric character, and can contain only lowercase letters, numbers, and hyphens.';
         feedback.style.display = 'block';
@@ -210,7 +210,7 @@ async function handleStop(event, connectionName) {
 
     try {
         const response = await fetch(form.action, {
-            method: 'POST',
+            method: form.method,
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Content-Type': 'application/json'
@@ -278,7 +278,7 @@ async function handleResume(event, connectionName) {
 
     try {
         const response = await fetch(form.action, {
-            method: 'POST',
+            method: form.method,
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Content-Type': 'application/json'
@@ -358,12 +358,7 @@ async function handleDelete(event, connectionName) {
 
     try {
         const response = await fetch(form.action, {
-            method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ name: connectionName }),
+            method: "DELETE",
             credentials: 'same-origin'
         });
 

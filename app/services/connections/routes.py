@@ -139,7 +139,14 @@ def add_connection():
         )
 
         connections_client = client_factory.get_connections_client()
-        connections_client.add_connection(**connection_data)
+        try:
+            connections_client.add_connection(**connection_data)
+        except APIError as e:
+            current_app.logger.error(f"Failed to add connection: {e.message}")
+            return _return_connection_error(e.message, e.status_code)
+        except Exception as e:
+            current_app.logger.error(f"Error adding connection: {str(e)}")
+            return _return_connection_error(str(e), 500)
 
         success_msg = "Connection created successfully"
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
@@ -222,54 +229,6 @@ def _prepare_connection_data(connection_name, persistent_home, desktop_configura
     return connection_data
 
 
-@connections_bp.route("/stop/<connection_name>", methods=["POST"])
-@login_required
-@rate_limit(requests_per_minute=10)
-def stop_connection(connection_name):
-    """Stop a running connection.
-    This endpoint stops a running desktop connection.
-    ---
-    tags:
-      - Connections
-    parameters:
-      - name: connection_name
-        in: path
-        type: string
-        required: true
-        description: Name of the connection to stop
-    responses:
-      200:
-        description: Connection stopped successfully
-        schema:
-          type: object
-          properties:
-            status:
-              type: string
-      400:
-        description: Error stopping connection
-      500:
-        description: Server error
-    """
-    try:
-        current_app.logger.info(f"Stopping connection: {connection_name}")
-        connections_client = client_factory.get_connections_client()
-        connections_client.stop_connection(connection_name)
-
-        flash("Connection stopped successfully")
-    except APIError as e:
-        current_app.logger.error(f"Failed to stop connection: {e.message}")
-        flash(f"Failed to stop connection: {e.message}")
-    except Exception as e:
-        current_app.logger.error(f"Error stopping connection: {str(e)}")
-        flash(f"Error stopping connection: {str(e)}")
-
-    # If it's an AJAX request, return JSON response
-    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return jsonify({"status": "success"}), 200
-
-    return redirect(url_for("connections.view_connections"))
-
-
 @connections_bp.route("/direct-connect/<connection_id>")
 @login_required
 def direct_connect(connection_id):
@@ -339,166 +298,4 @@ def guacamole_dashboard():
     except Exception as e:
         current_app.logger.error(f"Error accessing Guacamole dashboard: {str(e)}")
         flash(f"Error accessing Guacamole dashboard: {str(e)}")
-        return redirect(url_for("connections.view_connections"))
-
-
-@connections_bp.route("/resume/<connection_name>", methods=["POST"])
-@login_required
-@rate_limit(requests_per_minute=10)  # Stricter limit for resuming connections
-def resume_connection(connection_name):
-    """Resume a stopped connection.
-    This endpoint resumes a previously stopped desktop connection.
-    ---
-    tags:
-      - Connections
-    parameters:
-      - name: connection_name
-        in: path
-        type: string
-        required: true
-        description: Name of the connection to resume
-      - name: body
-        in: body
-        required: false
-        schema:
-          type: object
-          properties:
-            name:
-              type: string
-              description: Alternative way to specify connection name
-    responses:
-      200:
-        description: Connection resumed successfully
-        schema:
-          type: object
-          properties:
-            status:
-              type: string
-            message:
-              type: string
-      400:
-        description: Error resuming connection
-      500:
-        description: Server error
-    """
-    try:
-        current_app.logger.info(f"Resuming connection: {connection_name}")
-
-        # Extract connection name from JSON body if present
-        data = request.get_json()
-        if data and "name" in data:
-            connection_name = data["name"]
-            current_app.logger.info(f"Using connection name from JSON body: {connection_name}")
-
-        connections_client = client_factory.get_connections_client()
-        connections_client.resume_connection(connection_name)
-
-        # If it's an AJAX request, return JSON response
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"status": "success", "message": "Connection resumed successfully"}), 200
-
-        flash("Connection resumed successfully")
-        return redirect(url_for("connections.view_connections"))
-
-    except APIError as e:
-        current_app.logger.error(f"Failed to resume connection: {e.message}")
-
-        # If it's an AJAX request, return JSON error response
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"status": "error", "message": f"Failed to resume connection: {e.message}"}), 400
-
-        flash(f"Failed to resume connection: {e.message}")
-        return redirect(url_for("connections.view_connections"))
-
-    except Exception as e:
-        current_app.logger.error(f"Error resuming connection: {str(e)}")
-
-        # If it's an AJAX request, return JSON error response
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"status": "error", "message": f"Error resuming connection: {str(e)}"}), 500
-
-        flash(f"Error resuming connection: {str(e)}")
-        return redirect(url_for("connections.view_connections"))
-
-
-@connections_bp.route("/delete/<connection_name>", methods=["POST"])
-@login_required
-@rate_limit(requests_per_minute=10)  # Stricter limit for permanent deletion
-def delete_connection(connection_name):
-    """Delete a connection permanently.
-    This endpoint permanently deletes a desktop connection.
-    ---
-    tags:
-      - Connections
-    parameters:
-      - name: connection_name
-        in: path
-        type: string
-        required: true
-        description: Name of the connection to delete
-      - name: body
-        in: body
-        required: false
-        schema:
-          type: object
-          properties:
-            name:
-              type: string
-              description: Alternative way to specify connection name
-    responses:
-      200:
-        description: Connection deleted successfully
-        schema:
-          type: object
-          properties:
-            status:
-              type: string
-            message:
-              type: string
-      400:
-        description: Error deleting connection
-      500:
-        description: Server error
-    """
-    try:
-        current_app.logger.info(f"Permanently deleting connection: {connection_name}")
-
-        data = request.get_json()
-        if data and "name" in data:
-            connection_name = data["name"]
-            current_app.logger.info(f"Using connection name from JSON body: {connection_name}")
-
-        connections_client = client_factory.get_connections_client()
-        connections_client.delete_connection(connection_name)
-
-        # If it's an AJAX request, return JSON response
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"status": "success", "message": "Connection permanently deleted"}), 200
-
-        flash("Connection permanently deleted")
-        return redirect(url_for("connections.view_connections"))
-
-    except APIError as e:
-        current_app.logger.error(f"Failed to permanently delete connection: {e.message}")
-
-        # If it's an AJAX request, return JSON error response
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify(
-                {
-                    "status": "error",
-                    "message": f"Failed to permanently delete connection: {e.message}",
-                }
-            ), 400
-
-        flash(f"Failed to permanently delete connection: {e.message}")
-        return redirect(url_for("connections.view_connections"))
-
-    except Exception as e:
-        current_app.logger.error(f"Error permanently deleting connection: {str(e)}")
-
-        # If it's an AJAX request, return JSON error response
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"status": "error", "message": f"Error permanently deleting connection: {str(e)}"}), 500
-
-        flash(f"Error permanently deleting connection: {str(e)}")
         return redirect(url_for("connections.view_connections"))

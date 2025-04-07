@@ -68,6 +68,12 @@ packages = [
     "services.storage",
     "services.tokens",
     "services.users",
+    "services.users.api_routes",
+    "services.tokens.api_routes",
+    "services.auth.api_routes",
+    "services.configurations.api_routes",
+    "services.connections.api_routes",
+    "services.storage.api_routes",
 
 ]
 

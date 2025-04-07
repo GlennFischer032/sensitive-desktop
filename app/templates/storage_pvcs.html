@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         try {
-            const response = await fetch('/storage/pvc', {
+            const response = await fetch('/api/storage/pvcs', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -330,13 +330,12 @@ document.addEventListener('DOMContentLoaded', function() {
             async function loadPvcDetails(pvcId) {
                 try {
                     // Fetch PVC details to get current access settings
-                    const pvcResponse = await fetch(`/storage/pvc/${pvcId}`);
+                    const pvcResponse = await fetch(`/api/storage/pvcs/${pvcId}`);
                     if (!pvcResponse.ok) {
                         throw new Error('Failed to fetch PVC details');
                     }
 
-                    const pvcData = await pvcResponse.json();
-                    const pvc = pvcData.pvc;
+                    const pvc = await pvcResponse.json();
 
                     // Set initial state of is_public checkbox
                     document.getElementById('access-is-public').checked = pvc.is_public;
@@ -347,13 +346,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
 
                     // Fetch users for the access list
-                    const usersResponse = await fetch('/storage/users');
+                    const usersResponse = await fetch('/api/users/');
 
                     if (!usersResponse.ok) {
                         throw new Error('Failed to fetch users');
                     }
 
-                    const users = await usersResponse.json();
+                    const users = (await usersResponse.json()).users;
+
 
                     // Build the user list HTML
                     if (users.length > 0) {
@@ -401,7 +401,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     container.innerHTML = '<p class="loading-text">Loading connections...</p>';
 
                     try {
-                        const response = await fetch(`/storage/pvc/connections/${pvcId}`);
+                        const response = await fetch(`/api/storage/pvcs/connections/${pvcId}`);
                         const data = await response.json();
 
                         if (!response.ok) {
@@ -452,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .map(checkbox => checkbox.value);
 
         try {
-            const response = await fetch(`/storage/pvc/access/${pvcId}`, {
+            const response = await fetch(`/api/storage/pvcs/access/${pvcId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -512,7 +512,7 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteLoading.classList.remove('hidden');
 
         try {
-            const response = await fetch(`/storage/pvc/${pvcName}`, {
+            const response = await fetch(`/api/storage/pvcs/${pvcName}`, {
                 method: 'DELETE'
             });
 

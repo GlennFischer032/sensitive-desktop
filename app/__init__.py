@@ -10,12 +10,18 @@ from flask_cors import CORS
 from flask_session import Session
 from flasgger import Swagger
 
-from app.services.auth import auth_bp
-from app.services.configurations import configurations_bp
-from app.services.connections import connections_bp
+from app.services.auth import auth_bp, auth_api_bp  # Import the auth API blueprint
+from app.services.configurations import (
+    configurations_bp,
+    configurations_api_bp,
+)  # Import the configurations API blueprint
+from app.services.connections import connections_bp, connections_api_bp  # Import the connections API blueprint
 from app.services.storage import storage_bp
+from app.services.storage import storage_api_bp  # Import the storage API blueprint
 from app.services.tokens import tokens_bp
+from app.services.tokens import tokens_api_bp  # Import the tokens API blueprint
 from app.services.users import users_bp
+from app.services.users import users_api_bp  # Import the API blueprint
 from app.utils.swagger import auto_document_blueprint
 from config.config import Config
 from middleware.security import init_security, rate_limiter
@@ -85,7 +91,19 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
             {
                 "endpoint": "apispec",
                 "route": "/apispec.json",
-                "rule_filter": lambda rule: True,  # all in
+                "rule_filter": lambda rule: any(
+                    rule.endpoint.startswith(prefix)
+                    for prefix in [
+                        "auth_api",
+                        "connections_api",
+                        "users_api",
+                        "configurations_api",
+                        "storage_api",
+                        "tokens_api",
+                        "test_api_connection",  # Include test API endpoint
+                        "health_check",  # Include health check endpoint
+                    ]
+                ),
                 "model_filter": lambda tag: True,  # all in
             }
         ],
@@ -97,14 +115,21 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
     swagger_template = {
         "info": {
             "title": "Desktop Frontend API",
-            "description": "API documentation for Desktop Frontend Application",
+            "description": "API documentation for Dekstop Manager Proxy",
             "version": "1.0.0",
             "contact": {
                 "name": "API Support",
             },
         },
-        "securityDefinitions": {"SessionAuth": {"type": "apiKey", "name": "Cookie", "in": "header"}},
-        "security": [{"SessionAuth": []}],
+        "securityDefinitions": {
+            "BearerAuth": {
+                "type": "apiKey",
+                "name": "Authorization",
+                "in": "header",
+                "description": "Enter your bearer token in the format: Bearer your_token",
+            }
+        },
+        "security": [{"BearerAuth": []}],
     }
 
     # Initialize Swagger without applying protection
@@ -234,19 +259,25 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
 
     # Register blueprints
     app.register_blueprint(auth_bp)
+    app.register_blueprint(auth_api_bp)  # Register the auth API blueprint
     app.register_blueprint(connections_bp)
+    app.register_blueprint(connections_api_bp)  # Register the connections API blueprint
     app.register_blueprint(users_bp)
+    app.register_blueprint(users_api_bp)  # Register the API blueprint
     app.register_blueprint(configurations_bp)
+    app.register_blueprint(configurations_api_bp)  # Register the configurations API blueprint
     app.register_blueprint(storage_bp)
+    app.register_blueprint(storage_api_bp)  # Register the storage API blueprint
     app.register_blueprint(tokens_bp)
+    app.register_blueprint(tokens_api_bp)  # Register the tokens API blueprint
 
-    # Auto-document blueprints
-    auto_document_blueprint(auth_bp, "Authentication")
-    auto_document_blueprint(connections_bp, "Connections")
-    auto_document_blueprint(users_bp, "Users")
-    auto_document_blueprint(configurations_bp, "Configurations")
-    auto_document_blueprint(storage_bp, "Storage")
-    auto_document_blueprint(tokens_bp, "Tokens")
+    # Auto-document API blueprints only
+    auto_document_blueprint(auth_api_bp, "Authentication API")
+    auto_document_blueprint(connections_api_bp, "Connections API")
+    auto_document_blueprint(users_api_bp, "Users API")
+    auto_document_blueprint(configurations_api_bp, "Configurations API")
+    auto_document_blueprint(storage_api_bp, "Storage API")
+    auto_document_blueprint(tokens_api_bp, "Tokens API")
 
     # Error handlers
     @app.errorhandler(404)

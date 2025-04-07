@@ -50,17 +50,12 @@
         {% if not tokens %}
             <p>You haven't created any API tokens yet.</p>
         {% else %}
-            {% for token in tokens %}
+            {# First display active tokens #}
+            {% for token in tokens if not token.revoked and (not token.expires_at or token.expires_at >= now) %}
             <div class="token-box">
                 <div class="token-header">
                     <h3>{{ token.name }}</h3>
-                    {% if token.revoked %}
-                        <span class="token-badge badge-revoked">Revoked</span>
-                    {% elif token.expires_at and token.expires_at < now %}
-                        <span class="token-badge badge-expired">Expired</span>
-                    {% else %}
-                        <span class="token-badge badge-active">Active</span>
-                    {% endif %}
+                    <span class="token-badge badge-active">Active</span>
                 </div>
                 {% if token.description %}
                 <p>{{ token.description }}</p>
@@ -74,14 +69,55 @@
                     {% endif %}
                 </div>
 
-                {% if not token.revoked %}
                 <div class="token-actions">
-                    <form action="{{ url_for('tokens.revoke_token', token_id=token.token_id) }}" method="POST" class="inline-form"
-                          onsubmit="return confirm('Are you sure you want to revoke this token? This action cannot be undone.')">
-                        <button type="submit" class="button danger">Revoke Token</button>
-                    </form>
+                    <button type="button" class="button danger" onclick="revokeToken('{{ token.token_id }}')">Revoke Token</button>
                 </div>
+            </div>
+            {% endfor %}
+
+            {# Then display expired tokens #}
+            {% for token in tokens if token.expires_at and token.expires_at < now and not token.revoked %}
+            <div class="token-box expired-token">
+                <div class="token-header">
+                    <h3>{{ token.name }}</h3>
+                    <span class="token-badge badge-expired">Expired</span>
+                </div>
+                {% if token.description %}
+                <p>{{ token.description }}</p>
                 {% endif %}
+                <div class="token-details">
+                    <p><strong>ID:</strong> {{ token.token_id }}</p>
+                    <p><strong>Created:</strong> {{ token.created_at.strftime('%Y-%m-%d %H:%M:%S') if token.created_at else 'N/A' }}</p>
+                    <p><strong>Expired:</strong> {{ token.expires_at.strftime('%Y-%m-%d %H:%M:%S') if token.expires_at else 'N/A' }}</p>
+                    {% if token.last_used %}
+                    <p><strong>Last used:</strong> {{ token.last_used.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    {% endif %}
+                </div>
+
+                <div class="token-actions">
+                    <button type="button" class="button danger" onclick="revokeToken('{{ token.token_id }}')">Revoke Token</button>
+                </div>
+            </div>
+            {% endfor %}
+
+            {# Finally display revoked tokens #}
+            {% for token in tokens if token.revoked %}
+            <div class="token-box revoked-token">
+                <div class="token-header">
+                    <h3>{{ token.name }}</h3>
+                    <span class="token-badge badge-revoked">Revoked</span>
+                </div>
+                {% if token.description %}
+                <p>{{ token.description }}</p>
+                {% endif %}
+                <div class="token-details">
+                    <p><strong>ID:</strong> {{ token.token_id }}</p>
+                    <p><strong>Created:</strong> {{ token.created_at.strftime('%Y-%m-%d %H:%M:%S') if token.created_at else 'N/A' }}</p>
+                    <p><strong>Revoked:</strong> {{ token.revoked_at.strftime('%Y-%m-%d %H:%M:%S') if token.revoked_at else 'N/A' }}</p>
+                    {% if token.last_used %}
+                    <p><strong>Last used:</strong> {{ token.last_used.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    {% endif %}
+                </div>
             </div>
             {% endfor %}
         {% endif %}
@@ -90,7 +126,7 @@
 
 <!-- Create Token Modal -->
 {% call modal(id="newTokenModal", title="Create New API Token", size="md") %}
-    <form id="createTokenForm" action="{{ url_for('tokens.create_token') }}" method="POST">
+    <form id="createTokenForm" action="{{ url_for('tokens_api.create_token') }}" method="POST">
         <div class="form-group">
             <label for="name" class="required">Token Name</label>
             <input type="text" id="name" name="name"
@@ -117,6 +153,24 @@
         </div>
     </form>
 
+    <div id="token-result" class="token-display hidden">
+        <h3>Your New Token</h3>
+        <p><strong>Important:</strong> This is the only time this token will be displayed. Copy it now!</p>
+        <div class="token-container">
+            <div class="token-value-wrapper">
+                <pre id="tokenString" class="token-string"></pre>
+                <button class="button small" onclick="copyDynamicToken()">Copy</button>
+            </div>
+        </div>
+        <div class="token-details">
+            <p><strong>Name:</strong> <span id="tokenName"></span></p>
+            <p><strong>Expires:</strong> <span id="tokenExpires"></span></p>
+        </div>
+        <div class="form-actions token-result-actions">
+            <button type="button" class="button close-modal">Done</button>
+        </div>
+    </div>
+
     {{ loading(id="create-loading", text="Creating token...") }}
     {{ error_message(id="create-error") }}
 {% endcall %}
@@ -129,18 +183,53 @@ document.addEventListener('DOMContentLoaded', function() {
     const createBtn = document.getElementById('createTokenButton');
     if (createBtn) {
         createBtn.addEventListener('click', function() {
+            resetTokenModal();
             ModalManager.show('newTokenModal');
         });
+    }
+
+    // Reset modal when it's closed
+    document.querySelectorAll('.close-modal, .modal-overlay, .modal-close').forEach(element => {
+        element.addEventListener('click', function() {
+            resetTokenModal();
+        });
+    });
+
+    // Also handle the ESC key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            resetTokenModal();
+        }
+    });
+
+    // Function to reset the token modal to its initial state
+    function resetTokenModal() {
+        const form = document.getElementById('createTokenForm');
+        const tokenResult = document.getElementById('token-result');
+        const loading = document.getElementById('create-loading');
+
+        // Reset form if it exists
+        if (form) {
+            form.reset();
+            form.style.display = 'block';
+        }
+
+        // Hide token result, loading and error
+        if (tokenResult) tokenResult.classList.add('hidden');
+        if (loading) loading.classList.add('hidden');
+        if (document.getElementById('create-error')) document.getElementById('create-error').classList.add('hidden');
     }
 
     // Create token form submission
     const createForm = document.getElementById('createTokenForm');
     if (createForm) {
         createForm.addEventListener('submit', function(event) {
+            // Prevent the default form submission
+            event.preventDefault();
+
             // Validate form
             const nameField = document.getElementById('name');
             if (!nameField.value.trim()) {
-                event.preventDefault();
                 NotificationManager.show('Token name is required', 'error');
                 return false;
             }
@@ -149,16 +238,86 @@ document.addEventListener('DOMContentLoaded', function() {
             createForm.style.display = 'none';
             document.getElementById('create-loading').classList.remove('hidden');
 
-            // Form will submit normally if validation passes
+            // Get form data and convert to JSON
+            const formData = {
+                name: document.getElementById('name').value,
+                description: document.getElementById('description').value,
+                expires_in_days: parseInt(document.getElementById('expires_in_days').value)
+            };
+
+            // Send JSON data via fetch
+            fetch(createForm.action, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Failed to create token');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Hide loading indicator
+                document.getElementById('create-loading').classList.add('hidden');
+
+                // Display the token information
+                if (data.token && data.token.token) {
+                    // Set token details
+                    document.getElementById('tokenString').textContent = data.token.token;
+                    document.getElementById('tokenName').textContent = data.token.name || formData.name;
+                    document.getElementById('tokenExpires').textContent = data.token.expires_at || 'N/A';
+
+                    // Show the token result section
+                    document.getElementById('token-result').classList.remove('hidden');
+
+                    // Auto-copy token to clipboard
+                    setTimeout(function() {
+                        copyDynamicToken();
+                    }, 500);
+                } else {
+                    throw new Error('No token was returned from the server');
+                }
+            })
+            .catch(error => {
+                // Show error message
+                createForm.style.display = 'block';
+                document.getElementById('create-loading').classList.add('hidden');
+
+                const errorElement = document.getElementById('create-error');
+                errorElement.textContent = error.message;
+                errorElement.classList.remove('hidden');
+
+                NotificationManager.show(error.message, 'error');
+            });
         });
     }
 
-    // Copy token function
+    // Copy token function for statically rendered tokens
     window.copyToken = function() {
         const tokenValue = document.getElementById('newTokenValue');
         if (!tokenValue) return;
 
         const text = tokenValue.innerText.trim();
+
+        navigator.clipboard.writeText(text).then(function() {
+            NotificationManager.show('Token copied to clipboard!', 'success');
+        }).catch(function(err) {
+            console.error('Failed to copy:', err);
+            NotificationManager.show('Failed to copy token. Please select and copy manually.', 'error');
+        });
+    };
+
+    // Copy function for dynamically created tokens
+    window.copyDynamicToken = function() {
+        const tokenValue = document.getElementById('tokenString');
+        if (!tokenValue) return;
+
+        const text = tokenValue.textContent.trim();
 
         navigator.clipboard.writeText(text).then(function() {
             NotificationManager.show('Token copied to clipboard!', 'success');
@@ -176,5 +335,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 500);
     }
 });
+
+// Revoke token function
+function revokeToken(tokenId) {
+    if (!confirm('Are you sure you want to revoke this token? This action cannot be undone.')) {
+        return;
+    }
+
+    fetch(`/api/tokens/${tokenId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || 'Failed to revoke token');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        NotificationManager.show('Token revoked successfully', 'success');
+        // Reload the page to reflect changes
+        window.location.reload();
+    })
+    .catch(error => {
+        NotificationManager.show(error.message, 'error');
+    });
+}
 </script>
 {% endblock %}

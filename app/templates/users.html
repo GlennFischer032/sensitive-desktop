@@ -35,7 +35,7 @@
                 <td class="action-buttons">
                     <div class="button-group">
                         <button class="button small view-details-btn" data-username="{{ user.username }}">View Details</button>
-                        <form action="{{ url_for('users.delete_user', username=user.username) }}" method="post" onsubmit="handleDelete(event, '{{ user.username }}')">
+                        <form action="{{ url_for('users_api.delete_user', username=user.username) }}" method="post" onsubmit="handleDelete(event, '{{ user.username }}')">
                             <button type="submit" class="button small danger delete-btn">Delete</button>
                         </form>
                     </div>
@@ -62,7 +62,7 @@
         </ul>
     </div>
 
-    <form id="user-form" action="{{ url_for('users.add_user') }}" method="POST">
+    <form id="user-form" action="{{ url_for('users_api.create_user') }}" method="POST">
         <div class="form-group">
             <label for="username" class="required">Username:</label>
             <input type="text" id="username" name="username" required minlength="3">
@@ -210,10 +210,7 @@ async function handleDelete(event, username) {
 
     try {
         const response = await fetch(form.action, {
-            method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
+            method: 'DELETE',
             credentials: 'same-origin'
         });
 
@@ -285,6 +282,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const createError = document.getElementById('create-error');
         const username = document.getElementById('username').value;
         const sub = document.getElementById('sub').value;
+        const isAdmin = document.querySelector('input[name="is_admin"]').checked;
 
         // Clear previous error messages
         document.querySelectorAll('.error-message').forEach(el => {
@@ -322,14 +320,19 @@ document.addEventListener('DOMContentLoaded', function() {
         form.style.display = 'none';
         createLoading.classList.remove('hidden');
 
-        // Collect form data
-        const formData = new FormData(form);
+        // Prepare JSON data
+        const jsonData = {
+            username: username,
+            sub: sub,
+            is_admin: isAdmin
+        };
 
         try {
             const response = await fetch(form.action, {
                 method: 'POST',
-                body: formData,
+                body: JSON.stringify(jsonData),
                 headers: {
+                    'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             });
@@ -404,7 +407,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             // Fetch user details
-            const response = await fetch(`/users/detail/${username}`, {
+            const response = await fetch(`/api/users/${username}`, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 }

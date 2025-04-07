@@ -44,10 +44,10 @@ class StorageClient(BaseClient):
 
         try:
             request = ClientRequest(
-                endpoint=f"/api/storage/{volume_id}",
+                endpoint=f"/api/storage-pvcs/{volume_id}",
             )
             data, _ = self.get(request=request)
-            return data.get("volume", {})
+            return data.get("pvc", {})
         except APIError as e:
             self.logger.error(f"Error fetching storage volume details: {str(e)}")
             raise
