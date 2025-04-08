@@ -39,6 +39,14 @@ dev = [
     "debugpy"
 ]
 
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-flask",
+    "fakeredis"
+]
+
 # NPM script replacement for Python projects
 [tool.npm-scripts]
 sass-compile = "pysassc app/scss/main.scss app/static/style.css"
@@ -68,7 +76,18 @@ target-version = ['py311']
 profile = "black"
 multi_line_output = 3
 
-
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+python_classes = "Test*"
+addopts = "--strict-markers -v"
+markers = [
+    "unit: mark a test as a unit test",
+    "functional: mark a test as a functional test",
+    "slow: mark a test as slow",
+    "integration: mark a test as requiring integration with backend services"
+]
 
 # Ruff configuration
 [tool.ruff]
@@ -96,9 +115,7 @@ select = [
     "S",   # flake8-bandit
 ]
 
-
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.

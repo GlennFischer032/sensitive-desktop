@@ -84,3 +84,19 @@ class AuthClient(BaseClient):
         except APIError as e:
             self.logger.error(f"OIDC login initiation error: {str(e)}")
             raise
+
+    def refresh_token(self) -> Tuple[Dict[str, Any], int]:
+        """Refresh the current token.
+
+        Returns:
+            Tuple[Dict[str, Any], int]: Refresh token response and status code
+        """
+        try:
+            request = ClientRequest(
+                endpoint="/api/auth/refresh",
+                timeout=5,
+            )
+            return self.post(request=request)
+        except APIError as e:
+            self.logger.error(f"Refresh token error: {str(e)}")
+            raise

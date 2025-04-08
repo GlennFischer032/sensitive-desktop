@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 
 from flask import session
 
-from app.auth.auth import AuthError, is_authenticated, refresh_token
+from app.services.auth.auth import AuthError, is_authenticated, refresh_token
 
 logger = logging.getLogger(__name__)
 

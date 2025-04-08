@@ -3,18 +3,11 @@ from http import HTTPStatus
 from typing import Any, Dict, Optional, Tuple
 
 import requests
-from flask import current_app, session
-from pydantic import BaseModel, Field, ValidationError
+from flask import session
+from pydantic import ValidationError
+from app.clients.factory import client_factory
 
 logger = logging.getLogger(__name__)
-
-
-class AuthResponse(BaseModel):
-    """Schema for authentication response."""
-
-    token: str = Field(..., description="JWT authentication token")
-    is_admin: bool = Field(..., description="Admin status")
-    username: str = Field(..., description="Username")
 
 
 class AuthError(Exception):
@@ -37,7 +30,7 @@ class RateLimitError(AuthError):
         )
 
 
-def handle_auth_response(response: requests.Response) -> Tuple[AuthResponse, int]:
+def handle_auth_response(response: requests.Response) -> Tuple[Dict[str, Any], int]:
     """
     Handle authentication API response.
 
@@ -45,7 +38,7 @@ def handle_auth_response(response: requests.Response) -> Tuple[AuthResponse, int
         response: Response from auth API
 
     Returns:
-        Tuple[AuthResponse, int]: Response data and status code
+        Tuple[Dict[str, Any], int]: Response data and status code
 
     Raises:
         AuthError: If authentication fails
@@ -62,8 +55,7 @@ def handle_auth_response(response: requests.Response) -> Tuple[AuthResponse, int
         if response.status_code != HTTPStatus.OK:
             raise AuthError(data.get("error", "Authentication failed"), response.status_code)
 
-        auth_data = AuthResponse(**data)
-        return auth_data, HTTPStatus.OK
+        return data, HTTPStatus.OK
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Request error: {str(e)}")
@@ -107,19 +99,11 @@ def refresh_token() -> None:
         if not is_authenticated():
             raise AuthError("Not authenticated")
 
-        response = requests.post(
-            f"{current_app.config['API_URL']}/auth/refresh",
-            headers={
-                "Authorization": f"Bearer {session['token']}",
-                "Content-Type": "application/json",
-            },
-            timeout=10,
-        )
-
-        auth_data, status_code = handle_auth_response(response)
+        auth_client = client_factory.get_auth_client()
+        auth_data, status_code = auth_client.refresh_token()
 
         if status_code == HTTPStatus.OK:
-            session["token"] = auth_data.token
+            session["token"] = auth_data["token"]
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Token refresh error: {str(e)}")

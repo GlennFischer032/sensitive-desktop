@@ -1,8 +1,7 @@
 """Redis client for interacting with Redis."""
 
 import logging
-import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import redis
 from flask import Flask, current_app
@@ -178,48 +177,3 @@ class RedisClient:
         except redis.RedisError as e:
             self.logger.error(f"Redis error in pipeline: {str(e)}")
             raise
-
-    def is_rate_limited(self, key: str, limits: Dict[str, Tuple[int, int]]) -> Tuple[bool, Optional[int]]:
-        """Check if a key is rate limited.
-
-        Args:
-            key: The key to check (usually IP address)
-            limits: Limits dictionary {window_name: (limit, window_seconds)}
-
-        Returns:
-            Tuple[bool, Optional[int]]: (is_limited, retry_after)
-        """
-        now = time.time()
-        redis_client = self._get_connection()
-
-        prefix = "rate_limit:"
-
-        # Check all time windows
-        for window_name, (limit, window) in limits.items():
-            # Create a key specific to this window
-            window_key = f"{prefix}{key}:{window_name}"
-
-            # Use Redis sorted set with score as timestamp
-            # First, remove expired timestamps (older than window)
-            redis_client.zremrangebyscore(window_key, 0, now - window)
-
-            # Count remaining timestamps in the window
-            current_count = redis_client.zcard(window_key)
-
-            if current_count >= limit:
-                # Get oldest timestamp to calculate retry-after
-                oldest = redis_client.zrange(window_key, 0, 0, withscores=True)
-                if oldest:
-                    retry_after = int(oldest[0][1] + window - now)
-                    return True, retry_after
-                return True, window  # Fallback if no timestamps found
-
-        # Add current timestamp to all window keys and set expiry
-        pipeline = redis_client.pipeline()
-        for window_name, (_, window) in limits.items():
-            window_key = f"{prefix}{key}:{window_name}"
-            pipeline.zadd(window_key, {str(now): now})
-            pipeline.expire(window_key, window)  # Set TTL on the key
-        pipeline.execute()
-
-        return False, None

@@ -7,7 +7,8 @@ import logging
 from http import HTTPStatus
 
 from flask import jsonify, session
-
+from app.clients.factory import client_factory
+from app.services.auth.auth import AuthError, RateLimitError, is_authenticated, logout
 
 from . import auth_api_bp
 
@@ -50,3 +51,52 @@ def auth_status():
         return jsonify({"authenticated": True, "user": user_data}), HTTPStatus.OK
 
     return jsonify({"authenticated": False}), HTTPStatus.OK
+
+
+@auth_api_bp.route("/refresh", methods=["POST"])
+def api_refresh_token():
+    """Refresh authentication token.
+    ---
+    tags:
+      - Auth API
+    responses:
+      200:
+        description: Token refreshed successfully
+      401:
+        description: Not authenticated or token refresh failed
+      503:
+        description: Network or service error
+    """
+    try:
+        # Check if user is authenticated
+        if not is_authenticated():
+            return jsonify({"error": "Not authenticated"}), HTTPStatus.UNAUTHORIZED
+
+        # Get the token from session
+        token = session.get("token")
+        if not token:
+            return jsonify({"error": "No token in session"}), HTTPStatus.UNAUTHORIZED
+
+        # Get the auth client and refresh token
+        auth_client = client_factory.get_auth_client()
+        data, status_code = auth_client.refresh_token()
+
+        # Handle successful response
+        if status_code == HTTPStatus.OK:
+            # Update session token
+            session["token"] = data["token"]
+            return jsonify(data), HTTPStatus.OK
+
+        # Handle error response
+        return jsonify(data), status_code
+
+    except AuthError as e:
+        # If token refresh fails, clear session
+        logout()
+        return jsonify({"error": str(e)}), e.status_code
+    except RateLimitError as e:
+        return jsonify({"error": str(e)}), e.status_code
+    except Exception as e:
+        logger.error(f"Token refresh error: {str(e)}")
+        logout()
+        return jsonify({"error": "Network error"}), HTTPStatus.SERVICE_UNAVAILABLE

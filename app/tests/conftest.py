@@ -1,231 +1,103 @@
-"""Test configuration and fixtures."""
+"""pytest configuration and fixtures."""
 
-from typing import Any, Dict
+import pytest
+import fakeredis
 from unittest.mock import patch
 
-import fakeredis
-import pytest
-import redis
-import responses
-
 from app import create_app
-from middleware.security import rate_limiter
-from tests.config import TestConfig
-
-# Test data
-TEST_USER = {"username": "testuser", "password": "testpass", "is_admin": False, "id": 1}
-TEST_ADMIN = {"username": "admin", "password": "adminpass", "is_admin": True, "id": 2}
-TEST_TOKEN = "test-token-12345"
+from app.clients.redis_client import RedisClient
+from app.tests.config import TestConfig
 
 
-@pytest.fixture(autouse=True)
-def mock_session_setup():
-    """Mock the session setup to always provide a valid token in tests.
-
-    This automatically applies to all tests.
-    """
-    # No need to create session directories as we're now using memory-based sessions
-    return
-
-
-@pytest.fixture
+@pytest.fixture(scope="function")
 def app():
-    """Create and configure a new app instance for each test."""
-    app = create_app(TestConfig)
-    app.config["TESTING"] = True
-    app.config["SERVER_NAME"] = "localhost"
-    app.config["SESSION_COOKIE_SECURE"] = False
-    app.config["SESSION_COOKIE_DOMAIN"] = None
-    app.config["SKIP_AUTH_FOR_TESTING"] = True
-    app.config["WTF_CSRF_ENABLED"] = False
+    """Create and configure a Flask application for testing."""
+    # Create the app with TestConfig
+    fake_redis = fakeredis.FakeRedis()
 
-    # Ensure session is preserved between requests for testing
-    app.config["PRESERVE_CONTEXT_ON_EXCEPTION"] = False
+    # Use patch to replace redis.from_url with fake redis
+    with patch("redis.from_url", return_value=fake_redis):
+        # Create app with TestConfig
+        app = create_app(TestConfig)
 
-    # Store API URL in test config
-    app.config["API_URL"] = "http://test-api:5000"
+        # Ensure the TestConfig settings are applied
+        app.config.update(
+            {
+                "TESTING": True,
+                "WTF_CSRF_ENABLED": False,
+            }
+        )
 
-    # Set up application context
-    with app.app_context():
-        yield app
+        # Disable rate limiting during tests by removing the check_rate_limit from before_request
+        app.before_request_funcs[None] = [
+            f for f in app.before_request_funcs.get(None, []) if f.__name__ != "check_rate_limit"
+        ]
+
+        # Set up a dummy rate limiter that always returns not limited
+        with patch("app.middleware.security.rate_limiter.is_rate_limited", return_value=(False, None)):
+            # Yield the app for tests
+            with app.app_context():
+                yield app
 
 
-@pytest.fixture
-def client(app):
-    """Create a test client for the app."""
-    app.config["PRESERVE_CONTEXT_ON_EXCEPTION"] = False
-    app.config["TESTING"] = True
-    app.config["WTF_CSRF_ENABLED"] = False
-
+@pytest.fixture(scope="function")
+def client(app, mock_redis):
+    """Create a test client for the Flask application."""
     with app.test_client() as client:
-        client.testing = True
-        # Enable session handling for test client and preserve between requests
-        with client.session_transaction() as sess:
-            sess["token"] = TEST_TOKEN
-            sess["is_admin"] = TEST_ADMIN["is_admin"]
-            sess["username"] = TEST_ADMIN["username"]
-            sess["user_id"] = TEST_ADMIN["id"]
-            sess["logged_in"] = True
-            sess.permanent = True
-
-        # Set to preserve context between requests
-        client.preserve_context_on_exception = False
         yield client
 
 
-@pytest.fixture
-def user_client(app):
-    """Create a test client with regular user permissions."""
-    with app.test_client() as client:
-        client.testing = True
-        # Enable session handling for test client
-        with client.session_transaction() as sess:
-            sess["token"] = TEST_TOKEN
-            sess["is_admin"] = TEST_USER["is_admin"]
-            sess["username"] = TEST_USER["username"]
-            sess["user_id"] = TEST_USER["id"]
-            sess.permanent = True
-        yield client
-
-
-@pytest.fixture
-def admin_client(app):
-    """Create a test client with admin permissions."""
-    with app.test_client() as client:
-        client.testing = True
-        # Enable session handling for test client
-        with client.session_transaction() as sess:
-            sess["token"] = TEST_TOKEN
-            sess["is_admin"] = TEST_ADMIN["is_admin"]
-            sess["username"] = TEST_ADMIN["username"]
-            sess["user_id"] = TEST_ADMIN["id"]
-            sess.permanent = True
-        yield client
-
-
-@pytest.fixture
-def redis_mock():
-    """Mock Redis for rate limiting."""
-    redis_mock = fakeredis.FakeRedis()
-    with patch.object(rate_limiter, "_get_redis_connection", return_value=redis_mock):
-        yield redis_mock
-
-
-@pytest.fixture
-def responses_mock():
-    """Create a mock for external API responses."""
-    with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
-        yield rsps
-
-
-@pytest.fixture(autouse=True)
-def mock_login_required():
-    """Mock authentication decorators to always allow access in tests."""
-    import unittest.mock
-
-    # Create a pass-through decorator
-    def mock_decorator(f):
-        return f
-
-    # Apply the mocks
-    with unittest.mock.patch("middleware.auth.login_required", mock_decorator), unittest.mock.patch(
-        "app.middleware.auth.login_required", mock_decorator
-    ), unittest.mock.patch("middleware.auth.admin_required", mock_decorator), unittest.mock.patch(
-        "app.middleware.auth.admin_required", mock_decorator
-    ):
-        yield
-
-
-@pytest.fixture(autouse=True)
+@pytest.fixture(scope="function")
 def mock_redis():
-    """Mock Redis client for all tests."""
-    fake_redis = fakeredis.FakeStrictRedis()
-    with pytest.MonkeyPatch.context() as mp:
-        # Mock both Redis and from_url to ensure all Redis connections are mocked
-        mp.setattr(redis, "Redis", lambda *_, **__: fake_redis)
-        mp.setattr(redis, "from_url", lambda *_, **__: fake_redis)
-        mp.setattr(redis, "StrictRedis", lambda *_, **__: fake_redis)
-        yield fake_redis
+    """Create a mock redis client using fakeredis."""
+    # Create a fake Redis server
+    fake_server = fakeredis.FakeServer()
+    fake_redis = fakeredis.FakeRedis(server=fake_server)
+
+    # Mock all redis connections with fake redis
+    with patch("redis.Redis.from_url", return_value=fake_redis):
+        with patch("redis.from_url", return_value=fake_redis):
+            yield fake_redis
 
 
-@pytest.fixture(autouse=True)
-def reset_rate_limiter():
-    """Reset rate limiter between tests."""
-    rate_limiter.requests.clear()
-    rate_limiter.default_limits = {
-        "1s": (1000000, 1),  # Effectively disable rate limiting for tests
-        "1m": (1000000, 60),
-        "1h": (1000000, 3600),
-    }
+@pytest.fixture(scope="function")
+def mock_redis_client(mock_redis):
+    """Create a mock RedisClient that uses fakeredis."""
+    # Create a real RedisClient instance
+    redis_client = RedisClient()
+
+    # Apply the patch
+    with patch.object(redis_client, "_get_connection", return_value=mock_redis):
+        yield redis_client
 
 
-@pytest.fixture
-def auth_headers() -> Dict[str, str]:
-    """Return mock authentication headers."""
-    return {"Authorization": f"Bearer {TEST_TOKEN}"}
+@pytest.fixture(scope="function")
+def auth_header():
+    """Create a mock authorization header."""
+    return {"Authorization": "Bearer test-token"}
 
 
-@pytest.fixture
-def mock_api_response() -> Dict[str, Any]:
-    """Mock API response data."""
-    return {
-        "token": TEST_TOKEN,
-        "username": TEST_USER["username"],
-        "is_admin": TEST_USER["is_admin"],
-    }
+@pytest.fixture(scope="function")
+def logged_in_client(client, monkeypatch):
+    """Create a test client with an active session."""
+    with client.session_transaction() as session:
+        session["logged_in"] = True
+        session["user_id"] = "test-user-id"
+        session["username"] = "test-user"
+        session["is_admin"] = False
+        session["token"] = "test-token"
+
+    return client
 
 
-@pytest.fixture
-def mock_api_auth(responses_mock):
-    """Mock external API responses."""
-    # Add default login response
-    responses_mock.add(
-        responses.POST,
-        "http://test-api:5000/api/auth/login",
-        json={
-            "token": TEST_TOKEN,
-            "username": TEST_USER["username"],
-            "is_admin": TEST_USER["is_admin"],
-        },
-        status=200,
-        match=[
-            responses.matchers.json_params_matcher(
-                {"username": TEST_USER["username"], "password": TEST_USER["password"]}
-            )
-        ],
-    )
-    return responses_mock
+@pytest.fixture(scope="function")
+def admin_client(client, monkeypatch):
+    """Create a test client with an active admin session."""
+    with client.session_transaction() as session:
+        session["logged_in"] = True
+        session["user_id"] = "admin-user-id"
+        session["username"] = "admin-user"
+        session["is_admin"] = True
+        session["token"] = "admin-token"
 
-
-@pytest.fixture(autouse=True)
-def mock_jwt(monkeypatch):
-    """Mock JWT token validation."""
-    from datetime import datetime, timedelta
-
-    def mock_decode(*args, **kwargs):
-        # Create an expiration time 1 hour from now
-        exp_time = (datetime.utcnow() + timedelta(hours=1)).timestamp()
-
-        if kwargs.get("options", {}).get("verify_signature", True) is False:
-            # For token verification
-            return {
-                "username": TEST_USER["username"],
-                "is_admin": TEST_USER["is_admin"],
-                "exp": exp_time,
-            }
-
-        # Check if the token is for an admin or regular user based on the first argument
-        if args and isinstance(args[0], str) and "admin" in args[0]:
-            return {
-                "username": TEST_ADMIN["username"],
-                "is_admin": TEST_ADMIN["is_admin"],
-                "exp": exp_time,
-            }
-        else:
-            return {
-                "username": TEST_USER["username"],
-                "is_admin": TEST_USER["is_admin"],
-                "exp": exp_time,
-            }
-
-    monkeypatch.setattr("jwt.decode", mock_decode)
+    return client
