@@ -2,11 +2,13 @@
 Unit tests for the Base client.
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
-from requests.exceptions import Timeout, ConnectionError as RequestsConnectionError
+from unittest.mock import MagicMock, patch
 
-from app.clients.base import BaseClient, ClientRequest, APIError
+import pytest
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import Timeout
+
+from app.clients.base import APIError, BaseClient, ClientRequest
 
 
 def test_base_client_initialization():

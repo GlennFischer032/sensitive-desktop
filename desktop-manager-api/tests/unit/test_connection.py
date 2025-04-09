@@ -1,12 +1,12 @@
 """Unit tests for connection operations."""
 
+from desktop_manager.api.models.connection import Connection
+from desktop_manager.api.models.user import User
+from desktop_manager.api.schemas.user import UserCreate
 import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from desktop_manager.api.models.connection import Connection
-from desktop_manager.api.models.user import User
-from desktop_manager.api.schemas.user import UserCreate
 from tests.config import TEST_CONNECTION, TEST_USER
 
 

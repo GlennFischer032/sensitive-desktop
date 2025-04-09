@@ -2,14 +2,13 @@
 
 from http import HTTPStatus
 
+from desktop_manager.clients.base import APIError
+from desktop_manager.core.exceptions import ValidationError
 from flask import Flask, g, jsonify, request
 import pytest
 
-from desktop_manager.clients.base import APIError
-from desktop_manager.core.exceptions import ValidationError
 
-
-@pytest.fixture
+@pytest.fixture()
 def app_with_mocks(mocker):
     """Create a Flask app with mocked services."""
     app = Flask(__name__)
@@ -83,13 +82,13 @@ def app_with_mocks(mocker):
     return app
 
 
-@pytest.fixture
+@pytest.fixture()
 def client(app_with_mocks):
     """Create a test client for the app."""
     return app_with_mocks.test_client()
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_db_client(app_with_mocks):
     """Get the mock database client from the app."""
     return app_with_mocks.mock_db_client

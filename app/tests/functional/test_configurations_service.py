@@ -2,7 +2,7 @@
 Functional tests for the configurations service.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def test_list_configurations_authenticated(logged_in_client):

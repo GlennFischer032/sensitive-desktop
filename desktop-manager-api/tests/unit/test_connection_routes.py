@@ -8,11 +8,6 @@ import time
 from unittest.mock import MagicMock, Mock, patch
 import uuid
 
-from flask import Blueprint, Flask, jsonify
-import jwt
-import pytest
-from sqlalchemy import text
-
 from desktop_manager.api.models.connection import Connection
 from desktop_manager.api.models.user import User
 from desktop_manager.api.routes.connection_routes import connections_bp
@@ -20,6 +15,11 @@ from desktop_manager.clients.base import APIError
 from desktop_manager.clients.guacamole import GuacamoleClient
 from desktop_manager.clients.rancher import RancherClient
 from desktop_manager.core.exceptions import GuacamoleError
+from flask import Blueprint, Flask, jsonify
+import jwt
+import pytest
+from sqlalchemy import text
+
 from tests.config import TEST_CONNECTION, TEST_USER
 
 
@@ -62,7 +62,7 @@ def setup_database(test_db, test_engine):
     test_db.commit()
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_user(test_db):
     """Create a test user for a single test."""
     # Generate unique email and username for each test
@@ -79,7 +79,7 @@ def test_user(test_db):
     return user
 
 
-@pytest.fixture
+@pytest.fixture()
 def auth_token(test_user):
     """Create a JWT token for the test user."""
     return jwt.encode(
@@ -94,7 +94,7 @@ def auth_token(test_user):
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_settings():
     """Mock settings for tests."""
     settings_mock = Mock()
@@ -111,7 +111,7 @@ def mock_settings():
     return settings_mock
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_app(test_db, test_user):
     """Create a test Flask application with mocked dependencies."""
     app = Flask(__name__)
@@ -463,7 +463,7 @@ def test_app(test_db, test_user):
         yield app
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_client(test_app):
     """Create a test client."""
     client = test_app.test_client()
@@ -472,7 +472,7 @@ def test_client(test_app):
     return client
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_rancher_client():
     """Mock rancher client for tests."""
     with patch("desktop_manager.clients.factory.client_factory.get_rancher_client") as mock_client:
@@ -485,7 +485,7 @@ def mock_rancher_client():
         yield mock_rancher
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_guacamole():
     """Mock guacamole client for tests."""
     with patch(
@@ -506,7 +506,7 @@ def mock_guacamole():
         yield mock_guacamole_client
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_guacamole_json_auth():
     """Mock GuacamoleJsonAuth class."""
     with patch("desktop_manager.api.routes.connection_routes.GuacamoleJsonAuth") as mock_class:
@@ -518,7 +518,7 @@ def mock_guacamole_json_auth():
         yield mock_instance
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_connection(test_db, test_user):
     """Create a test connection in the database."""
     connection = Connection(
@@ -787,7 +787,7 @@ def test_list_connections_direct(test_db, test_user):
     return connections  # Return the connections for potential reuse
 
 
-@pytest.fixture
+@pytest.fixture()
 def non_admin_token(test_db):
     """Create a JWT token for a non-admin user."""
     # Create a non-admin user

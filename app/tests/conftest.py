@@ -1,15 +1,16 @@
 """pytest configuration and fixtures."""
 
-import pytest
-import fakeredis
 from unittest.mock import patch
+
+import fakeredis
+import pytest
 
 from app import create_app
 from app.clients.redis_client import RedisClient
 from app.tests.config import TestConfig
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def app():
     """Create and configure a Flask application for testing."""
     # Create the app with TestConfig
@@ -40,14 +41,14 @@ def app():
                 yield app
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def client(app, mock_redis):
     """Create a test client for the Flask application."""
     with app.test_client() as client:
         yield client
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def mock_redis():
     """Create a mock redis client using fakeredis."""
     # Create a fake Redis server
@@ -55,12 +56,11 @@ def mock_redis():
     fake_redis = fakeredis.FakeRedis(server=fake_server)
 
     # Mock all redis connections with fake redis
-    with patch("redis.Redis.from_url", return_value=fake_redis):
-        with patch("redis.from_url", return_value=fake_redis):
-            yield fake_redis
+    with patch("redis.Redis.from_url", return_value=fake_redis), patch("redis.from_url", return_value=fake_redis):
+        yield fake_redis
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def mock_redis_client(mock_redis):
     """Create a mock RedisClient that uses fakeredis."""
     # Create a real RedisClient instance
@@ -71,13 +71,13 @@ def mock_redis_client(mock_redis):
         yield redis_client
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def auth_header():
     """Create a mock authorization header."""
     return {"Authorization": "Bearer test-token"}
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def logged_in_client(client, monkeypatch):
     """Create a test client with an active session."""
     with client.session_transaction() as session:
@@ -90,7 +90,7 @@ def logged_in_client(client, monkeypatch):
     return client
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def admin_client(client, monkeypatch):
     """Create a test client with an active admin session."""
     with client.session_transaction() as session:

@@ -2,9 +2,10 @@
 Functional tests for the auth API routes.
 """
 
-from unittest.mock import patch, MagicMock
-from flask import json
 from http import HTTPStatus
+from unittest.mock import MagicMock, patch
+
+from flask import json
 
 
 @patch("app.clients.factory.client_factory.get_auth_client")

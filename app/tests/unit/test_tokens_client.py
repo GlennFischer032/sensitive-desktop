@@ -2,11 +2,12 @@
 Unit tests for the Tokens client.
 """
 
-import pytest
 from unittest.mock import patch
 
-from app.clients.tokens import TokensClient
+import pytest
+
 from app.clients.base import APIError
+from app.clients.tokens import TokensClient
 
 
 def test_tokens_client_initialization():

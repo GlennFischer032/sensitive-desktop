@@ -8,12 +8,12 @@ import time
 from unittest.mock import MagicMock, Mock, patch
 import uuid
 
+from desktop_manager.api.models.user import User
 from flask import Blueprint, Flask, jsonify, request
 import jwt
 import pytest
 from sqlalchemy import text
 
-from desktop_manager.api.models.user import User
 from tests.config import TEST_ADMIN, TEST_USER
 
 
@@ -103,7 +103,7 @@ def setup_database(test_db, test_engine):
     test_db.commit()
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_user(test_db):
     """Create a test user for the tests."""
     # Generate unique email and username for each test
@@ -119,7 +119,7 @@ def test_user(test_db):
     return user
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_admin(test_db):
     """Create a test admin user for the tests."""
     # Generate unique email and username for each test
@@ -136,7 +136,7 @@ def test_admin(test_db):
     return admin
 
 
-@pytest.fixture
+@pytest.fixture()
 def admin_token():
     """Generate an admin token for testing."""
     unique_id = uuid.uuid4().hex[:8]
@@ -151,7 +151,7 @@ def admin_token():
     return token
 
 
-@pytest.fixture
+@pytest.fixture()
 def user_token():
     """Generate a non-admin user token for testing."""
     unique_id = uuid.uuid4().hex[:8]
@@ -166,7 +166,7 @@ def user_token():
     return token
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_guacamole():
     """Mock all Guacamole-related functions."""
     # Create mock guacamole token
@@ -278,7 +278,7 @@ def mock_guacamole():
     client_post_patch.stop()
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_app(test_db, mock_guacamole):
     """Create a test Flask application with mocked dependencies."""
     app = Flask(__name__)
@@ -695,7 +695,7 @@ def test_app(test_db, mock_guacamole):
         return app
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_client(test_app):
     """Create a test client."""
     with test_app.test_client() as client:

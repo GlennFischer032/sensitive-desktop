@@ -1,5 +1,5 @@
-from flask import Config
 from cachelib import NullCache
+from flask import Config
 
 
 class TestConfig(Config):

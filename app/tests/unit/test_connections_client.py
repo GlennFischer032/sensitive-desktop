@@ -2,11 +2,12 @@
 Unit tests for the Connections client.
 """
 
-import pytest
 from unittest.mock import patch
 
-from app.clients.connections import ConnectionsClient
+import pytest
+
 from app.clients.base import APIError
+from app.clients.connections import ConnectionsClient
 
 
 def test_connections_client_initialization():

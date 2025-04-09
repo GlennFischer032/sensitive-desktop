@@ -2,16 +2,18 @@
 Unit tests for the auth module functionality.
 """
 
+from http import HTTPStatus
+from unittest.mock import MagicMock, patch
+
 import pytest
 import requests
-from http import HTTPStatus
-from unittest.mock import patch, MagicMock
+
 from app.services.auth.auth import (
     AuthError,
     RateLimitError,
-    logout,
-    is_authenticated,
     get_current_user,
+    is_authenticated,
+    logout,
     refresh_token,
 )
 
@@ -46,12 +48,11 @@ class TestRateLimitError:
 
 
 class TestSessionFunctions:
-    @pytest.fixture
+    @pytest.fixture()
     def app_context(self, app):
         """Provide app context for the tests"""
-        with app.app_context():
-            with app.test_request_context():
-                yield
+        with app.app_context(), app.test_request_context():
+            yield
 
     @patch("app.services.auth.auth.session")
     def test_logout(self, mock_session, app_context):
@@ -108,7 +109,7 @@ class TestSessionFunctions:
         user = get_current_user()
 
         assert user.get("username") == "test-user"
-        assert user.get("is_admin") == False
+        assert user.get("is_admin") is False
 
     @patch("app.services.auth.auth.session")
     @patch("app.services.auth.auth.is_authenticated")
@@ -126,12 +127,11 @@ class TestSessionFunctions:
 
 
 class TestRefreshToken:
-    @pytest.fixture
+    @pytest.fixture()
     def app_context(self, app):
         """Provide app context for the tests"""
-        with app.app_context():
-            with app.test_request_context():
-                yield
+        with app.app_context(), app.test_request_context():
+            yield
 
     @patch("app.services.auth.auth.session")
     @patch("app.services.auth.auth.is_authenticated")

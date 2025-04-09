@@ -54,7 +54,7 @@ def test_security_settings_defaults():
     assert settings.RATE_LIMIT_DEFAULT_REQUESTS_PER_HOUR == 500
 
     # Content security settings
-    assert settings.MAX_CONTENT_LENGTH == 5 * 1024 * 1024
+    assert 5 * 1024 * 1024 == settings.MAX_CONTENT_LENGTH
     assert "application/json" in settings.ALLOWED_CONTENT_TYPES
 
     # Security headers

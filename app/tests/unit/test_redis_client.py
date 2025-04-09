@@ -2,11 +2,12 @@
 Unit tests for the Redis client.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+import redis
 from flask import Flask
 
-import redis
 from app.clients.redis_client import RedisClient
 
 

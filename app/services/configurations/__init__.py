@@ -4,5 +4,7 @@ configurations_bp = Blueprint("configurations", __name__, url_prefix="/configura
 configurations_api_bp = Blueprint("configurations_api", __name__, url_prefix="/api/configurations")
 
 # Register routes with the blueprint
-from . import routes  # noqa: F401, E402
-from . import api_routes  # noqa: F401, E402
+from . import (  # noqa: F401, E402
+    api_routes,
+    routes,
+)

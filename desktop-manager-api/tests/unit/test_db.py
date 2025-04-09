@@ -1,10 +1,10 @@
 """Test database setup and connection."""
 
+from desktop_manager.api.models.connection import Connection
+from desktop_manager.api.models.user import User
 import pytest
 from sqlalchemy.sql import text
 
-from desktop_manager.api.models.connection import Connection
-from desktop_manager.api.models.user import User
 from tests.config import TEST_USER
 
 

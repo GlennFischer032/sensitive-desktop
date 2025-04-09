@@ -10,13 +10,12 @@ import secrets
 from unittest.mock import MagicMock, Mock, patch
 from urllib.parse import parse_qs, urlparse
 
+from desktop_manager.api.models.user import PKCEState, SocialAuthAssociation, User
+from desktop_manager.api.routes.oidc_routes import oidc_bp
 from flask import Flask
 import pytest
 import requests
 from sqlalchemy import text
-
-from desktop_manager.api.models.user import PKCEState, SocialAuthAssociation, User
-from desktop_manager.api.routes.oidc_routes import oidc_bp
 
 
 # Constants for testing
@@ -84,7 +83,7 @@ def setup_database(test_db, test_engine):
     test_db.commit()
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_app():
     """Create a test Flask application with OIDC configuration."""
     app = Flask(__name__)
@@ -155,14 +154,14 @@ def test_app():
             yield app
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_client(test_app):
     """Create a test client."""
     with test_app.test_client() as client:
         yield client
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_guacamole():
     """Mock Guacamole API calls."""
     mock_guacamole_client = MagicMock()
@@ -203,14 +202,14 @@ def mock_guacamole():
         }
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_pkce_verifier():
     """Mock a PKCE code verifier."""
     # Return a fixed code verifier for testing
     return "test_code_verifier"
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_pkce_challenge(mock_pkce_verifier):
     """Generate a PKCE code challenge from the mock verifier."""
     # Generate the S256 challenge method
@@ -222,7 +221,7 @@ def mock_pkce_challenge(mock_pkce_verifier):
     return code_challenge
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_oidc_userinfo():
     """Mock OIDC userinfo response."""
     return {
@@ -236,7 +235,7 @@ def mock_oidc_userinfo():
     }
 
 
-@pytest.fixture
+@pytest.fixture()
 def stored_pkce_state(test_db):
     """Create a test PKCE state in the database."""
     state = secrets.token_urlsafe(32)

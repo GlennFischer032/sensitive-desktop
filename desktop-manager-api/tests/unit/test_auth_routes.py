@@ -4,12 +4,11 @@ from datetime import datetime, timedelta
 import json
 from unittest.mock import MagicMock, patch
 
+from desktop_manager.api.models.user import User
+from desktop_manager.api.routes.auth_routes import auth_bp
 from flask import Flask, jsonify, request
 import jwt
 import pytest
-
-from desktop_manager.api.models.user import User
-from desktop_manager.api.routes.auth_routes import auth_bp
 
 
 # Mock decorators
@@ -27,7 +26,7 @@ def mock_admin_required(f):
     return decorated
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_user(test_db):
     """Create a test user in the database."""
     user = User(
@@ -48,7 +47,7 @@ def test_user(test_db):
     return user
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_admin(test_db):
     """Create a test admin user in the database."""
     admin = User(
@@ -69,7 +68,7 @@ def test_admin(test_db):
     return admin
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_guacamole():
     """Mock the Guacamole client and its methods."""
     # Create a MagicMock for GuacamoleClient
@@ -109,7 +108,7 @@ def mock_guacamole():
         }
 
 
-@pytest.fixture
+@pytest.fixture()
 def admin_token(test_admin):
     """Create a JWT token for the admin user."""
     token_data = {
@@ -121,7 +120,7 @@ def admin_token(test_admin):
     return jwt.encode(token_data, "test_secret_key", algorithm="HS256")
 
 
-@pytest.fixture
+@pytest.fixture()
 def user_token(test_user):
     """Create a JWT token for the regular user."""
     token_data = {
@@ -133,7 +132,7 @@ def user_token(test_user):
     return jwt.encode(token_data, "test_secret_key", algorithm="HS256")
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_app(test_db):
     """Create a test Flask application."""
     app = Flask(__name__)
@@ -257,7 +256,7 @@ def test_app(test_db):
         yield app
 
 
-@pytest.fixture
+@pytest.fixture()
 def client(test_app):
     """Create a test client."""
     return test_app.test_client()

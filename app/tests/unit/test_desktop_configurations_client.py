@@ -2,11 +2,12 @@
 Unit tests for the Desktop Configurations client.
 """
 
-import pytest
 from unittest.mock import patch
 
-from app.clients.desktop_configurations import DesktopConfigurationsClient
+import pytest
+
 from app.clients.base import APIError
+from app.clients.desktop_configurations import DesktopConfigurationsClient
 
 
 def test_desktop_configurations_client_initialization():

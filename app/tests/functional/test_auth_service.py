@@ -2,7 +2,7 @@
 Functional tests for the auth service.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def test_login_page_get(client):

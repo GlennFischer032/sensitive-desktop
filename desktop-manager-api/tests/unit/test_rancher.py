@@ -4,11 +4,10 @@ from dataclasses import dataclass, field
 import json
 from unittest.mock import Mock, patch
 
-import pytest
-import requests
-
 from desktop_manager.clients.base import APIError
 from desktop_manager.clients.rancher import RancherClient
+import pytest
+import requests
 
 
 @dataclass
@@ -35,7 +34,7 @@ class DesktopValues:
         }
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_settings():
     """Provide mock settings."""
     with patch("desktop_manager.clients.rancher.get_settings") as mock_get_settings:
@@ -50,7 +49,7 @@ def mock_settings():
         yield settings
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_requests_post():
     """Mock requests.post."""
     with patch("desktop_manager.clients.rancher.requests.post") as mock_post:
@@ -61,7 +60,7 @@ def mock_requests_post():
         yield mock_post
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_requests_get():
     """Mock requests.get."""
     with patch("desktop_manager.clients.rancher.requests.get") as mock_get:
@@ -72,7 +71,7 @@ def mock_requests_get():
         yield mock_get
 
 
-@pytest.fixture
+@pytest.fixture()
 def rancher_client(mock_settings):
     """Create a RancherClient instance."""
     return RancherClient()

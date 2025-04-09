@@ -2,14 +2,13 @@
 
 from unittest.mock import MagicMock, PropertyMock, patch
 
+from desktop_manager.clients.base import APIError
+from desktop_manager.clients.database import DatabaseClient
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-from desktop_manager.clients.base import APIError
-from desktop_manager.clients.database import DatabaseClient
 
-
-@pytest.fixture
+@pytest.fixture()
 def mock_engine():
     """Mock SQLAlchemy engine."""
     with patch("desktop_manager.clients.database.create_engine") as mock_create_engine:

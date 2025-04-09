@@ -2,8 +2,9 @@
 Unit tests for the Auth client.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 from flask import session
 
 from app.clients.auth import AuthClient

@@ -2,7 +2,7 @@
 Functional tests for the storage service.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def test_view_pvcs_page_authenticated(logged_in_client):

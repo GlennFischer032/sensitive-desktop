@@ -2,11 +2,12 @@
 Unit tests for the Users client.
 """
 
-import pytest
 from unittest.mock import patch
 
-from app.clients.users import UsersClient
+import pytest
+
 from app.clients.base import APIError
+from app.clients.users import UsersClient
 
 
 def test_users_client_initialization():

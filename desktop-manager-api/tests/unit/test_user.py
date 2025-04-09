@@ -3,13 +3,13 @@
 from unittest.mock import Mock, patch
 import uuid
 
-import pytest
-from sqlalchemy.orm import Session
-
 from desktop_manager.api.models.user import User
 from desktop_manager.api.schemas.user import UserCreate
 from desktop_manager.api.services.user_service import UserService
 from desktop_manager.core.exceptions import GuacamoleError
+import pytest
+from sqlalchemy.orm import Session
+
 from tests.config import TEST_ADMIN, TEST_USER
 
 
@@ -211,7 +211,7 @@ def test_delete_nonexistent_user(test_db: Session):
     # No error should be raised
 
 
-@pytest.fixture
+@pytest.fixture()
 def mock_guacamole_client():
     """Create a mock Guacamole client."""
     with patch("desktop_manager.clients.factory.get_guacamole_client") as mock_factory:

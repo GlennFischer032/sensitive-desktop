@@ -2,11 +2,12 @@
 Unit tests for the Storage client.
 """
 
-import pytest
 from unittest.mock import patch
 
-from app.clients.storage import StorageClient
+import pytest
+
 from app.clients.base import APIError
+from app.clients.storage import StorageClient
 
 
 def test_storage_client_initialization():

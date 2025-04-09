@@ -3,14 +3,13 @@
 from http import HTTPStatus
 import json
 
-from flask import Flask, Response
-from pydantic import BaseModel, Field, ValidationError, model_validator
-import pytest
-
 from desktop_manager.api.utils.error_handlers import (
     format_validation_error,
     handle_validation_error,
 )
+from flask import Flask, Response
+from pydantic import BaseModel, Field, ValidationError, model_validator
+import pytest
 
 
 class TestModel(BaseModel):

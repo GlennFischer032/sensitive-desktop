@@ -2,8 +2,8 @@
 Functional tests for the auth routes.
 """
 
-from unittest.mock import patch, MagicMock
 from http import HTTPStatus
+from unittest.mock import MagicMock, patch
 
 
 def test_login_page_get(client):

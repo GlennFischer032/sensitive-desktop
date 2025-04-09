@@ -2,7 +2,7 @@
 Functional tests for the users service.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def test_view_users_page_as_admin(admin_client):

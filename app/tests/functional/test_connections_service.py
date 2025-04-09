@@ -2,7 +2,7 @@
 Functional tests for the connections service.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def test_view_connections_page_authenticated(logged_in_client):
@@ -114,7 +114,7 @@ def test_add_connection_success(mock_validate_name, mock_return_error, logged_in
                 mock_url_for.return_value = "/connections/"
 
                 # Make the request to add a connection
-                response = logged_in_client.post(
+                logged_in_client.post(
                     "/connections/add",
                     data={"connection_name": "test-desktop", "desktop_configuration_id": "1", "persistent_home": "on"},
                     follow_redirects=True,
@@ -140,7 +140,7 @@ def test_add_connection_invalid_name(mock_return_error, logged_in_client):
         mock_validate.return_value = (error_msg, 400)
 
         # Make the request to add a connection
-        response = logged_in_client.post(
+        logged_in_client.post(
             "/connections/add",
             data={"connection_name": "Invalid-Name", "desktop_configuration_id": "1"},
             follow_redirects=True,
@@ -161,7 +161,7 @@ def test_add_connection_missing_data(mock_return_error, logged_in_client):
     mock_return_error.side_effect = lambda error_msg, status_code=400: (error_msg, status_code)
 
     # Make the request to add a connection with missing name
-    response = logged_in_client.post("/connections/add", data={"desktop_configuration_id": "1"}, follow_redirects=True)
+    logged_in_client.post("/connections/add", data={"desktop_configuration_id": "1"}, follow_redirects=True)
 
     # Verify error_return was called with the correct message
     mock_return_error.assert_called_with("Connection name is required", 400)

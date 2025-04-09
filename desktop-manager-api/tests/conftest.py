@@ -1,14 +1,13 @@
 import os
 import re
 
+# Import all models to ensure they are registered with SQLAlchemy
+from desktop_manager.config.settings import Settings
+from desktop_manager.core.database import configure_db_for_tests, get_engine
 import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import text
-
-# Import all models to ensure they are registered with SQLAlchemy
-from desktop_manager.config.settings import Settings
-from desktop_manager.core.database import configure_db_for_tests, get_engine
 
 
 # Test settings override
@@ -338,19 +337,19 @@ def setup_test_session(setup_test_db):
     connection.close()
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_db(setup_test_session):
     """Provide a database session for tests."""
     return setup_test_session
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_engine():
     """Provide the SQLAlchemy engine for tests."""
     return get_engine()
 
 
-@pytest.fixture
+@pytest.fixture()
 def client(monkeypatch):
     """Create a test client with database and settings overrides."""
     from desktop_manager.main import create_app
@@ -366,7 +365,7 @@ def client(monkeypatch):
 
 
 # Mock Guacamole client
-@pytest.fixture
+@pytest.fixture()
 def mock_guacamole_client(mocker):
     """Create a mock Guacamole client."""
     mock = mocker.Mock()
