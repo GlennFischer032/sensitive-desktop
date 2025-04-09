@@ -13,11 +13,10 @@ from app.clients.factory import client_factory
 from app.middleware.auth import login_required
 from app.middleware.security import rate_limit
 
+from . import connections_api_bp
+
 # Constants
 MAX_CONNECTION_NAME_LENGTH = 12
-
-# Create a new Blueprint for API routes
-from . import connections_api_bp
 
 
 @connections_api_bp.route("/", methods=["GET"])
@@ -70,7 +69,7 @@ def list_connections():
 @connections_api_bp.route("/", methods=["POST"])
 @login_required
 @rate_limit(requests_per_minute=10)
-def create_connection():
+def create_connection():  # noqa: PLR0911
     """Create a new connection.
     ---
     tags:

@@ -30,7 +30,7 @@ def swag_from_doc(func):
     return wrapper
 
 
-def auto_document_blueprint(blueprint, default_tag=None):
+def auto_document_blueprint(blueprint, _):
     """Automatically document all routes in a blueprint using their docstrings.
 
     This function iterates through all routes in a blueprint and applies the
@@ -40,10 +40,10 @@ def auto_document_blueprint(blueprint, default_tag=None):
         blueprint: The Flask blueprint to document
         default_tag: A default tag to apply to routes without tags
     """
-    for endpoint, view_func in blueprint.view_functions.items():
+    for _endpoint, view_func in blueprint.view_functions.items():
         doc = getdoc(view_func)
         if doc and "---" in doc and not hasattr(view_func, "_swag_documented"):
             # If there's a docstring with a Swagger section
-            setattr(view_func, "_swag_documented", True)
+            view_func._swag_documented = True
             # We don't need to modify the function since Flasgger will pick up
             # the docstrings automatically. This is just for marking and future use.

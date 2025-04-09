@@ -16,7 +16,8 @@ class RedisClient:
         """Initialize the Redis client.
 
         Args:
-            redis_url: URL to Redis server. If None, uses REDIS_URL from config when connection is needed.
+            redis_url: URL to Redis server.
+                If None, uses REDIS_URL from config when connection is needed.
             timeout: Timeout for Redis operations in seconds.
         """
         self._redis_url = redis_url
@@ -53,13 +54,13 @@ class RedisClient:
             if redis_url is None:
                 try:
                     redis_url = current_app.config.get("SESSION_REDIS")
-                except RuntimeError:
+                except RuntimeError as e:
                     # Not in application context
                     raise ValueError(
                         "Redis URL not provided and not in application context. "
                         "Either provide a redis_url to the constructor, call configure_with_app(), "
                         "or ensure you're in an application context."
-                    )
+                    ) from e
 
             # Now create the connection
             if isinstance(redis_url, str):

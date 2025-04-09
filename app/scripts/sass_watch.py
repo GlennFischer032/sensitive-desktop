@@ -32,11 +32,11 @@ def compile_sass(source, target):
         return False
 
     # We've validated the executable path and input paths, so this is safe
-    result = subprocess.run(  # noqa: S603
-        [pysassc_path, str(source_path), str(target_path)],
+    result = subprocess.run(
+        [pysassc_path, str(source_path), str(target_path)],  # noqa: S603
         capture_output=True,
         text=True,
-        check=False,  # Explicitly set check to False and handle returncode ourselves
+        check=False,
     )
 
     if result.returncode == 0:

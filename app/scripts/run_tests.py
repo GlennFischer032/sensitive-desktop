@@ -7,9 +7,9 @@ Configuration is defined in pyproject.toml under [tool.pytest.ini_options].
 """
 
 import argparse
+import os
 import subprocess
 import sys
-import os
 from pathlib import Path
 
 
@@ -52,7 +52,7 @@ def run_tests(test_type=None, verbose=False, coverage=False, html=False):
 
     # Run the command
     print(f"Running: {' '.join(cmd)}")
-    result = subprocess.run(cmd, check=False)
+    result = subprocess.run(cmd, check=False)  # noqa: S603
 
     return result.returncode
 

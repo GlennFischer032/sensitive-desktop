@@ -4,28 +4,36 @@ from datetime import datetime
 from http import HTTPStatus
 
 import requests
+from flasgger import Swagger
 from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_cors import CORS
 from flask_session import Session
-from flasgger import Swagger
 
-from app.services.auth import auth_bp, auth_api_bp  # Import the auth API blueprint
+from app.clients.factory import client_factory
+from app.services.auth import auth_api_bp, auth_bp  # Import the auth API blueprint
 from app.services.configurations import (
-    configurations_bp,
     configurations_api_bp,
-)  # Import the configurations API blueprint
-from app.services.connections import connections_bp, connections_api_bp  # Import the connections API blueprint
-from app.services.storage import storage_bp
-from app.services.storage import storage_api_bp  # Import the storage API blueprint
-from app.services.tokens import tokens_bp
-from app.services.tokens import tokens_api_bp  # Import the tokens API blueprint
-from app.services.users import users_bp
-from app.services.users import users_api_bp  # Import the API blueprint
+    configurations_bp,
+)
+
+# Import the configurations API blueprint
+from app.services.connections import connections_api_bp, connections_bp  # Import the connections API blueprint
+from app.services.storage import (
+    storage_api_bp,  # Import the storage API blueprint
+    storage_bp,
+)
+from app.services.tokens import (
+    tokens_api_bp,  # Import the tokens API blueprint
+    tokens_bp,
+)
+from app.services.users import (
+    users_api_bp,  # Import the API blueprint
+    users_bp,
+)
 from app.utils.swagger import auto_document_blueprint
 from config.config import Config
-from middleware.security import init_security, rate_limiter
 from middleware.auth import login_required
-from app.clients.factory import client_factory
+from middleware.security import init_security, rate_limiter
 
 
 def init_session(app: Flask):
@@ -105,7 +113,7 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
                         "health_check",  # Include health check endpoint
                     ]
                 ),
-                "model_filter": lambda tag: True,  # all in
+                "model_filter": lambda _: True,
             }
         ],
         "static_url_path": "/flasgger_static",
@@ -134,7 +142,7 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
     }
 
     # Initialize Swagger without applying protection
-    swagger = Swagger(app, config=swagger_config, template=swagger_template)
+    Swagger(app, config=swagger_config, template=swagger_template)
 
     # Create middleware to check admin status for Swagger routes
     @app.before_request

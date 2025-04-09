@@ -6,8 +6,8 @@ from flask import (
 )
 
 from app.clients.factory import client_factory
-from app.middleware.security import rate_limit
 from app.middleware.auth import login_required
+from app.middleware.security import rate_limit
 
 from . import storage_bp
 

@@ -41,43 +41,6 @@ def test_logout(app):
         assert session.get("user_id") is None
 
 
-@patch("app.clients.base.BaseClient.get")
-def test_check_token_success(mock_get):
-    """
-    GIVEN an AuthClient
-    WHEN check_token() is called with a valid token
-    THEN check it calls the API correctly and returns the response
-    """
-    # Set up mock
-    expected_response = ({"valid": True, "user_id": "test-user-id"}, 200)
-    mock_get.return_value = expected_response
-
-    # Call method
-    auth_client = AuthClient()
-    response, status_code = auth_client.check_token("test-token")
-
-    # Verify
-    mock_get.assert_called_once()
-    assert response["valid"] is True
-    assert status_code == 200
-
-
-@patch("app.clients.base.BaseClient.get")
-def test_check_token_failure(mock_get):
-    """
-    GIVEN an AuthClient
-    WHEN check_token() is called and the API returns an error
-    THEN check it raises an APIError
-    """
-    # Set up mock
-    mock_get.side_effect = APIError("Token validation failed", 401)
-
-    # Call method and verify exception
-    auth_client = AuthClient()
-    with pytest.raises(APIError):
-        auth_client.check_token("invalid-token")
-
-
 @patch("app.clients.base.BaseClient.post")
 def test_oidc_callback_success(mock_post):
     """

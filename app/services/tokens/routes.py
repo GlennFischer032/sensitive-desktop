@@ -11,8 +11,8 @@ from dateutil import parser
 from flask import flash, render_template, request
 
 from app.clients.factory import client_factory
-from app.services.tokens import tokens_bp
 from app.middleware.auth import admin_required, login_required
+from app.services.tokens import tokens_bp
 
 logger = logging.getLogger(__name__)
 

@@ -5,8 +5,8 @@ This module provides API endpoints for managing API tokens, separate from UI rou
 
 from http import HTTPStatus
 
-from flask import current_app, jsonify, request
 from dateutil import parser
+from flask import current_app, jsonify, request
 
 from app.clients.factory import client_factory
 from app.middleware.auth import admin_required, login_required

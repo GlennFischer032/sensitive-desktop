@@ -620,7 +620,7 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
             if current_user.is_admin:
                 logging.debug("Listing connections for admin user")
                 if creator_filter:
-                    logging.debug(f"Filtering connections by creator: {creator_filter}")
+                    logging.debug("Filtering connections by creator: %s", creator_filter)
                     query = """
                     SELECT c.*, dc.name as desktop_configuration_name
                     FROM connections c

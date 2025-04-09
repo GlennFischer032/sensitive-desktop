@@ -7,8 +7,9 @@ import logging
 from http import HTTPStatus
 
 from flask import jsonify, session
+
 from app.clients.factory import client_factory
-from app.services.auth.auth import AuthError, RateLimitError, is_authenticated, logout
+from app.services.auth.auth import AuthError, is_authenticated, logout
 
 from . import auth_api_bp
 
@@ -93,8 +94,6 @@ def api_refresh_token():
     except AuthError as e:
         # If token refresh fails, clear session
         logout()
-        return jsonify({"error": str(e)}), e.status_code
-    except RateLimitError as e:
         return jsonify({"error": str(e)}), e.status_code
     except Exception as e:
         logger.error(f"Token refresh error: {str(e)}")

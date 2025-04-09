@@ -2,7 +2,6 @@
 import logging
 from typing import Dict, List
 
-
 from app.clients.base import APIError, BaseClient, ClientRequest
 
 logger = logging.getLogger(__name__)

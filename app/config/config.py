@@ -23,7 +23,7 @@ class Config:
     SESSION_REDIS = os.environ.get("REDIS_URL", "redis://redis:6379/0")
     SESSION_PERMANENT = True
     PERMANENT_SESSION_LIFETIME = 1800  # 30 minutes
-    SESSION_COOKIE_SECURE = True if os.environ.get("DEBUG", "false").lower() == "false" else False
+    SESSION_COOKIE_SECURE = os.environ.get("DEBUG", "false").lower() == "false"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_KEY_PREFIX = "desktop_frontend:"

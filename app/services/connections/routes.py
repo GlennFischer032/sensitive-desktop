@@ -12,8 +12,8 @@ from flask import (
 
 from app.clients.base import APIError
 from app.clients.factory import client_factory
-from app.middleware.security import rate_limit
 from app.middleware.auth import login_required
+from app.middleware.security import rate_limit
 
 from . import connections_bp
 
@@ -75,7 +75,7 @@ def view_connections():
 @connections_bp.route("/add", methods=["POST"])
 @login_required
 @rate_limit(requests_per_minute=10)
-def add_connection():
+def add_connection():  # noqa: PLR0911
     """Create a new connection.
     This endpoint allows users to create a new remote desktop connection.
     ---

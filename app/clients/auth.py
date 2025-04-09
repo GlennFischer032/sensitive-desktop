@@ -15,28 +15,6 @@ class AuthClient(BaseClient):
         # Clear session data
         session.clear()
 
-    def check_token(self, token: str) -> Tuple[Dict[str, Any], int]:
-        """Check if a token is valid.
-
-        Args:
-            token: Authentication token
-
-        Returns:
-            Tuple[Dict[str, Any], int]: Token validation response and status code
-
-        Raises:
-            APIError: If token validation fails
-        """
-        try:
-            request = ClientRequest(
-                endpoint="/api/auth/verify",
-                timeout=5,
-            )
-            return self.get(request=request)
-        except APIError as e:
-            self.logger.error(f"Token validation error: {str(e)}")
-            raise
-
     def oidc_callback(self, code: str, state: str, redirect_uri: str) -> Tuple[Dict[str, Any], int]:
         """Handle OIDC callback by forwarding to backend.
 

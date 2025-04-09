@@ -1,5 +1,6 @@
 """Client factory for API clients."""
 
+import contextlib
 from typing import Any, Dict, Optional
 
 from flask import Flask, current_app
@@ -106,10 +107,8 @@ class ClientFactory:
             if app is not None:
                 redis_url = app.config.get("SESSION_REDIS")
             else:
-                try:
+                with contextlib.suppress(RuntimeError):
                     redis_url = current_app.config.get("SESSION_REDIS")
-                except RuntimeError:
-                    pass
 
             self._clients["redis"] = RedisClient(redis_url=redis_url)
         return self._clients["redis"]

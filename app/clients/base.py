@@ -4,9 +4,8 @@ import logging
 from http import HTTPStatus
 from typing import Any, Dict, Optional, Tuple
 
-from flask import session
 import requests
-from flask import current_app
+from flask import current_app, session
 from pydantic import BaseModel
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import RequestException, Timeout

@@ -3,8 +3,9 @@
 This module provides API endpoints for managing users, separate from UI routes.
 """
 
-from flask import current_app, jsonify, request, session
 from http import HTTPStatus
+
+from flask import current_app, jsonify, request, session
 
 from app.clients.base import APIError
 from app.clients.factory import client_factory
