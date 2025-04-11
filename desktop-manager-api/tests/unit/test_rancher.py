@@ -80,9 +80,7 @@ def rancher_client(mock_settings):
 def test_install_success(rancher_client, mock_requests_post):
     """Test successful Helm chart installation."""
     # Create test values
-    values = DesktopValues(
-        desktop="test-desktop", name="test-connection", vnc_password="test-password"
-    )
+    values = DesktopValues(desktop="test-desktop", name="test-connection", vnc_password="test-password")
 
     # Mock the response
     mock_response = Mock()
@@ -130,9 +128,7 @@ def test_install_error(rancher_client, mock_requests_post):
     mock_requests_post.return_value.text = "Internal Server Error"
 
     # Create test values
-    values = DesktopValues(
-        desktop="test-desktop", name="test-connection", vnc_password="test-password"
-    )
+    values = DesktopValues(desktop="test-desktop", name="test-connection", vnc_password="test-password")
 
     # Call install method and verify it raises an APIError
     with pytest.raises(APIError) as excinfo:
@@ -149,9 +145,7 @@ def test_install_request_exception(rancher_client, mock_requests_post):
     mock_requests_post.side_effect = requests.RequestException("Connection error")
 
     # Create test values
-    values = DesktopValues(
-        desktop="test-desktop", name="test-connection", vnc_password="test-password"
-    )
+    values = DesktopValues(desktop="test-desktop", name="test-connection", vnc_password="test-password")
 
     # Call install method and verify it raises an APIError
     with pytest.raises(APIError) as excinfo:

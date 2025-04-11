@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -65,7 +65,7 @@ def get_password_hash(password: str) -> str:
         raise ValueError("Failed to hash password") from e
 
 
-def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
     """Create a JWT access token.
 
     Args:
@@ -93,7 +93,7 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
         raise ValueError("Failed to create access token") from e
 
 
-def decode_token(token: str) -> Dict[str, Any]:
+def decode_token(token: str) -> dict[str, Any]:
     """Decode and verify a JWT token.
 
     Args:
@@ -118,7 +118,7 @@ def decode_token(token: str) -> Dict[str, Any]:
         raise
 
 
-def hash_migrate(old_hash: str) -> Optional[str]:
+def hash_migrate(old_hash: str) -> str | None:
     """Migrate an old password hash to the current hashing scheme if needed.
 
     Args:

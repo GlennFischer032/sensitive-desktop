@@ -1,11 +1,11 @@
 from http import HTTPStatus
-from typing import Any, Dict
+from typing import Any
 
 from flask import jsonify
 from pydantic import ValidationError
 
 
-def format_validation_error(error: ValidationError) -> Dict[str, Any]:
+def format_validation_error(error: ValidationError) -> dict[str, Any]:
     """Format Pydantic validation errors into a user-friendly format.
 
     Args:

@@ -1,6 +1,5 @@
 import logging
 import time
-from typing import Optional
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
@@ -17,8 +16,8 @@ logging.basicConfig(level=logging.INFO)
 logger: logging.Logger = logging.getLogger(__name__)
 
 # Global variables to store engine and session factory
-_engine: Optional[Engine] = None
-_session_factory: Optional[sessionmaker] = None
+_engine: Engine | None = None
+_session_factory: sessionmaker | None = None
 
 
 def get_database_url() -> str:
@@ -27,7 +26,7 @@ def get_database_url() -> str:
     return f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DATABASE}"
 
 
-def create_db_engine(db_url: Optional[str] = None, retries: int = 5, delay: int = 2) -> Engine:
+def create_db_engine(db_url: str | None = None, retries: int = 5, delay: int = 2) -> Engine:
     """Create database engine with retry logic."""
     if db_url is None:
         db_url = get_database_url()

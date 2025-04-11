@@ -53,7 +53,7 @@ EXPOSE 5000
 
 # Use shell form to allow environment variable substitution
 CMD if [ "$FLASK_DEBUG" = "1" ]; then \
-        python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m flask run --host=0.0.0.0 --port=5000; \
+        python -m debugpy --listen 0.0.0.0:5678 -m flask run --host=0.0.0.0 --port=5000; \
     else \
         gunicorn --bind 0.0.0.0:5000 --workers 4 app:app; \
     fi

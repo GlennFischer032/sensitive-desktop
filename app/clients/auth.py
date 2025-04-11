@@ -1,6 +1,6 @@
 """Authentication client for API interactions."""
 
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from flask import session
 
@@ -15,7 +15,7 @@ class AuthClient(BaseClient):
         # Clear session data
         session.clear()
 
-    def oidc_callback(self, code: str, state: str, redirect_uri: str) -> Tuple[Dict[str, Any], int]:
+    def oidc_callback(self, code: str, state: str, redirect_uri: str) -> tuple[dict[str, Any], int]:
         """Handle OIDC callback by forwarding to backend.
 
         Args:
@@ -44,7 +44,7 @@ class AuthClient(BaseClient):
             self.logger.error(f"OIDC callback error: {str(e)}")
             raise
 
-    def oidc_login(self) -> Tuple[Dict[str, Any], int]:
+    def oidc_login(self) -> tuple[dict[str, Any], int]:
         """Initiate OIDC login flow using backend.
 
         Returns:
@@ -63,7 +63,7 @@ class AuthClient(BaseClient):
             self.logger.error(f"OIDC login initiation error: {str(e)}")
             raise
 
-    def refresh_token(self) -> Tuple[Dict[str, Any], int]:
+    def refresh_token(self) -> tuple[dict[str, Any], int]:
         """Refresh the current token.
 
         Returns:

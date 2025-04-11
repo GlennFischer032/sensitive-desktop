@@ -1,7 +1,7 @@
 """Redis client for interacting with Redis."""
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import redis
 from flask import Flask, current_app
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class RedisClient:
     """Client for Redis operations."""
 
-    def __init__(self, redis_url: Optional[str] = None, timeout: int = 10):
+    def __init__(self, redis_url: str | None = None, timeout: int = 10):
         """Initialize the Redis client.
 
         Args:
@@ -79,7 +79,7 @@ class RedisClient:
         """
         return self._get_connection()
 
-    def zremrangebyscore(self, key: str, min_score: Union[int, float], max_score: Union[int, float]) -> int:
+    def zremrangebyscore(self, key: str, min_score: int | float, max_score: int | float) -> int:
         """Remove items from a sorted set with scores between min and max.
 
         Args:
@@ -113,7 +113,7 @@ class RedisClient:
             self.logger.error(f"Redis error in zcard: {str(e)}")
             raise
 
-    def zrange(self, key: str, start: int, end: int, withscores: bool = False) -> List[Any]:
+    def zrange(self, key: str, start: int, end: int, withscores: bool = False) -> list[Any]:
         """Get items from a sorted set by range.
 
         Args:
@@ -132,7 +132,7 @@ class RedisClient:
             self.logger.error(f"Redis error in zrange: {str(e)}")
             raise
 
-    def zadd(self, key: str, mapping: Dict[str, Union[int, float]]) -> int:
+    def zadd(self, key: str, mapping: dict[str, int | float]) -> int:
         """Add item to sorted set.
 
         Args:

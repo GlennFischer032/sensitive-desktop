@@ -91,9 +91,7 @@ def test_connection_user_relationship(test_db: Session):
     test_db.commit()
 
     # Verify relationships
-    user_connections = (
-        test_db.query(Connection).filter(Connection.created_by == user.username).all()
-    )
+    user_connections = test_db.query(Connection).filter(Connection.created_by == user.username).all()
     assert len(user_connections) == 2
     assert all(conn.creator.username == user.username for conn in user_connections)
     assert len(user.connections) == 2
@@ -193,9 +191,7 @@ def test_cascade_delete_user_connections(test_db: Session):
     test_db.commit()
 
     # Verify all connections are deleted
-    remaining_connections = (
-        test_db.query(Connection).filter(Connection.created_by == user.username).all()
-    )
+    remaining_connections = test_db.query(Connection).filter(Connection.created_by == user.username).all()
     assert len(remaining_connections) == 0
 
 

@@ -42,7 +42,7 @@ def sanitize_name(name):
     return name
 
 
-def generate_unique_connection_name(base_name, username=None):
+def generate_unique_connection_name(base_name: str) -> str:
     r"""Generate a deterministic connection name using a UUID suffix.
 
     The name will follow the format base_name-uuid where uuid is a short UUID.
@@ -52,7 +52,6 @@ def generate_unique_connection_name(base_name, username=None):
 
     Args:
         base_name: Base name for the connection
-        username: Ignored, kept for backward compatibility
 
     Returns:
         str: Generated connection name in format base_name-uuid

@@ -33,9 +33,7 @@ class Connection(Base):
     guacamole_connection_id: str = Column(String(255), nullable=False)
     is_stopped: bool = Column(Boolean, default=False)
     persistent_home: bool = Column(Boolean, default=True)
-    desktop_configuration_id: int = Column(
-        Integer, ForeignKey("desktop_configurations.id"), nullable=True
-    )
+    desktop_configuration_id: int = Column(Integer, ForeignKey("desktop_configurations.id"), nullable=True)
 
     # Relationship to user who created the connection
     creator = relationship("User", back_populates="connections")

@@ -47,9 +47,7 @@ def token_required(f):
                     tokens, count = db_client.execute_query(query, {"token_id": token_id})
 
                     if count == 0:
-                        current_app.logger.warning(
-                            "API token not found, revoked, or expired: %s", token_id
-                        )
+                        current_app.logger.warning("API token not found, revoked, or expired: %s", token_id)
                         return jsonify({"message": "Token is invalid or revoked!"}), 401
 
                     # Update last_used timestamp
@@ -70,9 +68,7 @@ def token_required(f):
                         return jsonify({"message": "User not found!"}), 401
 
                     current_user = users[0]
-                    current_app.logger.info(
-                        "API token validated for user: %s", current_user["username"]
-                    )
+                    current_app.logger.info("API token validated for user: %s", current_user["username"])
                 else:
                     # Regular user token
                     db_client = client_factory.get_database_client()
@@ -120,24 +116,20 @@ def token_required(f):
                     if userinfo.get("email") and current_user["email"] != userinfo.get("email"):
                         update_fields["email"] = userinfo.get("email")
 
-                    if userinfo.get("given_name") and current_user.get(
-                        "given_name"
-                    ) != userinfo.get("given_name"):
+                    if userinfo.get("given_name") and current_user.get("given_name") != userinfo.get("given_name"):
                         update_fields["given_name"] = userinfo.get("given_name")
 
-                    if userinfo.get("family_name") and current_user.get(
-                        "family_name"
-                    ) != userinfo.get("family_name"):
+                    if userinfo.get("family_name") and current_user.get("family_name") != userinfo.get("family_name"):
                         update_fields["family_name"] = userinfo.get("family_name")
 
-                    if userinfo.get("organization") and current_user.get(
+                    if userinfo.get("organization") and current_user.get("organization") != userinfo.get(
                         "organization"
-                    ) != userinfo.get("organization"):
+                    ):
                         update_fields["organization"] = userinfo.get("organization")
 
-                    if userinfo.get("preferred_username") and current_user[
-                        "username"
-                    ] != userinfo.get("preferred_username"):
+                    if userinfo.get("preferred_username") and current_user["username"] != userinfo.get(
+                        "preferred_username"
+                    ):
                         update_fields["username"] = userinfo.get("preferred_username")
 
                     if update_fields:

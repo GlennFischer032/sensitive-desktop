@@ -112,9 +112,7 @@ class User(Base):
 
     # Relationships
     connections = relationship("Connection", back_populates="creator", cascade="all, delete-orphan")
-    social_auth = relationship(
-        "SocialAuthAssociation", back_populates="user", cascade="all, delete-orphan"
-    )
+    social_auth = relationship("SocialAuthAssociation", back_populates="user", cascade="all, delete-orphan")
     desktop_configurations = relationship("DesktopConfiguration", back_populates="creator")
     desktop_configuration_access = relationship(
         "DesktopConfigurationAccess", back_populates="user", cascade="all, delete-orphan"

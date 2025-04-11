@@ -22,9 +22,18 @@ COPY src ./src
 # Install uv
 RUN pip install --no-cache-dir uv
 
+# Build argument to determine the environment
+ARG FLASK_DEBUG=0
+ENV FLASK_DEBUG=${FLASK_DEBUG}
+
 # Install Python dependencies using uv and pyproject.toml
 RUN uv pip install --system .
 RUN uv pip install --system flask[async] gunicorn
+
+# Install development dependencies if in dev mode
+RUN if [ "$FLASK_DEBUG" = "1" ]; then \
+        uv pip install --system ".[dev]"; \
+    fi
 
 # Create a healthcheck script
 COPY healthcheck.sh /healthcheck.sh
@@ -41,17 +50,11 @@ ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_APP=desktop_manager.main:app
 
-# Build argument to determine the environment
-ARG DEV_MODE=0
-ENV DEV_MODE=${DEV_MODE}
-ENV FLASK_DEBUG=${DEV_MODE}
-
-# Expose port
 EXPOSE 5000
 
 # Use shell form to allow environment variable substitution
-CMD if [ "$DEV_MODE" = "1" ]; then \
-        flask run --host=0.0.0.0 --port=5000; \
+CMD if [ "$FLASK_DEBUG" = "1" ]; then \
+        python -m debugpy --listen 0.0.0.0:5679 -m flask run --host=0.0.0.0 --port=5000; \
     else \
         gunicorn --bind 0.0.0.0:5000 --workers 4 "desktop_manager.main:app"; \
     fi

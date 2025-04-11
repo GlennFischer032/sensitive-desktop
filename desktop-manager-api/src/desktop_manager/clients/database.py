@@ -4,7 +4,7 @@ This module provides a client for database operations.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Union
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -24,7 +24,7 @@ class DatabaseClient(BaseClient):
     - Handling database transactions
     """
 
-    def __init__(self, connection_string: Optional[str] = None):
+    def __init__(self, connection_string: str | None = None):
         """Initialize DatabaseClient.
 
         Args:
@@ -34,7 +34,7 @@ class DatabaseClient(BaseClient):
         self.logger = logging.getLogger(self.__class__.__name__)
         settings = get_settings()
         self.connection_string = connection_string or settings.database_url
-        self._engine: Optional[Engine] = None
+        self._engine: Engine | None = None
 
     @property
     def engine(self) -> Engine:
@@ -44,15 +44,13 @@ class DatabaseClient(BaseClient):
             Engine: SQLAlchemy engine
         """
         if self._engine is None:
-            self.logger.info(
-                "Creating database engine with connection string: %s", self.connection_string
-            )
+            self.logger.info("Creating database engine with connection string: %s", self.connection_string)
             self._engine = create_engine(self.connection_string)
         return self._engine
 
     def execute_query(
-        self, query: Union[str, "TextClause"], params: Optional[Dict[str, Any]] = None
-    ) -> Tuple[List[Dict[str, Any]], int]:
+        self, query: Union[str, "TextClause"], params: dict[str, Any] | None = None
+    ) -> tuple[list[dict[str, Any]], int]:
         """Execute a SQL query.
 
         Args:
@@ -79,9 +77,7 @@ class DatabaseClient(BaseClient):
                     query_obj = query
 
                 if not is_select:
-                    conn_with_autocommit = connection.execution_options(
-                        isolation_level="AUTOCOMMIT"
-                    )
+                    conn_with_autocommit = connection.execution_options(isolation_level="AUTOCOMMIT")
                     result = conn_with_autocommit.execute(query_obj, params or {})
                 else:
                     result = connection.execute(query_obj, params or {})
@@ -99,15 +95,13 @@ class DatabaseClient(BaseClient):
         except SQLAlchemyError as e:
             error_message = f"Database query execution failed: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
         except Exception as e:
             error_message = f"Unexpected error executing database query: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def execute_transaction(
-        self, queries: List[Tuple[str, Optional[Dict[str, Any]]]]
-    ) -> List[Union[List[Dict[str, Any]], int]]:
+    def execute_transaction(self, queries: list[tuple[str, dict[str, Any] | None]]) -> list[list[dict[str, Any]] | int]:
         """Execute multiple queries in a transaction.
 
         Args:
@@ -124,9 +118,7 @@ class DatabaseClient(BaseClient):
             results = []
             with self.engine.begin() as connection:
                 for query, params in queries:
-                    self.logger.info(
-                        "Executing query in transaction: %s with params: %s", query, params
-                    )
+                    self.logger.info("Executing query in transaction: %s with params: %s", query, params)
                     result = connection.execute(text(query), params or {})
                     if result.returns_rows:
                         # Convert result to list of dictionaries
@@ -140,13 +132,13 @@ class DatabaseClient(BaseClient):
         except SQLAlchemyError as e:
             error_message = f"Database transaction execution failed: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
         except Exception as e:
             error_message = f"Unexpected error executing database transaction: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def get_connection_details(self, connection_name: str) -> Dict[str, Any]:
+    def get_connection_details(self, connection_name: str) -> dict[str, Any]:
         """Get connection details from the database.
 
         Args:
@@ -198,9 +190,9 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to get connection details: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def list_connections(self) -> List[Dict[str, Any]]:
+    def list_connections(self) -> list[dict[str, Any]]:
         """List all connections from the database.
 
         Returns:
@@ -221,9 +213,9 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to list connections: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def add_connection(self, connection_data: Dict[str, Any]) -> int:
+    def add_connection(self, connection_data: dict[str, Any]) -> int:
         """Add a new connection to the database.
 
         Args:
@@ -264,9 +256,9 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to add connection: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def update_connection(self, connection_id: int, connection_data: Dict[str, Any]) -> None:
+    def update_connection(self, connection_id: int, connection_data: dict[str, Any]) -> None:
         """Update a connection in the database.
 
         Args:
@@ -309,7 +301,7 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to update connection: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
     def delete_connection(self, connection_name: str) -> None:
         """Delete a connection from the database.
@@ -339,9 +331,9 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to delete connection: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def create_storage_pvc(self, pvc_data: Dict[str, Any]) -> int:
+    def create_storage_pvc(self, pvc_data: dict[str, Any]) -> int:
         """Create a new storage PVC record in the database.
 
         Args:
@@ -379,9 +371,9 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to create storage PVC: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def get_storage_pvc(self, pvc_id: int) -> Dict[str, Any]:
+    def get_storage_pvc(self, pvc_id: int) -> dict[str, Any]:
         """Get storage PVC details from the database.
 
         Args:
@@ -414,9 +406,9 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to get storage PVC: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def get_storage_pvc_by_name(self, name: str) -> Dict[str, Any]:
+    def get_storage_pvc_by_name(self, name: str) -> dict[str, Any]:
         """Get storage PVC details by name from the database.
 
         Args:
@@ -449,9 +441,9 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to get storage PVC by name: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def list_storage_pvcs(self, created_by: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_storage_pvcs(self, created_by: str | None = None) -> list[dict[str, Any]]:
         """List storage PVCs from the database.
 
         Args:
@@ -483,9 +475,9 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to list storage PVCs: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def update_storage_pvc(self, pvc_id: int, pvc_data: Dict[str, Any]) -> None:
+    def update_storage_pvc(self, pvc_id: int, pvc_data: dict[str, Any]) -> None:
         """Update a storage PVC in the database.
 
         Args:
@@ -525,7 +517,7 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to update storage PVC: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
     def delete_storage_pvc(self, pvc_id: int) -> None:
         """Delete a storage PVC from the database.
@@ -555,7 +547,7 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to delete storage PVC: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
     def map_connection_to_pvc(self, connection_id: int, pvc_id: int) -> int:
         """Map a connection to a storage PVC.
@@ -589,9 +581,9 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to map connection to PVC: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def get_connection_pvcs(self, connection_id: int) -> List[Dict[str, Any]]:
+    def get_connection_pvcs(self, connection_id: int) -> list[dict[str, Any]]:
         """Get PVCs mapped to a connection.
 
         Args:
@@ -618,7 +610,7 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to get connection PVCs: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
     def unmap_connection_pvc(self, mapping_id: int) -> None:
         """Remove a connection to PVC mapping.
@@ -648,7 +640,7 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to unmap connection PVC: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
     def create_storage_pvc_access(self, pvc_id: int, username: str) -> int:
         """Create a storage PVC access record in the database.
@@ -676,4 +668,4 @@ class DatabaseClient(BaseClient):
         except Exception as e:
             error_message = f"Failed to create storage PVC access: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e

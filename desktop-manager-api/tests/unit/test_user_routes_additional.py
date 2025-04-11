@@ -62,9 +62,7 @@ def app_with_mocks(mocker):
         # Check if user exists
         try:
             # Simulate database query
-            result = g.db_client.execute_query(
-                "SELECT * FROM users WHERE username = %s", (username,)
-            )
+            result = g.db_client.execute_query("SELECT * FROM users WHERE username = %s", (username,))
             return jsonify({"exists": bool(result)}), HTTPStatus.OK
         except APIError as e:
             # Re-raise any API errors

@@ -4,7 +4,7 @@ This module provides models for managing Persistent Volume Claims (PVCs) for des
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -23,14 +23,14 @@ class StoragePVCBase(BaseModel):
 class StoragePVCCreate(StoragePVCBase):
     """Model for creating a new storage PVC."""
 
-    created_by: Optional[str] = Field(None, description="Username of the creator")
+    created_by: str | None = Field(None, description="Username of the creator")
 
 
 class StoragePVCUpdate(BaseModel):
     """Model for updating a storage PVC."""
 
-    status: Optional[str] = Field(None, description="PVC status")
-    last_updated: Optional[datetime] = Field(None, description="Last updated timestamp")
+    status: str | None = Field(None, description="PVC status")
+    last_updated: datetime | None = Field(None, description="Last updated timestamp")
 
 
 class StoragePVC(APIModel, StoragePVCBase):
@@ -43,7 +43,7 @@ class StoragePVC(APIModel, StoragePVCBase):
     last_updated: datetime = Field(..., description="Last updated timestamp")
 
     @classmethod
-    def from_row(cls, row: Dict[str, Any]) -> "StoragePVC":
+    def from_row(cls, row: dict[str, Any]) -> "StoragePVC":
         """Create a StoragePVC instance from a database row.
 
         Args:
@@ -65,7 +65,7 @@ class StoragePVC(APIModel, StoragePVCBase):
         )
 
     @classmethod
-    def list_from_rows(cls, rows: List[Dict[str, Any]]) -> List["StoragePVC"]:
+    def list_from_rows(cls, rows: list[dict[str, Any]]) -> list["StoragePVC"]:
         """Create a list of StoragePVC instances from database rows.
 
         Args:
@@ -86,7 +86,7 @@ class ConnectionPVCMap(APIModel):
     created_at: datetime = Field(..., description="Creation timestamp")
 
     @classmethod
-    def from_row(cls, row: Dict[str, Any]) -> "ConnectionPVCMap":
+    def from_row(cls, row: dict[str, Any]) -> "ConnectionPVCMap":
         """Create a ConnectionPVCMap instance from a database row.
 
         Args:
@@ -103,7 +103,7 @@ class ConnectionPVCMap(APIModel):
         )
 
     @classmethod
-    def list_from_rows(cls, rows: List[Dict[str, Any]]) -> List["ConnectionPVCMap"]:
+    def list_from_rows(cls, rows: list[dict[str, Any]]) -> list["ConnectionPVCMap"]:
         """Create a list of ConnectionPVCMap instances from database rows.
 
         Args:
@@ -124,7 +124,7 @@ class StoragePVCAccess(APIModel):
     created_at: datetime = Field(..., description="Creation timestamp")
 
     @classmethod
-    def from_row(cls, row: Dict[str, Any]) -> "StoragePVCAccess":
+    def from_row(cls, row: dict[str, Any]) -> "StoragePVCAccess":
         """Create a StoragePVCAccess instance from a database row.
 
         Args:
@@ -141,7 +141,7 @@ class StoragePVCAccess(APIModel):
         )
 
     @classmethod
-    def list_from_rows(cls, rows: List[Dict[str, Any]]) -> List["StoragePVCAccess"]:
+    def list_from_rows(cls, rows: list[dict[str, Any]]) -> list["StoragePVCAccess"]:
         """Create a list of StoragePVCAccess instances from database rows.
 
         Args:

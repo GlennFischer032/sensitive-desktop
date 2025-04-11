@@ -51,9 +51,7 @@ def mock_token_required(f):
             except Exception as e:
                 print(f"DEBUG: Error in mock_token_required: {e!s}")
                 # Still succeed for testing
-                mock_user = User(
-                    id=999, username="mock_user", email="mock@example.com", is_admin=True
-                )
+                mock_user = User(id=999, username="mock_user", email="mock@example.com", is_admin=True)
                 request.current_user = mock_user
         else:
             # Use a default mock user
@@ -185,9 +183,7 @@ def mock_guacamole():
         "desktop_manager.clients.guacamole.GuacamoleClient.create_user",
         return_value=True,
     )
-    add_patch = patch(
-        "desktop_manager.clients.guacamole.GuacamoleClient.add_user_to_group", return_value=True
-    )
+    add_patch = patch("desktop_manager.clients.guacamole.GuacamoleClient.add_user_to_group", return_value=True)
     delete_patch = patch(
         "desktop_manager.clients.guacamole.GuacamoleClient.delete_user",
         return_value=True,
@@ -353,9 +349,7 @@ def test_app(test_db, mock_guacamole):
             except Exception as e:
                 print(f"DEBUG: Error decoding token: {e}")
                 # Use default admin user
-                current_user = User(
-                    id=1, username="admin", email="admin@example.com", is_admin=True
-                )
+                current_user = User(id=1, username="admin", email="admin@example.com", is_admin=True)
                 request.current_user = current_user
         else:
             # Check if no token was provided
@@ -404,9 +398,7 @@ def test_app(test_db, mock_guacamole):
             except Exception as e:
                 print(f"DEBUG: Error decoding token: {e}")
                 # Use default admin user
-                current_user = User(
-                    id=1, username="admin", email="admin@example.com", is_admin=True
-                )
+                current_user = User(id=1, username="admin", email="admin@example.com", is_admin=True)
                 request.current_user = current_user
         else:
             # Check if no token was provided
@@ -470,9 +462,7 @@ def test_app(test_db, mock_guacamole):
             is_admin = payload.get("is_admin", False)
 
             # Set up current_user
-            current_user = User(
-                id=user_id, username=f"user_{user_id}", email="test@example.com", is_admin=is_admin
-            )
+            current_user = User(id=user_id, username=f"user_{user_id}", email="test@example.com", is_admin=is_admin)
             request.current_user = current_user
         except Exception as e:
             print(f"DEBUG: Error decoding token: {e}")
@@ -517,9 +507,7 @@ def test_app(test_db, mock_guacamole):
             is_admin = payload.get("is_admin", False)
 
             # Set up current_user
-            current_user = User(
-                id=user_id, username=f"user_{user_id}", email="test@example.com", is_admin=is_admin
-            )
+            current_user = User(id=user_id, username=f"user_{user_id}", email="test@example.com", is_admin=is_admin)
             request.current_user = current_user
         except Exception as e:
             print(f"DEBUG: Error decoding token: {e}")
@@ -536,14 +524,10 @@ def test_app(test_db, mock_guacamole):
         required_fields = ["username", "password", "email"]
         for field in required_fields:
             if field not in request.json:
-                return jsonify(
-                    {"error": f"Missing required field: {field}"}
-                ), HTTPStatus.BAD_REQUEST
+                return jsonify({"error": f"Missing required field: {field}"}), HTTPStatus.BAD_REQUEST
 
         # Check if username already exists
-        existing_user = (
-            test_db.query(User).filter(User.username == request.json["username"]).first()
-        )
+        existing_user = test_db.query(User).filter(User.username == request.json["username"]).first()
         if existing_user:
             return jsonify({"error": "Username already exists"}), HTTPStatus.CONFLICT
 
@@ -599,9 +583,7 @@ def test_app(test_db, mock_guacamole):
             is_admin = payload.get("is_admin", False)
 
             # Set up current_user
-            current_user = User(
-                id=user_id, username=f"user_{user_id}", email="test@example.com", is_admin=is_admin
-            )
+            current_user = User(id=user_id, username=f"user_{user_id}", email="test@example.com", is_admin=is_admin)
             request.current_user = current_user
         except Exception as e:
             print(f"DEBUG: Error decoding token: {e}")
@@ -657,12 +639,8 @@ def test_app(test_db, mock_guacamole):
                     "email": user.email,
                     "organization": user.organization,
                     "is_admin": user.is_admin,
-                    "created_at": user.created_at.strftime("%Y-%m-%d %H:%M:%S")
-                    if user.created_at
-                    else None,
-                    "last_login": user.last_login.strftime("%Y-%m-%d %H:%M:%S")
-                    if user.last_login
-                    else None,
+                    "created_at": user.created_at.strftime("%Y-%m-%d %H:%M:%S") if user.created_at else None,
+                    "last_login": user.last_login.strftime("%Y-%m-%d %H:%M:%S") if user.last_login else None,
                 }
             )
 
@@ -705,13 +683,9 @@ def test_client(test_app):
 # Tests for /removeuser endpoint
 def test_remove_user_success(test_client, admin_token):
     """Test successfully removing a user."""
-    with patch(
-        "desktop_manager.clients.database.DatabaseClient.execute_query"
-    ) as mock_execute_query, patch(
+    with patch("desktop_manager.clients.database.DatabaseClient.execute_query") as mock_execute_query, patch(
         "desktop_manager.clients.guacamole.GuacamoleClient.delete_user"
-    ) as mock_delete_user, patch(
-        "desktop_manager.clients.guacamole.GuacamoleClient.login"
-    ) as mock_login:
+    ) as mock_delete_user, patch("desktop_manager.clients.guacamole.GuacamoleClient.login") as mock_login:
         # First query to check if user exists
         mock_execute_query.side_effect = [
             (
@@ -745,9 +719,7 @@ def test_remove_user_success(test_client, admin_token):
 
 def test_remove_user_nonexistent(test_client, admin_token):
     """Test removing a nonexistent user."""
-    with patch(
-        "desktop_manager.clients.database.DatabaseClient.execute_query"
-    ) as mock_execute_query:
+    with patch("desktop_manager.clients.database.DatabaseClient.execute_query") as mock_execute_query:
         mock_execute_query.return_value = ([], 0)  # User does not exist (rows, count)
 
         response = test_client.post(
@@ -786,9 +758,7 @@ def test_remove_user_non_admin(test_client, test_user, user_token):
 
 def test_remove_user_missing_input(test_client, admin_token):
     """Test removing a user with missing input."""
-    response = test_client.post(
-        "/removeuser", json={}, headers={"Authorization": f"Bearer {admin_token}"}
-    )
+    response = test_client.post("/removeuser", json={}, headers={"Authorization": f"Bearer {admin_token}"})
 
     # Should be BAD_REQUEST, but may be UNAUTHORIZED or FORBIDDEN due to permission issues
     assert response.status_code in [
@@ -800,13 +770,9 @@ def test_remove_user_missing_input(test_client, admin_token):
 
 def test_remove_user_guacamole_error(test_client, admin_token):
     """Test removing a user with Guacamole error."""
-    with patch(
-        "desktop_manager.clients.database.DatabaseClient.execute_query"
-    ) as mock_execute_query, patch(
+    with patch("desktop_manager.clients.database.DatabaseClient.execute_query") as mock_execute_query, patch(
         "desktop_manager.clients.guacamole.GuacamoleClient.delete_user"
-    ) as mock_delete_user, patch(
-        "desktop_manager.clients.guacamole.GuacamoleClient.login"
-    ) as mock_login:
+    ) as mock_delete_user, patch("desktop_manager.clients.guacamole.GuacamoleClient.login") as mock_login:
         # First query to check if user exists
         mock_execute_query.return_value = (
             [{"id": 1, "username": "test_user", "is_admin": False}],
@@ -833,13 +799,9 @@ def test_remove_user_guacamole_error(test_client, admin_token):
 # Tests for /createuser endpoint
 def test_create_user_success(test_client, admin_token):
     """Test successful user creation."""
-    with patch(
-        "desktop_manager.clients.database.DatabaseClient.execute_query"
-    ) as mock_execute_query, patch(
+    with patch("desktop_manager.clients.database.DatabaseClient.execute_query") as mock_execute_query, patch(
         "desktop_manager.clients.guacamole.GuacamoleClient.create_user_if_not_exists"
-    ) as mock_create_user, patch(
-        "desktop_manager.clients.guacamole.GuacamoleClient.login"
-    ) as mock_login, patch(
+    ) as mock_create_user, patch("desktop_manager.clients.guacamole.GuacamoleClient.login") as mock_login, patch(
         "desktop_manager.clients.guacamole.GuacamoleClient.ensure_group"
     ) as mock_ensure_group, patch(
         "desktop_manager.clients.guacamole.GuacamoleClient.add_user_to_group"
@@ -890,13 +852,9 @@ def test_create_user_success(test_client, admin_token):
 
 def test_create_admin_user(test_client, admin_token):
     """Test successful admin user creation."""
-    with patch(
-        "desktop_manager.clients.database.DatabaseClient.execute_query"
-    ) as mock_execute_query, patch(
+    with patch("desktop_manager.clients.database.DatabaseClient.execute_query") as mock_execute_query, patch(
         "desktop_manager.clients.guacamole.GuacamoleClient.create_user_if_not_exists"
-    ) as mock_create_user, patch(
-        "desktop_manager.clients.guacamole.GuacamoleClient.login"
-    ) as mock_login, patch(
+    ) as mock_create_user, patch("desktop_manager.clients.guacamole.GuacamoleClient.login") as mock_login, patch(
         "desktop_manager.clients.guacamole.GuacamoleClient.ensure_group"
     ) as mock_ensure_group, patch(
         "desktop_manager.clients.guacamole.GuacamoleClient.add_user_to_group"
@@ -1008,9 +966,7 @@ def test_create_user_missing_input(test_client, admin_token):
 
 def test_create_duplicate_user(test_client, test_user, admin_token):
     """Test creating a user with a duplicate username."""
-    with patch(
-        "desktop_manager.clients.database.DatabaseClient.execute_query"
-    ) as mock_execute_query:
+    with patch("desktop_manager.clients.database.DatabaseClient.execute_query") as mock_execute_query:
         # Simulate an admin user fetched first, then duplicate user check
         mock_execute_query.side_effect = [
             ([{"id": 1, "username": "test_admin", "is_admin": True}], 1),  # Admin user check
@@ -1040,13 +996,9 @@ def test_create_duplicate_user(test_client, test_user, admin_token):
 
 def test_create_user_guacamole_error(test_client, admin_token):
     """Test user creation with Guacamole error."""
-    with patch(
-        "desktop_manager.clients.database.DatabaseClient.execute_query"
-    ) as mock_execute_query, patch(
+    with patch("desktop_manager.clients.database.DatabaseClient.execute_query") as mock_execute_query, patch(
         "desktop_manager.clients.guacamole.GuacamoleClient.create_user_if_not_exists"
-    ) as mock_create_user, patch(
-        "desktop_manager.clients.guacamole.GuacamoleClient.login"
-    ) as mock_login:
+    ) as mock_create_user, patch("desktop_manager.clients.guacamole.GuacamoleClient.login") as mock_login:
         # First check if user exists
         mock_execute_query.side_effect = [
             ([], 0),  # User doesn't exist
@@ -1078,9 +1030,7 @@ def test_create_user_guacamole_error(test_client, admin_token):
 # Tests for /list endpoint
 def test_list_users_empty(test_client, admin_token):
     """Test listing users with an empty database."""
-    with patch(
-        "desktop_manager.clients.database.DatabaseClient.execute_query"
-    ) as mock_execute_query:
+    with patch("desktop_manager.clients.database.DatabaseClient.execute_query") as mock_execute_query:
         mock_execute_query.return_value = ([], 0)  # No users found (rows, count)
 
         response = test_client.get("/list", headers={"X-Access-Token": admin_token})
@@ -1098,9 +1048,7 @@ def test_list_users_empty(test_client, admin_token):
 
 def test_list_users_populated(test_client, admin_token):
     """Test listing users with populated database."""
-    with patch(
-        "desktop_manager.clients.database.DatabaseClient.execute_query"
-    ) as mock_execute_query:
+    with patch("desktop_manager.clients.database.DatabaseClient.execute_query") as mock_execute_query:
         # Create proper datetime instances
         current_time = datetime.now()
         mock_execute_query.return_value = (
@@ -1210,9 +1158,7 @@ def test_get_user_success(test_client, test_user, user_token):
 
 def test_get_user_nonexistent(test_client, admin_token):
     """Test getting a nonexistent user."""
-    response = test_client.get(
-        "/nonexistentuser", headers={"Authorization": f"Bearer {admin_token}"}
-    )
+    response = test_client.get("/nonexistentuser", headers={"Authorization": f"Bearer {admin_token}"})
 
     assert response.status_code == HTTPStatus.NOT_FOUND
     data = response.get_json()
@@ -1297,9 +1243,7 @@ def test_update_user_missing_input(test_client, test_user, admin_token):
     """Test updating a user with missing input."""
     username = test_user.username
 
-    response = test_client.post(
-        f"/update/{username}", json={}, headers={"Authorization": f"Bearer {admin_token}"}
-    )
+    response = test_client.post(f"/update/{username}", json={}, headers={"Authorization": f"Bearer {admin_token}"})
 
     assert response.status_code == HTTPStatus.BAD_REQUEST
     data = response.get_json()

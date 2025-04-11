@@ -1,6 +1,5 @@
 """Client for interacting with desktop configurations API."""
 import logging
-from typing import Dict, List
 
 from app.clients.base import APIError, BaseClient, ClientRequest
 
@@ -10,7 +9,7 @@ logger = logging.getLogger(__name__)
 class DesktopConfigurationsClient(BaseClient):
     """Client for interacting with desktop configurations API."""
 
-    def list_configurations(self) -> List[Dict]:
+    def list_configurations(self) -> list[dict]:
         """List all desktop configurations.
 
         Returns:
@@ -33,8 +32,8 @@ class DesktopConfigurationsClient(BaseClient):
 
     def create_configuration(
         self,
-        config_data: Dict,
-    ) -> Dict:
+        config_data: dict,
+    ) -> dict:
         """Create a new desktop configuration.
 
         Args:
@@ -62,8 +61,8 @@ class DesktopConfigurationsClient(BaseClient):
     def update_configuration(
         self,
         config_id: int,
-        config_data: Dict,
-    ) -> Dict:
+        config_data: dict,
+    ) -> dict:
         """Update an existing desktop configuration.
 
         Args:
@@ -92,7 +91,7 @@ class DesktopConfigurationsClient(BaseClient):
     def get_configuration(
         self,
         config_id: int,
-    ) -> Dict:
+    ) -> dict:
         """Get a specific desktop configuration.
 
         Args:
@@ -119,7 +118,7 @@ class DesktopConfigurationsClient(BaseClient):
     def delete_configuration(
         self,
         config_id: int,
-    ) -> Dict:
+    ) -> dict:
         """Delete a desktop configuration.
 
         Args:
@@ -143,7 +142,7 @@ class DesktopConfigurationsClient(BaseClient):
             logger.error(f"Error deleting configuration {config_id}: {str(e)}")
             raise
 
-    def get_users(self) -> Dict:
+    def get_users(self) -> dict:
         """Get list of users for configuration access control.
 
         Returns:
@@ -167,7 +166,7 @@ class DesktopConfigurationsClient(BaseClient):
     def get_configuration_users(
         self,
         config_id: int,
-    ) -> Dict:
+    ) -> dict:
         """Get users with access to a specific configuration.
 
         Args:
@@ -191,7 +190,7 @@ class DesktopConfigurationsClient(BaseClient):
             logger.error(f"Error getting configuration users for {config_id}: {str(e)}")
             raise
 
-    def get_connections(self) -> Dict:
+    def get_connections(self) -> dict:
         """Get connections for identifying which ones use a configuration.
 
         Returns:

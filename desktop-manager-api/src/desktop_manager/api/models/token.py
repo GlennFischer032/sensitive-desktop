@@ -4,7 +4,6 @@ This module defines the models for API tokens used for admin authentication.
 """
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import Field
 
@@ -15,10 +14,8 @@ class TokenCreate(APIModel):
     """Schema for creating a new API token."""
 
     name: str = Field(..., description="Name for the token", min_length=1, max_length=255)
-    description: Optional[str] = Field(None, description="Optional description for the token")
-    expires_in_days: int = Field(
-        30, description="Number of days until token expiration", ge=1, le=365
-    )
+    description: str | None = Field(None, description="Optional description for the token")
+    expires_in_days: int = Field(30, description="Number of days until token expiration", ge=1, le=365)
 
 
 class Token(APIModel):
@@ -27,13 +24,13 @@ class Token(APIModel):
     id: int = Field(..., description="Token database ID")
     token_id: str = Field(..., description="Unique token identifier")
     name: str = Field(..., description="Token name")
-    description: Optional[str] = Field(None, description="Token description")
+    description: str | None = Field(None, description="Token description")
     created_at: datetime = Field(..., description="Token creation timestamp")
     expires_at: datetime = Field(..., description="Token expiration timestamp")
     created_by: str = Field(..., description="Username of token creator")
-    last_used: Optional[datetime] = Field(None, description="Timestamp of last token usage")
+    last_used: datetime | None = Field(None, description="Timestamp of last token usage")
     revoked: bool = Field(False, description="Whether the token has been revoked")
-    revoked_at: Optional[datetime] = Field(None, description="Timestamp when token was revoked")
+    revoked_at: datetime | None = Field(None, description="Timestamp when token was revoked")
 
 
 class TokenResponse(APIModel):

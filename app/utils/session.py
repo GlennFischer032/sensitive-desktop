@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from functools import wraps
 from http import HTTPStatus
-from typing import Any, Dict, Optional
+from typing import Any
 
 from flask import session
 
@@ -75,7 +75,7 @@ def session_manager(f):
     return decorated_function
 
 
-def get_session_info() -> Dict[str, Any]:
+def get_session_info() -> dict[str, Any]:
     """
     Get current session information.
 
@@ -107,7 +107,7 @@ def end_session() -> None:
         raise
 
 
-def validate_session_token() -> Optional[str]:
+def validate_session_token() -> str | None:
     """
     Validate and return session token.
 

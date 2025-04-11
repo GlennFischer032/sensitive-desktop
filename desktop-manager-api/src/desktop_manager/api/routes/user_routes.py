@@ -1,7 +1,7 @@
 from datetime import datetime
 from http import HTTPStatus
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from flask import Blueprint, jsonify, request
 
@@ -16,7 +16,7 @@ users_bp = Blueprint("users_bp", __name__)
 @users_bp.route("/removeuser", methods=["POST"])
 @token_required
 @admin_required
-def remove_user() -> Tuple[Dict[str, Any], int]:
+def remove_user() -> tuple[dict[str, Any], int]:
     """Remove a user from the system.
 
     This endpoint removes a user from both the application database and Guacamole.
@@ -87,7 +87,7 @@ def remove_user() -> Tuple[Dict[str, Any], int]:
 @users_bp.route("/createuser", methods=["POST"])
 @token_required
 @admin_required
-def create_user() -> Tuple[Dict[str, Any], int]:
+def create_user() -> tuple[dict[str, Any], int]:
     """Create a new user.
 
     This endpoint creates a new user in both the application database and Guacamole.
@@ -114,9 +114,7 @@ def create_user() -> Tuple[Dict[str, Any], int]:
             return jsonify({"error": "Username and sub are required"}), HTTPStatus.BAD_REQUEST
 
         if len(username) < 3:
-            return jsonify(
-                {"error": "Username must be at least 3 characters long"}
-            ), HTTPStatus.BAD_REQUEST
+            return jsonify({"error": "Username must be at least 3 characters long"}), HTTPStatus.BAD_REQUEST
 
         # Get database client
         db_client = client_factory.get_database_client()
@@ -126,9 +124,7 @@ def create_user() -> Tuple[Dict[str, Any], int]:
         SELECT username, sub FROM users
         WHERE username = :username OR sub = :sub
         """
-        existing_users, count = db_client.execute_query(
-            check_query, {"username": username, "sub": sub}
-        )
+        existing_users, count = db_client.execute_query(check_query, {"username": username, "sub": sub})
 
         if count > 0:
             # Check which field already exists
@@ -136,9 +132,7 @@ def create_user() -> Tuple[Dict[str, Any], int]:
                 if user["username"] == username:
                     return jsonify({"error": "Username already exists"}), HTTPStatus.CONFLICT
                 if user["sub"] == sub:
-                    return jsonify(
-                        {"error": "User with this OIDC subject already exists"}
-                    ), HTTPStatus.CONFLICT
+                    return jsonify({"error": "User with this OIDC subject already exists"}), HTTPStatus.CONFLICT
 
         # Create minimal user with just username and sub
         # Other fields will be populated during the first OIDC login
@@ -212,7 +206,7 @@ def create_user() -> Tuple[Dict[str, Any], int]:
 @users_bp.route("/list", methods=["GET"])
 @token_required
 @admin_required
-def list_users() -> Tuple[Dict[str, Any], int]:
+def list_users() -> tuple[dict[str, Any], int]:
     """List all users.
 
     This endpoint lists all users in the system.
@@ -268,7 +262,7 @@ def list_users() -> Tuple[Dict[str, Any], int]:
 
 
 @users_bp.route("/check", methods=["GET"])
-def check_user() -> Tuple[Dict[str, Any], int]:
+def check_user() -> tuple[dict[str, Any], int]:
     """Check if a user exists.
 
     This endpoint checks if a user with the given username exists in the system.
@@ -308,7 +302,7 @@ def check_user() -> Tuple[Dict[str, Any], int]:
 @users_bp.route("/<username>", methods=["GET"])
 @token_required
 @admin_required
-def get_user(username: str) -> Tuple[Dict[str, Any], int]:
+def get_user(username: str) -> tuple[dict[str, Any], int]:
     """Get detailed user information.
 
     This endpoint returns detailed information about a specific user,
@@ -405,7 +399,7 @@ def get_user(username: str) -> Tuple[Dict[str, Any], int]:
 @users_bp.route("/update/<username>", methods=["POST"])
 @token_required
 @admin_required
-def update_user(username: str) -> Tuple[Dict[str, Any], int]:
+def update_user(username: str) -> tuple[dict[str, Any], int]:
     """Update user information.
 
     This endpoint updates specific fields for a user, such as organization or admin status.
@@ -499,7 +493,7 @@ def update_user(username: str) -> Tuple[Dict[str, Any], int]:
 
 
 @users_bp.route("/verify", methods=["GET"])
-def verify_user_by_sub() -> Tuple[Dict[str, Any], int]:
+def verify_user_by_sub() -> tuple[dict[str, Any], int]:
     """Verify if a user with the given sub exists.
 
     This endpoint is used by the debug login feature to verify if a user with

@@ -2,7 +2,7 @@
 
 import logging
 from http import HTTPStatus
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import requests
 from flask import current_app, session
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class APIError(Exception):
     """Exception raised for API errors."""
 
-    def __init__(self, message: str, status_code: int = 500, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, status_code: int = 500, details: dict[str, Any] | None = None):
         """Initialize APIError.
 
         Args:
@@ -34,16 +34,16 @@ class ClientRequest(BaseModel):
     """Model for API request parameters."""
 
     endpoint: str
-    data: Optional[Dict[str, Any]] = None
-    params: Optional[Dict[str, Any]] = None
-    timeout: Optional[int] = None
-    headers: Optional[Dict[str, str]] = None
+    data: dict[str, Any] | None = None
+    params: dict[str, Any] | None = None
+    timeout: int | None = None
+    headers: dict[str, str] | None = None
 
 
 class BaseClient:
     """Base client for API interactions."""
 
-    def __init__(self, base_url: Optional[str] = None, timeout: int = 10):
+    def __init__(self, base_url: str | None = None, timeout: int = 10):
         """Initialize the base client.
 
         Args:
@@ -64,7 +64,7 @@ class BaseClient:
             return self.base_url
         return current_app.config["API_URL"]
 
-    def _get_headers(self, token: Optional[str] = None) -> Dict[str, str]:
+    def _get_headers(self, token: str | None = None) -> dict[str, str]:
         """Get headers for API requests.
 
         Args:
@@ -78,7 +78,7 @@ class BaseClient:
             headers["Authorization"] = f"Bearer {token}"
         return headers
 
-    def _handle_response(self, response: requests.Response) -> Tuple[Dict[str, Any], int]:
+    def _handle_response(self, response: requests.Response) -> tuple[dict[str, Any], int]:
         """Handle API response.
 
         Args:
@@ -106,7 +106,7 @@ class BaseClient:
 
         return data, response.status_code
 
-    def _request(self, method: str, request: ClientRequest) -> Tuple[Dict[str, Any], int]:
+    def _request(self, method: str, request: ClientRequest) -> tuple[dict[str, Any], int]:
         """Make a request to the API.
 
         Args:
@@ -160,7 +160,7 @@ class BaseClient:
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
             ) from e
 
-    def get(self, request: ClientRequest) -> Tuple[Dict[str, Any], int]:
+    def get(self, request: ClientRequest) -> tuple[dict[str, Any], int]:
         """Make a GET request to the API.
 
         Args:
@@ -171,7 +171,7 @@ class BaseClient:
         """
         return self._request(method="GET", request=request)
 
-    def post(self, request: ClientRequest) -> Tuple[Dict[str, Any], int]:
+    def post(self, request: ClientRequest) -> tuple[dict[str, Any], int]:
         """Make a POST request to the API.
 
         Args:
@@ -182,7 +182,7 @@ class BaseClient:
         """
         return self._request(method="POST", request=request)
 
-    def put(self, request: ClientRequest) -> Tuple[Dict[str, Any], int]:
+    def put(self, request: ClientRequest) -> tuple[dict[str, Any], int]:
         """Make a PUT request to the API.
 
         Args:
@@ -193,7 +193,7 @@ class BaseClient:
         """
         return self._request(method="PUT", request=request)
 
-    def delete(self, request: ClientRequest) -> Tuple[Dict[str, Any], int]:
+    def delete(self, request: ClientRequest) -> tuple[dict[str, Any], int]:
         """Make a DELETE request to the API.
 
         Args:

@@ -10,9 +10,7 @@ class ConnectionBase(BaseModel):
     """Base connection schema with common attributes."""
 
     name: str = Field(..., description="Unique name of the connection")
-    guacamole_connection_id: str = Field(
-        ..., description="ID of the corresponding Guacamole connection"
-    )
+    guacamole_connection_id: str = Field(..., description="ID of the corresponding Guacamole connection")
 
 
 class ConnectionCreate(ConnectionBase):
@@ -44,9 +42,7 @@ class ConnectionResponse(ConnectionBase):
 class ConnectionList(BaseModel):
     """Schema for list of connections response."""
 
-    connections: list[ConnectionResponse] = Field(
-        default_factory=list, description="List of connections"
-    )
+    connections: list[ConnectionResponse] = Field(default_factory=list, description="List of connections")
 
 
 class ConnectionScaleUp(BaseModel):

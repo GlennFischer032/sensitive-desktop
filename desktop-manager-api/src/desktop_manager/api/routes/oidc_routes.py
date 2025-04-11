@@ -11,7 +11,7 @@ from http import HTTPStatus
 import json
 import logging
 import secrets
-from typing import Any, Dict, Tuple
+from typing import Any
 from urllib.parse import urlencode
 
 from flask import Blueprint, current_app, jsonify, request
@@ -39,18 +39,14 @@ def ensure_all_users_group(guacamole_client):
     return guacamole_client.ensure_group(group_name)
 
 
-def generate_pkce_pair() -> Tuple[str, str]:
+def generate_pkce_pair() -> tuple[str, str]:
     """Generate PKCE code verifier and challenge.
 
     Returns:
         Tuple[str, str]: code_verifier, code_challenge
     """
     code_verifier = secrets.token_urlsafe(64)
-    code_challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
-        .decode()
-        .rstrip("=")
-    )
+    code_challenge = base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest()).decode().rstrip("=")
     return code_verifier, code_challenge
 
 
@@ -69,9 +65,7 @@ def store_pkce_state(state: str, code_verifier: str) -> None:
     VALUES (:state, :code_verifier, :expires_at)
     """
 
-    db_client.execute_query(
-        query, {"state": state, "code_verifier": code_verifier, "expires_at": expires_at}
-    )
+    db_client.execute_query(query, {"state": state, "code_verifier": code_verifier, "expires_at": expires_at})
 
 
 def get_pkce_verifier(state: str) -> str:
@@ -104,7 +98,7 @@ def get_pkce_verifier(state: str) -> str:
 
 
 @oidc_bp.route("/auth/oidc/login", methods=["GET"])
-def oidc_login() -> Tuple[Dict[str, Any], int]:
+def oidc_login() -> tuple[dict[str, Any], int]:
     """Initiate OIDC login flow.
 
     This endpoint starts the OIDC authentication flow by generating
@@ -153,7 +147,7 @@ def oidc_login() -> Tuple[Dict[str, Any], int]:
 
 
 @oidc_bp.route("/auth/oidc/callback", methods=["POST"])
-def oidc_callback() -> Tuple[Dict[str, Any], int]:
+def oidc_callback() -> tuple[dict[str, Any], int]:
     """Handle OIDC callback.
 
     This endpoint handles the callback from the OIDC provider,
@@ -246,14 +240,11 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
                     k: v
                     for k, v in additional_user_info.items()
                     if any(
-                        org_term in k.lower()
-                        for org_term in ["org", "tenant", "company", "institution", "affiliation"]
+                        org_term in k.lower() for org_term in ["org", "tenant", "company", "institution", "affiliation"]
                     )
                 }
                 if org_fields_in_userinfo:
-                    logger.info(
-                        "Organization-related fields in userinfo: %s", org_fields_in_userinfo
-                    )
+                    logger.info("Organization-related fields in userinfo: %s", org_fields_in_userinfo)
 
                 # Merge additional user info with ID token info, but don't overwrite existing values
                 for key, value in additional_user_info.items():
@@ -325,9 +316,7 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
             or user_info.get("schachomeorganization")  # Alternate form
             or user_info.get("tenant")  # For multi-tenant setups
             or (
-                user_info.get("groups", {}).get("organization")
-                if isinstance(user_info.get("groups"), dict)
-                else None
+                user_info.get("groups", {}).get("organization") if isinstance(user_info.get("groups"), dict) else None
             )  # Check groups object
             or "e-INFRA"  # Default fallback
         )
@@ -336,10 +325,7 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
         org_related_claims = {
             claim: value
             for claim, value in user_info.items()
-            if any(
-                org_term in claim.lower()
-                for org_term in ["org", "tenant", "company", "institution", "affiliation"]
-            )
+            if any(org_term in claim.lower() for org_term in ["org", "tenant", "company", "institution", "affiliation"])
         }
         if org_related_claims:
             logger.info("Found organization-related claims in token: %s", org_related_claims)
@@ -347,9 +333,7 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
         # Log the full user info for debugging
         logger.info(
             "OIDC token decoded with user info: %s",
-            json.dumps(
-                {k: v for k, v in user_info.items() if k not in ["at_hash", "auth_time"]}, indent=2
-            ),
+            json.dumps({k: v for k, v in user_info.items() if k not in ["at_hash", "auth_time"]}, indent=2),
         )
 
         # Log the extracted user details
@@ -437,9 +421,7 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
                         "user_id": user["id"],
                         "provider": "oidc",
                         "provider_user_id": sub,
-                        "extra_data": json.dumps(
-                            {"id_token": id_token, "access_token": access_token}
-                        ),
+                        "extra_data": json.dumps({"id_token": id_token, "access_token": access_token}),
                         "created_at": datetime.utcnow(),
                     },
                 )
@@ -455,9 +437,7 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
                     update_query,
                     {
                         "provider_user_id": sub,
-                        "extra_data": json.dumps(
-                            {"id_token": id_token, "access_token": access_token}
-                        ),
+                        "extra_data": json.dumps({"id_token": id_token, "access_token": access_token}),
                         "last_used": datetime.utcnow(),
                         "id": associations[0]["id"],
                     },
@@ -467,9 +447,34 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
             username = generate_unique_username(preferred_username)
 
             insert_query = """
-            INSERT INTO users
-            (username, email, sub, given_name, family_name, name, organization, locale, email_verified, is_admin, created_at, last_login)
-            VALUES (:username, :email, :sub, :given_name, :family_name, :name, :organization, :locale, :email_verified, :is_admin, :created_at, :last_login)
+            INSERT INTO users (
+                username,
+                email,
+                sub,
+                given_name,
+                family_name,
+                name,
+                organization,
+                locale,
+                email_verified,
+                is_admin,
+                created_at,
+                last_login
+            )
+            VALUES (
+                :username,
+                :email,
+                :sub,
+                :given_name,
+                :family_name,
+                :name,
+                :organization,
+                :locale,
+                :email_verified,
+                :is_admin,
+                :created_at,
+                :last_login
+            )
             RETURNING id
             """
 
@@ -536,9 +541,7 @@ def oidc_callback() -> Tuple[Dict[str, Any], int]:
                 guacamole_client.ensure_group(token, "all_users")
                 guacamole_client.add_user_to_group(token, username, "all_users")
 
-                logger.info(
-                    "Created user in Guacamole with JSON auth during OIDC login: %s", username
-                )
+                logger.info("Created user in Guacamole with JSON auth during OIDC login: %s", username)
             except Exception as e:
                 # Log but continue - Guacamole integration is optional
                 logger.warning("Failed to create user in Guacamole during OIDC login: %s", str(e))

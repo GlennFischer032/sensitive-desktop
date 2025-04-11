@@ -6,7 +6,7 @@ This module provides a client for managing Rancher deployments.
 from dataclasses import dataclass
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import requests
 
@@ -32,7 +32,7 @@ class Storage:
     server: str = ""
     username: str = ""
     password: str = ""
-    externalpvc: Dict[str, Any] = None
+    externalpvc: dict[str, Any] = None
     persistenthome: bool = True
 
     def __post_init__(self):
@@ -67,7 +67,7 @@ class DesktopValues:
     display: str = "VNC"
     storage: Storage = None
     vnc_password: str = None
-    external_pvc: Optional[str] = None  # New field for external PVC name
+    external_pvc: str | None = None  # New field for external PVC name
 
     def __post_init__(self):
         if self.webrtcimages is None:
@@ -125,13 +125,13 @@ class RancherClient(BaseClient):
 
     def __init__(
         self,
-        api_url: Optional[str] = None,
-        api_token: Optional[str] = None,
-        cluster_id: Optional[str] = None,
-        cluster_name: Optional[str] = None,
-        project_id: Optional[str] = None,
-        repo_name: Optional[str] = None,
-        namespace: Optional[str] = None,
+        api_url: str | None = None,
+        api_token: str | None = None,
+        cluster_id: str | None = None,
+        cluster_name: str | None = None,
+        project_id: str | None = None,
+        repo_name: str | None = None,
+        namespace: str | None = None,
     ):
         """Initialize RancherClient.
 
@@ -159,7 +159,7 @@ class RancherClient(BaseClient):
             "Content-Type": "application/json",
         }
 
-    def install(self, connection_name: str, values: DesktopValues) -> Dict[str, Any]:
+    def install(self, connection_name: str, values: DesktopValues) -> dict[str, Any]:
         """Install a Helm chart via Rancher API.
 
         Args:
@@ -174,7 +174,10 @@ class RancherClient(BaseClient):
         """
         try:
             # New endpoint for installing charts
-            url = f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/catalog.cattle.io.clusterrepos/{self.repo_name}?action=install"
+            url = (
+                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/"
+                f"catalog.cattle.io.clusterrepos/{self.repo_name}?action=install"
+            )
 
             # New payload structure based on the updated Rancher API
             helm_chart_info = {
@@ -234,13 +237,13 @@ class RancherClient(BaseClient):
         except requests.RequestException as e:
             error_message = f"Failed to install Helm chart: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
         except Exception as e:
             error_message = f"Unexpected error installing Helm chart: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def uninstall(self, connection_name: str) -> Dict[str, Any]:
+    def uninstall(self, connection_name: str) -> dict[str, Any]:
         """Uninstall a Helm chart via Rancher API.
 
         Args:
@@ -276,15 +279,13 @@ class RancherClient(BaseClient):
         except requests.RequestException as e:
             error_message = f"Failed to uninstall Helm chart: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
         except Exception as e:
             error_message = f"Unexpected error uninstalling Helm chart: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def check_vnc_ready(
-        self, connection_name: str, max_retries: int = 30, retry_interval: int = 2
-    ) -> bool:
+    def check_vnc_ready(self, connection_name: str, max_retries: int = 30, retry_interval: int = 2) -> bool:
         """Check if VNC server pod is ready and VNC port is accessible.
 
         Args:
@@ -351,9 +352,7 @@ class RancherClient(BaseClient):
                         continue
 
                     # Check if all containers are ready
-                    all_ready = all(
-                        container.get("ready", False) for container in container_statuses
-                    )
+                    all_ready = all(container.get("ready", False) for container in container_statuses)
                     if not all_ready:
                         self.logger.warning(
                             "Not all containers in pod for %s are ready, retrying (%s/%s)",
@@ -380,9 +379,9 @@ class RancherClient(BaseClient):
         except Exception as e:
             error_message = f"Unexpected error checking VNC readiness: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def get_pod_ip(self, connection_name: str) -> Optional[str]:
+    def get_pod_ip(self, connection_name: str) -> str | None:
         """Get the IP address of the pod.
 
         Args:
@@ -422,13 +421,13 @@ class RancherClient(BaseClient):
         except requests.RequestException as e:
             error_message = f"Failed to get pod IP: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
         except Exception as e:
             error_message = f"Unexpected error getting pod IP: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def list_releases(self) -> List[Dict[str, Any]]:
+    def list_releases(self) -> list[dict[str, Any]]:
         """List Helm releases via Rancher API.
 
         Returns:
@@ -457,13 +456,13 @@ class RancherClient(BaseClient):
         except requests.RequestException as e:
             error_message = f"Failed to list releases: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
         except Exception as e:
             error_message = f"Unexpected error listing releases: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def get_release(self, connection_name: str) -> Dict[str, Any]:
+    def get_release(self, connection_name: str) -> dict[str, Any]:
         """Get a Helm release via Rancher API.
 
         Args:
@@ -494,18 +493,18 @@ class RancherClient(BaseClient):
         except requests.RequestException as e:
             error_message = f"Failed to get release: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
         except Exception as e:
             error_message = f"Unexpected error getting release: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
     def create_pvc(
         self,
         name: str,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
         size: str = "10Gi",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a Persistent Volume Claim (PVC) via Rancher API.
 
         Args:
@@ -558,13 +557,13 @@ class RancherClient(BaseClient):
         except requests.RequestException as e:
             error_message = f"Failed to create PVC: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
         except Exception as e:
             error_message = f"Unexpected error creating PVC: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def get_pvc(self, name: str, namespace: Optional[str] = None) -> Dict[str, Any]:
+    def get_pvc(self, name: str, namespace: str | None = None) -> dict[str, Any]:
         """Get a Persistent Volume Claim (PVC) via Rancher API.
 
         Args:
@@ -582,8 +581,7 @@ class RancherClient(BaseClient):
 
             # URL for getting PVC via Rancher API
             url = (
-                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/persistentvolumeclaims/"
-                f"{namespace_to_use}/{name}"
+                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/persistentvolumeclaims/" f"{namespace_to_use}/{name}"
             )
 
             self.logger.info(
@@ -603,13 +601,13 @@ class RancherClient(BaseClient):
         except requests.RequestException as e:
             error_message = f"Failed to get PVC: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
         except Exception as e:
             error_message = f"Unexpected error getting PVC: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
 
-    def delete_pvc(self, name: str, namespace: Optional[str] = None) -> Dict[str, Any]:
+    def delete_pvc(self, name: str, namespace: str | None = None) -> dict[str, Any]:
         """Delete a Persistent Volume Claim (PVC) via Rancher API.
 
         Args:
@@ -627,8 +625,7 @@ class RancherClient(BaseClient):
 
             # URL for deleting PVC via Rancher API
             url = (
-                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/persistentvolumeclaims/"
-                f"{namespace_to_use}/{name}"
+                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/persistentvolumeclaims/" f"{namespace_to_use}/{name}"
             )
 
             self.logger.info(
@@ -648,8 +645,8 @@ class RancherClient(BaseClient):
         except requests.RequestException as e:
             error_message = f"Failed to delete PVC: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e
         except Exception as e:
             error_message = f"Unexpected error deleting PVC: {e!s}"
             self.logger.error(error_message)
-            raise APIError(error_message, status_code=500)
+            raise APIError(error_message, status_code=500) from e

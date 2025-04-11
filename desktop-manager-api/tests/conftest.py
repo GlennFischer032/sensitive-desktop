@@ -211,9 +211,7 @@ def setup_test_db(database_url):
 
                 # Create indexes for pkce_state table
                 conn.execute(text("CREATE INDEX IF NOT EXISTS idx_state ON pkce_state(state)"))
-                conn.execute(
-                    text("CREATE INDEX IF NOT EXISTS idx_expires ON pkce_state(expires_at)")
-                )
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_expires ON pkce_state(expires_at)"))
 
                 # Connections table
                 conn.execute(
@@ -262,11 +260,7 @@ def setup_test_db(database_url):
                 )
 
                 # Create index for desktop_configurations table
-                conn.execute(
-                    text(
-                        "CREATE INDEX IF NOT EXISTS idx_desktop_config_name ON desktop_configurations(name)"
-                    )
-                )
+                conn.execute(text("CREATE INDEX IF NOT EXISTS idx_desktop_config_name ON desktop_configurations(name)"))
 
                 # Desktop Configuration Access table
                 conn.execute(
@@ -386,14 +380,10 @@ def mock_database_client(monkeypatch, test_db):
     mock_client = MockDatabaseClient(session=test_db)
 
     # Patch the client_factory's _database_client attribute
-    monkeypatch.setattr(
-        "desktop_manager.clients.factory.client_factory._database_client", mock_client
-    )
+    monkeypatch.setattr("desktop_manager.clients.factory.client_factory._database_client", mock_client)
 
     # Patch the factory method to return our mock client
-    monkeypatch.setattr(
-        "desktop_manager.clients.factory.client_factory.get_database_client", lambda: mock_client
-    )
+    monkeypatch.setattr("desktop_manager.clients.factory.client_factory.get_database_client", lambda: mock_client)
 
     # Patch the direct factory function to return our mock client
     monkeypatch.setattr("desktop_manager.clients.factory.get_database_client", lambda: mock_client)
@@ -491,9 +481,7 @@ def mock_auth_decorators(monkeypatch, test_db):
                     # Set user on request
                     request.current_user = current_user
 
-                print(
-                    f"DEBUG: Set current_user on request with is_admin={request.current_user.is_admin}"
-                )
+                print(f"DEBUG: Set current_user on request with is_admin={request.current_user.is_admin}")
                 return f(*args, **kwargs)
             except Exception as e:
                 print(f"DEBUG: Exception in mock_token_required: {e!s}")
@@ -533,27 +521,17 @@ def mock_auth_decorators(monkeypatch, test_db):
 
     # Route-specific patches
     print("DEBUG PATCHING: Patching user_routes decorators")
-    monkeypatch.setattr(
-        "desktop_manager.api.routes.user_routes.token_required", mock_token_required
-    )
-    monkeypatch.setattr(
-        "desktop_manager.api.routes.user_routes.admin_required", mock_admin_required
-    )
+    monkeypatch.setattr("desktop_manager.api.routes.user_routes.token_required", mock_token_required)
+    monkeypatch.setattr("desktop_manager.api.routes.user_routes.admin_required", mock_admin_required)
 
     print("DEBUG PATCHING: Patching connection_routes decorators")
-    monkeypatch.setattr(
-        "desktop_manager.api.routes.connection_routes.token_required", mock_token_required
-    )
+    monkeypatch.setattr("desktop_manager.api.routes.connection_routes.token_required", mock_token_required)
     # Don't patch admin_required for connection_routes since it doesn't use this decorator
 
     # Auth routes
     print("DEBUG PATCHING: Patching auth_routes decorators")
-    monkeypatch.setattr(
-        "desktop_manager.api.routes.auth_routes.token_required", mock_token_required
-    )
-    monkeypatch.setattr(
-        "desktop_manager.api.routes.auth_routes.admin_required", mock_admin_required
-    )
+    monkeypatch.setattr("desktop_manager.api.routes.auth_routes.token_required", mock_token_required)
+    monkeypatch.setattr("desktop_manager.api.routes.auth_routes.admin_required", mock_admin_required)
 
     # Return the mock decorators for potential use in tests
     print("DEBUG PATCHING: Patching finished")

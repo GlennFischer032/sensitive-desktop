@@ -150,56 +150,6 @@ def test_create_token_error(mock_post):
         client.create_token(name="Test Token")
 
 
-@patch("app.clients.base.BaseClient.get")
-def test_get_token_success(mock_get):
-    """
-    GIVEN a TokensClient
-    WHEN get_token() is called
-    THEN check it calls the API correctly
-    """
-    # Set up mock
-    mock_response = (
-        {
-            "id": "token123",
-            "name": "Test Token",
-            "created_at": "2023-01-01",
-            "expires_at": "2023-12-31",
-            "is_revoked": False,
-        },
-        200,
-    )
-    mock_get.return_value = mock_response
-
-    # Call method
-    client = TokensClient()
-    token = client.get_token(token_id="token123")
-
-    # Verify
-    mock_get.assert_called_once()
-    args, kwargs = mock_get.call_args
-    request = kwargs["request"]
-    assert request.endpoint == "/api/tokens/token123"
-    assert token["id"] == "token123"
-    assert token["name"] == "Test Token"
-    assert token["is_revoked"] is False
-
-
-@patch("app.clients.base.BaseClient.get")
-def test_get_token_error(mock_get):
-    """
-    GIVEN a TokensClient
-    WHEN get_token() is called and the API returns an error
-    THEN check it raises an APIError
-    """
-    # Set up mock
-    mock_get.side_effect = APIError("Token not found", 404)
-
-    # Call method and verify exception
-    client = TokensClient()
-    with pytest.raises(APIError):
-        client.get_token(token_id="nonexistent-token")
-
-
 @patch("app.clients.base.BaseClient.delete")
 def test_revoke_token_success(mock_delete):
     """

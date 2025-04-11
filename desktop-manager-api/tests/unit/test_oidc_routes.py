@@ -23,9 +23,7 @@ TEST_STATE = "test_state_123456"
 TEST_CODE = "test_authorization_code"
 TEST_CODE_VERIFIER = "test_code_verifier_123456"
 TEST_CODE_CHALLENGE = (
-    base64.urlsafe_b64encode(hashlib.sha256(TEST_CODE_VERIFIER.encode()).digest())
-    .decode()
-    .rstrip("=")
+    base64.urlsafe_b64encode(hashlib.sha256(TEST_CODE_VERIFIER.encode()).digest()).decode().rstrip("=")
 )
 
 
@@ -214,9 +212,7 @@ def mock_pkce_challenge(mock_pkce_verifier):
     """Generate a PKCE code challenge from the mock verifier."""
     # Generate the S256 challenge method
     code_challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(mock_pkce_verifier.encode()).digest())
-        .rstrip(b"=")
-        .decode()
+        base64.urlsafe_b64encode(hashlib.sha256(mock_pkce_verifier.encode()).digest()).rstrip(b"=").decode()
     )
     return code_challenge
 
@@ -295,9 +291,7 @@ def test_oidc_callback_success(test_client, stored_pkce_state, mock_guacamole):
     # Mock successful token and userinfo responses
     with patch("desktop_manager.api.routes.oidc_routes.requests.post") as mock_post, patch(
         "desktop_manager.api.routes.oidc_routes.requests.get"
-    ) as mock_get, patch(
-        "desktop_manager.api.routes.oidc_routes.get_pkce_verifier"
-    ) as mock_get_verifier, patch(
+    ) as mock_get, patch("desktop_manager.api.routes.oidc_routes.get_pkce_verifier") as mock_get_verifier, patch(
         "desktop_manager.api.routes.oidc_routes.jwt.decode"
     ) as mock_jwt_decode:
         # Mock the get_pkce_verifier to return a valid code verifier
@@ -372,9 +366,7 @@ def test_oidc_callback_missing_params(test_client):
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
     # Test with missing redirect_uri
-    response = test_client.post(
-        "/auth/oidc/callback", json={"code": "some_code", "state": "some_state"}
-    )
+    response = test_client.post("/auth/oidc/callback", json={"code": "some_code", "state": "some_state"})
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
     # Test with empty data
@@ -403,9 +395,7 @@ def test_oidc_callback_token_error(test_client, stored_pkce_state):
     """Test OIDC callback with token retrieval error."""
     with patch("desktop_manager.api.routes.oidc_routes.requests.post") as mock_post, patch(
         "desktop_manager.api.routes.oidc_routes.get_pkce_verifier"
-    ) as mock_get_verifier, patch(
-        "desktop_manager.api.routes.oidc_routes.jwt.decode"
-    ) as mock_jwt_decode:
+    ) as mock_get_verifier, patch("desktop_manager.api.routes.oidc_routes.jwt.decode") as mock_jwt_decode:
         # Mock the get_pkce_verifier to return a valid code verifier
         mock_get_verifier.return_value = "test_code_verifier"
 
@@ -437,9 +427,7 @@ def test_oidc_callback_userinfo_error(test_client, stored_pkce_state):
     """Test OIDC callback with userinfo retrieval error."""
     with patch("desktop_manager.api.routes.oidc_routes.requests.post") as mock_post, patch(
         "desktop_manager.api.routes.oidc_routes.requests.get"
-    ) as mock_get, patch(
-        "desktop_manager.api.routes.oidc_routes.get_pkce_verifier"
-    ) as mock_get_verifier, patch(
+    ) as mock_get, patch("desktop_manager.api.routes.oidc_routes.get_pkce_verifier") as mock_get_verifier, patch(
         "desktop_manager.api.routes.oidc_routes.jwt.decode"
     ) as mock_jwt_decode:
         # Mock the get_pkce_verifier to return a valid code verifier
@@ -488,9 +476,7 @@ def test_oidc_callback_missing_user_fields(test_client, stored_pkce_state):
     """Test OIDC callback with missing user fields in userinfo."""
     with patch("desktop_manager.api.routes.oidc_routes.requests.post") as mock_post, patch(
         "desktop_manager.api.routes.oidc_routes.requests.get"
-    ) as mock_get, patch(
-        "desktop_manager.api.routes.oidc_routes.get_pkce_verifier"
-    ) as mock_get_verifier, patch(
+    ) as mock_get, patch("desktop_manager.api.routes.oidc_routes.get_pkce_verifier") as mock_get_verifier, patch(
         "desktop_manager.api.routes.oidc_routes.jwt.decode"
     ) as mock_jwt_decode:
         # Mock the get_pkce_verifier to return a valid code verifier
@@ -554,18 +540,14 @@ def test_oidc_callback_existing_user(test_client, test_db, stored_pkce_state, mo
     test_db.refresh(existing_user)
 
     # Create the social auth association
-    association = SocialAuthAssociation(
-        user_id=existing_user.id, provider="oidc", provider_user_id="test_subject_id"
-    )
+    association = SocialAuthAssociation(user_id=existing_user.id, provider="oidc", provider_user_id="test_subject_id")
     test_db.add(association)
     test_db.commit()
 
     # Mock successful token and userinfo responses
     with patch("desktop_manager.api.routes.oidc_routes.requests.post") as mock_post, patch(
         "desktop_manager.api.routes.oidc_routes.requests.get"
-    ) as mock_get, patch(
-        "desktop_manager.api.routes.oidc_routes.get_pkce_verifier"
-    ) as mock_get_verifier, patch(
+    ) as mock_get, patch("desktop_manager.api.routes.oidc_routes.get_pkce_verifier") as mock_get_verifier, patch(
         "desktop_manager.api.routes.oidc_routes.jwt.decode"
     ) as mock_jwt_decode:
         # Mock the get_pkce_verifier to return a valid code verifier
@@ -645,9 +627,7 @@ def test_oidc_callback_network_error(test_client, stored_pkce_state):
     with patch(
         "desktop_manager.api.routes.oidc_routes.requests.post",
         side_effect=requests.exceptions.RequestException("Network error"),
-    ), patch(
-        "desktop_manager.api.routes.oidc_routes.get_pkce_verifier"
-    ) as mock_get_verifier, patch(
+    ), patch("desktop_manager.api.routes.oidc_routes.get_pkce_verifier") as mock_get_verifier, patch(
         "desktop_manager.api.routes.oidc_routes.jwt.decode"
     ) as mock_jwt_decode:
         # Mock the get_pkce_verifier to return a valid code verifier

@@ -1,8 +1,8 @@
+from collections.abc import Callable
 from functools import wraps
 from http import HTTPStatus
 import logging
 import re
-from typing import Callable, Optional
 
 from flask import jsonify, request
 from pydantic import BaseModel, ValidationError
@@ -57,7 +57,7 @@ def validate_content_length(
     return decorator
 
 
-def validate_content_type(allowed_types: Optional[set] = None):
+def validate_content_type(allowed_types: set | None = None):
     """Validate request content type."""
     if allowed_types is None:
         allowed_types = RequestValidationConfig.ALLOWED_CONTENT_TYPES
@@ -196,11 +196,11 @@ def validate_query_params(allowed_params: set):
 
 
 def comprehensive_validation(
-    schema: Optional[BaseModel] = None,
-    max_content_length: Optional[int] = None,
-    allowed_content_types: Optional[set] = None,
-    path_pattern: Optional[str] = None,
-    allowed_query_params: Optional[set] = None,
+    schema: BaseModel | None = None,
+    max_content_length: int | None = None,
+    allowed_content_types: set | None = None,
+    path_pattern: str | None = None,
+    allowed_query_params: set | None = None,
 ):
     """Comprehensive request validation combining all validators."""
 

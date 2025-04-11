@@ -38,7 +38,9 @@
                 <th>Status</th>
                 <th>Created By</th>
                 <th>Access</th>
+                {% if is_admin %}
                 <th>Actions</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody>
@@ -60,15 +62,15 @@
                     <span class="badge badge-info">Private</span>
                     {% endif %}
                 </td>
+                {% if is_admin %}
                 <td class="action-buttons">
                     <div class="button-group">
                         <button class="button small view-connections-btn" data-pvc-id="{{ pvc.id }}">View Connections</button>
-                        {% if is_admin or pvc.created_by == session.username %}
                         <button class="button small manage-access-btn" data-pvc-id="{{ pvc.id }}" data-pvc-name="{{ pvc.name }}">Manage Access</button>
-                        <button class="button small danger delete-btn" data-pvc-name="{{ pvc.name }}">Delete</button>
-                        {% endif %}
+                        <button class="button small danger delete-btn" data-pvc-id="{{ pvc.id }}">Delete</button>
                     </div>
                 </td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
@@ -484,14 +486,14 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.delete-btn').forEach(button => {
         button.addEventListener('click', function() {
             console.log('Delete button clicked');
-            const pvcName = this.getAttribute('data-pvc-name');
+            const pvcId = this.getAttribute('data-pvc-id');
 
             // Show the delete modal
             ModalManager.show('delete-modal', {
                 onShow: function() {
                     // Set up the confirm delete button click handler
                     document.getElementById('delete-modal-confirm').onclick = function() {
-                        handleDeleteConfirm(pvcName);
+                        handleDeleteConfirm(pvcId);
                     };
                 }
             });
@@ -499,7 +501,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Delete confirmation function
-    async function handleDeleteConfirm(pvcName) {
+    async function handleDeleteConfirm(pvcId) {
         const deleteLoading = document.getElementById('delete-loading');
         const deleteError = document.getElementById('delete-error');
 
@@ -512,7 +514,7 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteLoading.classList.remove('hidden');
 
         try {
-            const response = await fetch(`/api/storage/pvcs/${pvcName}`, {
+            const response = await fetch(`/api/storage/pvcs/${pvcId}`, {
                 method: 'DELETE'
             });
 
@@ -523,7 +525,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             // Success - remove the row from the table
-            const pvcRow = document.getElementById(`pvc-${pvcName}`);
+            const pvcRow = document.getElementById(`pvc-${pvcId}`);
             if (pvcRow) pvcRow.remove();
 
             // Hide the modal

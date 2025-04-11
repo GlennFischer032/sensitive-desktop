@@ -4,7 +4,7 @@ This module contains the configuration for python-social-auth integration with F
 It sets up the OIDC authentication pipeline and related settings.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -14,44 +14,32 @@ class SocialAuthConfig(BaseSettings):
     """Social Auth Configuration Settings."""
 
     # OIDC Provider Settings
-    SOCIAL_AUTH_OIDC_PROVIDER_URL: str = Field(
-        default="https://login.e-infra.cz/oidc", description="OIDC Provider URL"
-    )
+    SOCIAL_AUTH_OIDC_PROVIDER_URL: str = Field(default="https://login.e-infra.cz/oidc", description="OIDC Provider URL")
     SOCIAL_AUTH_OIDC_CLIENT_ID: str = Field(default="", description="OIDC Client ID")
     SOCIAL_AUTH_OIDC_CLIENT_SECRET: str = Field(default="", description="OIDC Client Secret")
 
     # Redirect URIs
-    SOCIAL_AUTH_LOGIN_REDIRECT_URL: str = Field(
-        default="/", description="URL to redirect to after successful login"
-    )
-    SOCIAL_AUTH_LOGIN_ERROR_URL: str = Field(
-        default="/login", description="URL to redirect to on login error"
-    )
-    SOCIAL_AUTH_OIDC_CALLBACK_URL: str = Field(
-        default="/api/auth/oidc/callback", description="OIDC callback URL path"
-    )
+    SOCIAL_AUTH_LOGIN_REDIRECT_URL: str = Field(default="/", description="URL to redirect to after successful login")
+    SOCIAL_AUTH_LOGIN_ERROR_URL: str = Field(default="/login", description="URL to redirect to on login error")
+    SOCIAL_AUTH_OIDC_CALLBACK_URL: str = Field(default="/api/auth/oidc/callback", description="OIDC callback URL path")
 
     # JWT Settings
     SOCIAL_AUTH_JWT_ENABLED: bool = True
     SOCIAL_AUTH_JWT_ALGORITHM: str = "HS256"
     SOCIAL_AUTH_JWT_EXPIRATION: int = 3600  # 1 hour
-    SOCIAL_AUTH_JWT_SECRET: str = Field(
-        default="", description="JWT Secret key, should be same as SECRET_KEY"
-    )
+    SOCIAL_AUTH_JWT_SECRET: str = Field(default="", description="JWT Secret key, should be same as SECRET_KEY")
 
     class Config:
         env_file = ".env"
         case_sensitive = True
 
 
-def get_social_auth_config() -> Dict[str, Any]:
+def get_social_auth_config() -> dict[str, Any]:
     """Get the social auth configuration dictionary for Flask-Social-Auth."""
     config = SocialAuthConfig()
 
     return {
-        "SOCIAL_AUTH_AUTHENTICATION_BACKENDS": (
-            "social_core.backends.open_id_connect.OpenIdConnectAuth",
-        ),
+        "SOCIAL_AUTH_AUTHENTICATION_BACKENDS": ("social_core.backends.open_id_connect.OpenIdConnectAuth",),
         # OIDC Settings
         "SOCIAL_AUTH_OIDC_OIDC_ENDPOINT": config.SOCIAL_AUTH_OIDC_PROVIDER_URL,
         "SOCIAL_AUTH_OIDC_KEY": config.SOCIAL_AUTH_OIDC_CLIENT_ID,

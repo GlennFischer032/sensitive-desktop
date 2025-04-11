@@ -129,16 +129,9 @@ def create_connection():  # noqa: PLR0911
         desktop_configuration_id = data.get("desktop_configuration_id")
         external_pvc = data.get("external_pvc")
 
-        # Get desktop configuration if specified
-        desktop_configuration = None
-        if desktop_configuration_id:
-            desktop_configs_client = client_factory.get_desktop_configurations_client()
-            config_response = desktop_configs_client.get_configuration(int(desktop_configuration_id))
-            desktop_configuration = config_response.get("configuration", {})
-
         # Prepare connection data
         connection_data = _prepare_connection_data(
-            connection_name, persistent_home, desktop_configuration, external_pvc
+            connection_name, persistent_home, desktop_configuration_id, external_pvc
         )
 
         # Create connection
@@ -386,23 +379,15 @@ def _validate_connection_name(connection_name):
     return None
 
 
-def _prepare_connection_data(connection_name, persistent_home, desktop_configuration, external_pvc):
+def _prepare_connection_data(connection_name, persistent_home, desktop_configuration_id, external_pvc):
     """Prepare connection data for API call."""
     connection_data = {
         "name": connection_name,
         "persistent_home": persistent_home,
     }
 
-    if desktop_configuration:
-        connection_data.update(
-            {
-                "desktop_configuration_id": desktop_configuration.get("id"),
-                "min_cpu": desktop_configuration.get("min_cpu"),
-                "max_cpu": desktop_configuration.get("max_cpu"),
-                "min_ram": desktop_configuration.get("min_ram"),
-                "max_ram": desktop_configuration.get("max_ram"),
-            }
-        )
+    if desktop_configuration_id:
+        connection_data["desktop_configuration_id"] = desktop_configuration_id
 
     # Add external PVC if specified
     if external_pvc:

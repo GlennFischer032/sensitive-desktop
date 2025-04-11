@@ -127,15 +127,14 @@ def add_connection():  # noqa: PLR0911
         if name_validation_result:
             return name_validation_result
 
-        desktop_configuration = _get_desktop_configuration()
-
         persistent_home_value = request.form.get("persistent_home", "off")
         persistent_home = persistent_home_value != "off"
 
         external_pvc = request.form.get("external_pvc")
+        desktop_configuration_id = request.form.get("desktop_configuration_id")
 
         connection_data = _prepare_connection_data(
-            connection_name, persistent_home, desktop_configuration, external_pvc
+            connection_name, persistent_home, desktop_configuration_id, external_pvc
         )
 
         connections_client = client_factory.get_connections_client()
@@ -192,35 +191,15 @@ def _return_connection_error(error_msg, status_code=400):
     return redirect(url_for("connections"))
 
 
-def _get_desktop_configuration():
-    """Get desktop configuration if specified in the request."""
-    desktop_configuration_id = request.form.get("desktop_configuration_id")
-    desktop_configuration = None
-    if desktop_configuration_id:
-        desktop_configs_client = client_factory.get_desktop_configurations_client()
-        config_response = desktop_configs_client.get_configuration(int(desktop_configuration_id))
-        desktop_configuration = config_response.get("configuration", {})
-        current_app.logger.debug(f"Retrieved desktop configuration: {desktop_configuration}")
-    return desktop_configuration
-
-
-def _prepare_connection_data(connection_name, persistent_home, desktop_configuration, external_pvc):
+def _prepare_connection_data(connection_name, persistent_home, desktop_configuration_id, external_pvc):
     """Prepare connection data for API call."""
     connection_data = {
         "name": connection_name,
         "persistent_home": persistent_home,
     }
 
-    if desktop_configuration:
-        connection_data.update(
-            {
-                "desktop_configuration_id": desktop_configuration.get("id"),
-                "min_cpu": desktop_configuration.get("min_cpu"),
-                "max_cpu": desktop_configuration.get("max_cpu"),
-                "min_ram": desktop_configuration.get("min_ram"),
-                "max_ram": desktop_configuration.get("max_ram"),
-            }
-        )
+    if desktop_configuration_id:
+        connection_data["desktop_configuration_id"] = desktop_configuration_id
 
     # Add external PVC if specified
     if external_pvc:

@@ -1,6 +1,6 @@
 """Authentication middleware for the application."""
 import functools
-from typing import Callable
+from collections.abc import Callable
 
 from flask import flash, redirect, session, url_for
 from werkzeug.wrappers import Response

@@ -4,7 +4,6 @@ This module provides a factory for creating client instances.
 """
 
 import logging
-from typing import Optional
 
 from desktop_manager.clients.database import DatabaseClient
 from desktop_manager.clients.guacamole import GuacamoleClient
@@ -25,9 +24,9 @@ class ClientFactory:
         """Initialize ClientFactory."""
         self.logger = logging.getLogger(self.__class__.__name__)
         self.settings = get_settings()
-        self._database_client: Optional[DatabaseClient] = None
-        self._guacamole_client: Optional[GuacamoleClient] = None
-        self._rancher_client: Optional[RancherClient] = None
+        self._database_client: DatabaseClient | None = None
+        self._guacamole_client: GuacamoleClient | None = None
+        self._rancher_client: RancherClient | None = None
 
     def get_database_client(self) -> DatabaseClient:
         """Get a DatabaseClient instance.

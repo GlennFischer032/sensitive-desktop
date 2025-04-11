@@ -1,6 +1,6 @@
 """Connections client for API interactions."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import APIError, BaseClient, ClientRequest
 
@@ -10,8 +10,8 @@ class ConnectionsClient(BaseClient):
 
     def list_connections(
         self,
-        created_by: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        created_by: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Get list of connections.
 
         Returns:
@@ -47,9 +47,9 @@ class ConnectionsClient(BaseClient):
         self,
         name: str,
         persistent_home: bool = True,
-        desktop_configuration_id: Optional[int] = None,
-        external_pvc: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        desktop_configuration_id: int | None = None,
+        external_pvc: str | None = None,
+    ) -> dict[str, Any]:
         """Add a new connection.
 
         Args:
@@ -89,7 +89,7 @@ class ConnectionsClient(BaseClient):
             self.logger.error(f"Error adding connection: {str(e)}")
             raise
 
-    def stop_connection(self, name: str) -> Dict[str, Any]:
+    def stop_connection(self, name: str) -> dict[str, Any]:
         """Stop a connection.
 
         Args:
@@ -115,7 +115,7 @@ class ConnectionsClient(BaseClient):
             self.logger.error(f"Error deleting connection: {str(e)}")
             raise
 
-    def get_connection(self, name: str) -> Dict[str, Any]:
+    def get_connection(self, name: str) -> dict[str, Any]:
         """Get connection details.
 
         Args:
@@ -140,7 +140,7 @@ class ConnectionsClient(BaseClient):
             self.logger.error(f"Error fetching connection details: {str(e)}")
             raise
 
-    def resume_connection(self, name: str) -> Dict[str, Any]:
+    def resume_connection(self, name: str) -> dict[str, Any]:
         """Resume a stopped connection.
 
         Args:
@@ -166,7 +166,7 @@ class ConnectionsClient(BaseClient):
             self.logger.error(f"Error resuming connection: {str(e)}")
             raise
 
-    def delete_connection(self, name: str) -> Dict[str, Any]:
+    def delete_connection(self, name: str) -> dict[str, Any]:
         """Delete a connection.
 
         Args:
@@ -192,7 +192,7 @@ class ConnectionsClient(BaseClient):
             self.logger.error(f"Error permanently deleting connection: {str(e)}")
             raise
 
-    def direct_connect(self, connection_id: str) -> Dict[str, Any]:
+    def direct_connect(self, connection_id: str) -> dict[str, Any]:
         """Direct connect to a connection.
 
         Args:
@@ -216,7 +216,7 @@ class ConnectionsClient(BaseClient):
             self.logger.error(f"Error direct connecting to connection: {str(e)}")
             raise
 
-    def guacamole_dashboard(self) -> Dict[str, Any]:
+    def guacamole_dashboard(self) -> dict[str, Any]:
         """Get the Guacamole dashboard auth URL.
 
         Returns:

@@ -1,7 +1,7 @@
 """Client factory for API clients."""
 
 import contextlib
-from typing import Any, Dict, Optional
+from typing import Any
 
 from flask import Flask, current_app
 
@@ -19,7 +19,7 @@ class ClientFactory:
 
     def __init__(self):
         """Initialize factory with empty client cache."""
-        self._clients: Dict[str, Any] = {}
+        self._clients: dict[str, Any] = {}
 
     def get_auth_client(self) -> AuthClient:
         """Get AuthClient.
@@ -93,7 +93,7 @@ class ClientFactory:
             )
         return self._clients["tokens"]
 
-    def get_redis_client(self, app: Optional[Flask] = None) -> RedisClient:
+    def get_redis_client(self, app: Flask | None = None) -> RedisClient:
         """Get RedisClient.
 
         Args:

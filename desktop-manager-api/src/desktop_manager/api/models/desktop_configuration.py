@@ -69,9 +69,7 @@ class DesktopConfigurationAccess(Base):
     desktop_configuration_id: int = Column(
         Integer, ForeignKey("desktop_configurations.id", ondelete="CASCADE"), nullable=False
     )
-    username: str = Column(
-        String(255), ForeignKey("users.username", ondelete="CASCADE"), nullable=False
-    )
+    username: str = Column(String(255), ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
     created_at: datetime = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

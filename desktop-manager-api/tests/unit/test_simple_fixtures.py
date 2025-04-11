@@ -61,9 +61,7 @@ def app_with_mocks(mocker):
         # Check if user exists
         try:
             # Simulate database query
-            result = g.db_client.execute_query(
-                "SELECT * FROM users WHERE username = %s", (username,)
-            )
+            result = g.db_client.execute_query("SELECT * FROM users WHERE username = %s", (username,))
             return jsonify({"exists": bool(result)}), HTTPStatus.OK
         except APIError as e:
             # Re-raise any API errors
@@ -97,9 +95,7 @@ def mock_db_client(app_with_mocks):
 def test_create_user_validation_error(client, mock_db_client):
     """Test user creation with validation error."""
     # Make request with validation error (missing username)
-    response = client.post(
-        "/test_create_user", json={"email": "test@example.com"}, content_type="application/json"
-    )
+    response = client.post("/test_create_user", json={"email": "test@example.com"}, content_type="application/json")
 
     # Should be BAD_REQUEST
     assert response.status_code == HTTPStatus.BAD_REQUEST
@@ -127,9 +123,7 @@ def test_create_user_custom_validation_error(client, mock_db_client):
 def test_create_user_database_error(client, mock_db_client):
     """Test user creation with database error."""
     # Configure mock to raise database error
-    mock_db_client.execute_query.side_effect = APIError(
-        "Database error", HTTPStatus.INTERNAL_SERVER_ERROR
-    )
+    mock_db_client.execute_query.side_effect = APIError("Database error", HTTPStatus.INTERNAL_SERVER_ERROR)
 
     # Make request
     response = client.post(

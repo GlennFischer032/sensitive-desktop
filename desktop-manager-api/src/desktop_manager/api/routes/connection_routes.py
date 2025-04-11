@@ -1,7 +1,7 @@
 from http import HTTPStatus
 import logging
 import re
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from flask import Blueprint, jsonify, request
 
@@ -22,7 +22,7 @@ connections_bp = Blueprint("connections_bp", __name__)
 
 @connections_bp.route("/scaleup", methods=["POST"])
 @token_required
-def scale_up() -> tuple[Dict[str, Any], int]:
+def scale_up() -> tuple[dict[str, Any], int]:
     """Scale up a new desktop connection.
 
     This endpoint creates a new desktop connection by:
@@ -55,9 +55,7 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                 )
 
             # Validate name against the required pattern
-            name_pattern = re.compile(
-                r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-            )
+            name_pattern = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$")
             if not name_pattern.match(data["name"]):
                 return (
                     jsonify(
@@ -72,9 +70,7 @@ def scale_up() -> tuple[Dict[str, Any], int]:
             # Check if name is too long (max 12 characters)
             if len(data["name"]) > 12:
                 return (
-                    jsonify(
-                        {"error": "Connection name is too long. Maximum length is 12 characters."}
-                    ),
+                    jsonify({"error": "Connection name is too long. Maximum length is 12 characters."}),
                     HTTPStatus.BAD_REQUEST,
                 )
 
@@ -304,9 +300,7 @@ def scale_up() -> tuple[Dict[str, Any], int]:
                 logging.info("Granted permission to admins group")
 
                 # Grant permission to user
-                guacamole_client.grant_permission(
-                    token, current_user.username, guacamole_connection_id
-                )
+                guacamole_client.grant_permission(token, current_user.username, guacamole_connection_id)
                 logging.info("Granted permission to %s", current_user.username)
             except Exception as guac_error:
                 # If Guacamole operations fail, clean up the Rancher deployment
@@ -403,7 +397,7 @@ def scale_up() -> tuple[Dict[str, Any], int]:
 
 @connections_bp.route("/scaledown", methods=["POST"])
 @token_required
-def scale_down() -> Tuple[Dict[str, Any], int]:
+def scale_down() -> tuple[dict[str, Any], int]:
     """Scale down a desktop connection.
 
     This endpoint removes a desktop connection by:
@@ -516,13 +510,15 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
                 db_client.execute_query(update_query, {"connection_name": connection_name})
                 logging.info("Marked connection as stopped: %s", connection_name)
 
-                message = (
-                    f"Connection {connection_name} scaled down and preserved for future resumption"
-                )
+                message = f"Connection {connection_name} scaled down and preserved for future resumption"
             else:
                 # Hard delete - remove from database
                 delete_query = """
-                DELETE FROM connections
+                DELETE FROM connections                "created_by": pvc.created_by,
+                "status": pvc.status,
+                "last_updated": pvc.last_updated,
+            })
+            pvc_model = StoragePVCModel.model_validate(pvc)
                 WHERE name = :connection_name
                 """
                 db_client.execute_query(delete_query, {"connection_name": connection_name})
@@ -545,26 +541,12 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
                 )
             elif not rancher_uninstall_success:
                 return (
-                    jsonify(
-                        {
-                            "message": (
-                                f"{message} with warnings: "
-                                "Rancher deployment could not be removed"
-                            )
-                        }
-                    ),
+                    jsonify({"message": (f"{message} with warnings: " "Rancher deployment could not be removed")}),
                     HTTPStatus.OK,
                 )
             elif not guacamole_delete_success:
                 return (
-                    jsonify(
-                        {
-                            "message": (
-                                f"{message} with warnings: "
-                                "Guacamole connection could not be removed"
-                            )
-                        }
-                    ),
+                    jsonify({"message": (f"{message} with warnings: " "Guacamole connection could not be removed")}),
                     HTTPStatus.OK,
                 )
             else:
@@ -584,7 +566,7 @@ def scale_down() -> Tuple[Dict[str, Any], int]:
 
 @connections_bp.route("/list", methods=["GET"])
 @token_required
-def list_connections() -> Tuple[Dict[str, Any], int]:
+def list_connections() -> tuple[dict[str, Any], int]:
     """List all connections for the current user.
 
     This endpoint retrieves all connections from the database
@@ -657,9 +639,7 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
                     "parameters": {
                         "hostname": target_host,
                         "port": "5900",  # Fixed VNC port
-                        "password": connection.get(
-                            "password", ""
-                        ),  # Password is in Guacamole, not in our DB
+                        "password": connection.get("password", ""),  # Password is in Guacamole, not in our DB
                         "enable-audio": "true",
                         "color-depth": "24",
                         "cursor": "local",
@@ -687,11 +667,7 @@ def list_connections() -> Tuple[Dict[str, Any], int]:
                     {
                         "id": connection["id"],
                         "name": connection["name"],
-                        "created_at": (
-                            connection["created_at"].isoformat()
-                            if connection["created_at"]
-                            else None
-                        ),
+                        "created_at": (connection["created_at"].isoformat() if connection["created_at"] else None),
                         "created_by": connection["created_by"],
                         "guacamole_connection_id": connection["guacamole_connection_id"],
                         "auth_url": auth_url,
@@ -781,9 +757,7 @@ def get_connection(connection_name):
                 {
                     "connection": {
                         "name": connection["name"],
-                        "created_at": connection["created_at"].isoformat()
-                        if connection["created_at"]
-                        else None,
+                        "created_at": connection["created_at"].isoformat() if connection["created_at"] else None,
                         "created_by": connection["created_by"],
                         "guacamole_connection_id": connection["guacamole_connection_id"],
                         "persistent_home": connection.get("persistent_home", True),
@@ -801,7 +775,7 @@ def get_connection(connection_name):
 
 @connections_bp.route("/auth/<connection_id>", methods=["GET"])
 @token_required
-def get_connection_auth(connection_id: str) -> Tuple[Dict[str, Any], int]:
+def get_connection_auth(connection_id: str) -> tuple[dict[str, Any], int]:
     """Generate a single sign-on URL for connecting to a Guacamole connection.
 
     This endpoint generates a single sign-on URL for connecting to a Guacamole
@@ -861,9 +835,7 @@ def get_connection_auth(connection_id: str) -> Tuple[Dict[str, Any], int]:
                 "parameters": {
                     "hostname": target_host,
                     "port": "5900",  # Fixed VNC port
-                    "password": connection.get(
-                        "password", ""
-                    ),  # Password is stored in Guacamole, not in our DB
+                    "password": connection.get("password", ""),  # Password is stored in Guacamole, not in our DB
                     "enable-audio": "true",
                     "color-depth": "24",
                     "cursor": "local",
@@ -972,9 +944,7 @@ def direct_connect(connection_id: str):
             token = guacamole_client.login()
 
             # Verify the connection exists in Guacamole
-            connection_exists = guacamole_client.check_connection_exists(
-                token, guacamole_connection_id
-            )
+            connection_exists = guacamole_client.check_connection_exists(token, guacamole_connection_id)
             if not connection_exists:
                 # Try to recreate the connection if it doesn't exist
                 logging.warning(
@@ -1009,9 +979,7 @@ def direct_connect(connection_id: str):
                     )
 
                     # Grant permission to user
-                    guacamole_client.grant_permission(
-                        token, current_user.username, new_guacamole_connection_id
-                    )
+                    guacamole_client.grant_permission(token, current_user.username, new_guacamole_connection_id)
 
                     # Use the new connection ID
                     guacamole_connection_id = new_guacamole_connection_id
@@ -1034,9 +1002,7 @@ def direct_connect(connection_id: str):
                 guacamole_external_url = "http://localhost:8080/guacamole"
 
             # Format direct connection URL with the specific connection ID
-            direct_url = (
-                f"{guacamole_external_url}/#/client/{guacamole_connection_id}?token={auth_token}"
-            )
+            direct_url = f"{guacamole_external_url}/#/client/{guacamole_connection_id}?token={auth_token}"
 
             # Return the auth URL in the response
             return jsonify(
@@ -1199,7 +1165,7 @@ def guacamole_dashboard():
 
 @connections_bp.route("/resume", methods=["POST"])
 @token_required
-def resume_connection() -> Tuple[Dict[str, Any], int]:
+def resume_connection() -> tuple[dict[str, Any], int]:
     """Resume a previously deleted connection.
 
     This endpoint brings back a stopped desktop connection by:
@@ -1280,9 +1246,7 @@ def resume_connection() -> Tuple[Dict[str, Any], int]:
             JOIN connection_pvcs cp ON p.id = cp.pvc_id
             WHERE cp.connection_id = :connection_id
             """
-            pvc_result, pvc_count = db_client.execute_query(
-                pvc_query, {"connection_id": connection["id"]}
-            )
+            pvc_result, pvc_count = db_client.execute_query(pvc_query, {"connection_id": connection["id"]})
 
             external_pvc = None
             if pvc_count > 0:
@@ -1354,9 +1318,7 @@ def resume_connection() -> Tuple[Dict[str, Any], int]:
                 logging.info("Granted permission to admins group")
 
                 # Grant permission to user
-                guacamole_client.grant_permission(
-                    token, current_user.username, guacamole_connection_id
-                )
+                guacamole_client.grant_permission(token, current_user.username, guacamole_connection_id)
                 logging.info("Granted permission to %s", current_user.username)
             except Exception as guac_error:
                 # If Guacamole operations fail, clean up the Rancher deployment
@@ -1399,9 +1361,7 @@ def resume_connection() -> Tuple[Dict[str, Any], int]:
                                 else None
                             ),
                             "created_by": updated_connection["created_by"],
-                            "guacamole_connection_id": updated_connection[
-                                "guacamole_connection_id"
-                            ],
+                            "guacamole_connection_id": updated_connection["guacamole_connection_id"],
                             "status": status,
                             "persistent_home": connection.get("persistent_home", True),
                         },
@@ -1421,7 +1381,7 @@ def resume_connection() -> Tuple[Dict[str, Any], int]:
 
 @connections_bp.route("/permanent-delete", methods=["POST"])
 @token_required
-def permanent_delete() -> Tuple[Dict[str, Any], int]:
+def permanent_delete() -> tuple[dict[str, Any], int]:
     """Permanently delete a connection and its associated PVC.
 
     This endpoint:

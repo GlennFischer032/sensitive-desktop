@@ -155,18 +155,14 @@ def create_app() -> Flask:
                     admin_created = True
                 else:
                     admin_username = admins[0]["username"]
-                    logger.info(
-                        "Admin user already exists with OIDC sub: %s", settings.ADMIN_OIDC_SUB
-                    )
+                    logger.info("Admin user already exists with OIDC sub: %s", settings.ADMIN_OIDC_SUB)
                     admin_created = True
 
             # For backward compatibility, create admin via username/password if not created via OIDC
             if not admin_created and settings.ADMIN_USERNAME and settings.ADMIN_PASSWORD:
                 # Check if admin user exists by username
                 query = "SELECT * FROM users WHERE username = :username"
-                admins, count = db_client.execute_query(
-                    query, {"username": settings.ADMIN_USERNAME}
-                )
+                admins, count = db_client.execute_query(query, {"username": settings.ADMIN_USERNAME})
 
                 if count == 0:
                     # Create admin user if not exists
@@ -210,9 +206,7 @@ def create_app() -> Flask:
                 guacamole_client.add_user_to_group(token, admin_username, "admins")
                 logger.info("Admin user initialized in Guacamole using JSON authentication")
             else:
-                logger.warning(
-                    "Could not initialize admin user in Guacamole: no username available"
-                )
+                logger.warning("Could not initialize admin user in Guacamole: no username available")
 
         except Exception as e:
             logger.error("Error initializing admin user: %s", str(e))

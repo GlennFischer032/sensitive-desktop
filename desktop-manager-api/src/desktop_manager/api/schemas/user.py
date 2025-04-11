@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -8,8 +8,8 @@ class UserBase(BaseModel):
     """Base schema for user data."""
 
     username: str = Field(..., description="Unique username", min_length=3, max_length=255)
-    email: Optional[EmailStr] = Field(None, description="User's email address")
-    organization: Optional[str] = Field(None, description="User's organization")
+    email: EmailStr | None = Field(None, description="User's email address")
+    organization: str | None = Field(None, description="User's organization")
     is_admin: bool = Field(default=False, description="Whether the user has admin privileges")
 
 
@@ -17,13 +17,13 @@ class OIDCUserInfo(BaseModel):
     """Schema for OIDC user information."""
 
     sub: str = Field(..., description="OIDC subject identifier")
-    given_name: Optional[str] = Field(None, description="User's given name")
-    family_name: Optional[str] = Field(None, description="User's family name")
-    name: Optional[str] = Field(None, description="User's full name")
-    locale: Optional[str] = Field(None, description="User's locale preference")
+    given_name: str | None = Field(None, description="User's given name")
+    family_name: str | None = Field(None, description="User's family name")
+    name: str | None = Field(None, description="User's full name")
+    locale: str | None = Field(None, description="User's locale preference")
     email_verified: bool = Field(default=False, description="Whether email has been verified")
     email: EmailStr = Field(..., description="User's email address")
-    organization: Optional[str] = Field(None, description="User's organization")
+    organization: str | None = Field(None, description="User's organization")
 
 
 class SocialAuthAssociation(BaseModel):
@@ -31,10 +31,8 @@ class SocialAuthAssociation(BaseModel):
 
     provider: str = Field(..., description="Auth provider (e.g., 'oidc')")
     provider_user_id: str = Field(..., description="User ID from the provider")
-    provider_name: Optional[str] = Field(None, description="Name of the provider")
-    extra_data: Optional[Dict[str, Any]] = Field(
-        default_factory=dict, description="Additional provider data"
-    )
+    provider_name: str | None = Field(None, description="Name of the provider")
+    extra_data: dict[str, Any] | None = Field(default_factory=dict, description="Additional provider data")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -53,7 +51,7 @@ class UserCreate(UserBase):
     """Schema for creating a new user."""
 
     sub: str = Field(..., description="OIDC subject identifier")
-    oidc_data: Optional[OIDCUserInfo] = Field(None, description="OIDC user information")
+    oidc_data: OIDCUserInfo | None = Field(None, description="OIDC user information")
 
 
 class UserResponse(UserBase):
@@ -61,16 +59,14 @@ class UserResponse(UserBase):
 
     id: int = Field(..., description="Unique identifier of the user")
     created_at: datetime = Field(..., description="Timestamp of user creation")
-    sub: Optional[str] = Field(None, description="OIDC subject identifier")
-    given_name: Optional[str] = Field(None, description="User's given name")
-    family_name: Optional[str] = Field(None, description="User's family name")
-    name: Optional[str] = Field(None, description="User's full name")
-    locale: Optional[str] = Field(None, description="User's locale preference")
+    sub: str | None = Field(None, description="OIDC subject identifier")
+    given_name: str | None = Field(None, description="User's given name")
+    family_name: str | None = Field(None, description="User's family name")
+    name: str | None = Field(None, description="User's full name")
+    locale: str | None = Field(None, description="User's locale preference")
     email_verified: bool = Field(default=False, description="Whether email has been verified")
-    last_login: Optional[datetime] = Field(None, description="Last login timestamp")
-    social_auth: List[SocialAuthAssociation] = Field(
-        default_factory=list, description="Social auth associations"
-    )
+    last_login: datetime | None = Field(None, description="Last login timestamp")
+    social_auth: list[SocialAuthAssociation] = Field(default_factory=list, description="Social auth associations")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -78,7 +74,7 @@ class UserResponse(UserBase):
 class UserList(BaseModel):
     """Schema for list of users response."""
 
-    users: List[UserResponse] = Field(default_factory=list, description="List of users")
+    users: list[UserResponse] = Field(default_factory=list, description="List of users")
 
 
 class UserLogin(BaseModel):
@@ -90,11 +86,11 @@ class UserLogin(BaseModel):
 class UserUpdate(BaseModel):
     """Schema for updating user data."""
 
-    username: Optional[str] = Field(None, min_length=3, max_length=255)
-    email: Optional[EmailStr] = Field(None, description="User's email address")
-    organization: Optional[str] = Field(None, description="User's organization")
-    is_admin: Optional[bool] = None
-    oidc_data: Optional[OIDCUserInfo] = None
+    username: str | None = Field(None, min_length=3, max_length=255)
+    email: EmailStr | None = Field(None, description="User's email address")
+    organization: str | None = Field(None, description="User's organization")
+    is_admin: bool | None = None
+    oidc_data: OIDCUserInfo | None = None
 
 
 class TokenResponse(BaseModel):
@@ -104,8 +100,8 @@ class TokenResponse(BaseModel):
     is_admin: bool = Field(..., description="Whether the user has admin privileges")
     username: str = Field(..., description="Username of the authenticated user")
     email: EmailStr = Field(..., description="User's email address")
-    organization: Optional[str] = Field(None, description="User's organization")
-    sub: Optional[str] = Field(None, description="OIDC subject identifier")
+    organization: str | None = Field(None, description="User's organization")
+    sub: str | None = Field(None, description="OIDC subject identifier")
 
 
 class UserInDB(UserBase):
@@ -113,13 +109,13 @@ class UserInDB(UserBase):
 
     id: int
     created_at: datetime
-    sub: Optional[str] = None
-    given_name: Optional[str] = None
-    family_name: Optional[str] = None
-    name: Optional[str] = None
-    locale: Optional[str] = None
+    sub: str | None = None
+    given_name: str | None = None
+    family_name: str | None = None
+    name: str | None = None
+    locale: str | None = None
     email_verified: bool = False
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

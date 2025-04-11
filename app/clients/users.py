@@ -1,6 +1,6 @@
 """Users client for API interactions."""
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .base import APIError, BaseClient, ClientRequest
 
@@ -8,7 +8,7 @@ from .base import APIError, BaseClient, ClientRequest
 class UsersClient(BaseClient):
     """Client for user-related API interactions."""
 
-    def list_users(self) -> List[Dict[str, Any]]:
+    def list_users(self) -> list[dict[str, Any]]:
         """Get list of users.
 
         Returns:
@@ -34,7 +34,7 @@ class UsersClient(BaseClient):
         username: str,
         sub: str,
         is_admin: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Add a new user.
 
         Args:
@@ -68,7 +68,7 @@ class UsersClient(BaseClient):
             self.logger.error(f"Error adding user: {str(e)}")
             raise
 
-    def delete_user(self, username: str) -> Dict[str, Any]:
+    def delete_user(self, username: str) -> dict[str, Any]:
         """Delete a user.
 
         Args:
@@ -93,7 +93,7 @@ class UsersClient(BaseClient):
             self.logger.error(f"Error deleting user: {str(e)}")
             raise
 
-    def get_user(self, username: str) -> Dict[str, Any]:
+    def get_user(self, username: str) -> dict[str, Any]:
         """Get user details.
 
         Args:
@@ -120,10 +120,10 @@ class UsersClient(BaseClient):
     def update_user(
         self,
         username: str,
-        organization: Optional[str] = None,
-        is_admin: Optional[bool] = None,
-        locale: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        organization: str | None = None,
+        is_admin: bool | None = None,
+        locale: str | None = None,
+    ) -> dict[str, Any]:
         """Update a user's information.
 
         Args:
@@ -164,7 +164,7 @@ class UsersClient(BaseClient):
             self.logger.error(f"Error updating user: {str(e)}")
             raise
 
-    def verify_user(self, sub: str) -> Tuple[Dict[str, Any], int]:
+    def verify_user(self, sub: str) -> tuple[dict[str, Any], int]:
         """Verify if a user exists with the provided sub ID.
 
         Args:

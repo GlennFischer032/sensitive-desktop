@@ -52,9 +52,10 @@ services:
       context: ./desktop-manager-api
       dockerfile: Dockerfile
       args:
-        - DEV_MODE=1
+        - FLASK_DEBUG=1
     ports:
       - "5000:5000"
+      - "5679:5679"  # Debug port
     volumes:
       - ./desktop-manager-api/src:/app/src
     environment:

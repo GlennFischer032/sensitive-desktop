@@ -1,6 +1,6 @@
 """Storage client for API interactions."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import APIError, BaseClient, ClientRequest
 
@@ -8,7 +8,7 @@ from .base import APIError, BaseClient, ClientRequest
 class StorageClient(BaseClient):
     """Client for storage-related API interactions."""
 
-    def list_storage(self) -> List[Dict[str, Any]]:
+    def list_storage(self) -> list[dict[str, Any]]:
         """Get list of storage volumes.
 
         Returns:
@@ -28,7 +28,7 @@ class StorageClient(BaseClient):
             self.logger.error(f"Error fetching storage volumes: {str(e)}")
             raise
 
-    def get_storage(self, volume_id: str) -> Dict[str, Any]:
+    def get_storage(self, volume_id: str) -> dict[str, Any]:
         """Get storage volume details.
 
         Args:
@@ -56,8 +56,8 @@ class StorageClient(BaseClient):
         name: str,
         size: str,
         is_public: bool = False,
-        allowed_users: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        allowed_users: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Create a new storage volume.
 
         Args:
@@ -94,7 +94,7 @@ class StorageClient(BaseClient):
             self.logger.error(f"Error creating storage volume: {str(e)}")
             raise
 
-    def delete_storage(self, volume_id: str) -> Dict[str, Any]:
+    def delete_storage(self, volume_id: str) -> dict[str, Any]:
         """Delete a storage volume.
 
         Args:
@@ -118,7 +118,7 @@ class StorageClient(BaseClient):
             self.logger.error(f"Error deleting storage volume: {str(e)}")
             raise
 
-    def get_pvc_access(self, pvc_id: int) -> Dict[str, Any]:
+    def get_pvc_access(self, pvc_id: int) -> dict[str, Any]:
         """Get access information for a storage PVC.
 
         Args:
@@ -142,7 +142,7 @@ class StorageClient(BaseClient):
             self.logger.error(f"Error fetching PVC access information: {str(e)}")
             raise
 
-    def update_pvc_access(self, pvc_id: int, is_public: bool, allowed_users: List[str]) -> Dict[str, Any]:
+    def update_pvc_access(self, pvc_id: int, is_public: bool, allowed_users: list[str]) -> dict[str, Any]:
         """Update access settings for a storage PVC.
 
         Args:
@@ -174,7 +174,7 @@ class StorageClient(BaseClient):
             self.logger.error(f"Error updating PVC access: {str(e)}")
             raise
 
-    def get_pvc_connections(self, pvc_id: int) -> Dict[str, Any]:
+    def get_pvc_connections(self, pvc_id: int) -> dict[str, Any]:
         """Get connections using a specific PVC.
 
         Args:

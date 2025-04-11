@@ -24,10 +24,7 @@ def test_config_defaults():
         assert config.NAMESPACE == "fischer-ns"
         assert config.ADMIN_USERNAME == "admin"
         assert config.ADMIN_PASSWORD == "" or config.ADMIN_PASSWORD is None
-        assert (
-            config.RANCHER_API_TOKEN
-            == "token-58z6j:jrkfmqfms2gdlzqv98v8zjfck8nq672fgz2j2jv6t9q67txsds22wc"
-        )
+        assert config.RANCHER_API_TOKEN == "token-58z6j:jrkfmqfms2gdlzqv98v8zjfck8nq672fgz2j2jv6t9q67txsds22wc"
         assert config.RANCHER_API_URL == "https://rancher.cloud.e-infra.cz"
         assert config.RANCHER_CLUSTER_ID == "c-m-qvndqhf6"
         assert config.RANCHER_REPO_NAME == "cerit-sc"
@@ -81,7 +78,4 @@ def test_config_from_env():
         assert config.RANCHER_REPO_NAME == "test-rancher-repo-name"
         assert config.DESKTOP_IMAGE == "test-desktop-image"
         # Verify the DATABASE_URL property uses the updated values
-        assert (
-            config.database_url
-            == "postgresql://test-user:test-password@test-postgres-host:5433/test-db"
-        )
+        assert config.database_url == "postgresql://test-user:test-password@test-postgres-host:5433/test-db"

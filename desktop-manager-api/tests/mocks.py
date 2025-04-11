@@ -35,18 +35,12 @@ class MockDatabaseClient:
                 else:
                     is_admin = bool(user_id % 2 == 1)
 
-                    if (
-                        "username" in params
-                        and params["username"]
-                        and ("admin" in params["username"])
-                    ):
+                    if "username" in params and params["username"] and ("admin" in params["username"]):
                         is_admin = True
 
                     username = f"test_admin_{user_id:08x}" if is_admin else f"user{user_id}"
 
-                self.logger.info(
-                    f"Returning mock user: id={user_id}, username={username}, is_admin={is_admin}"
-                )
+                self.logger.info(f"Returning mock user: id={user_id}, username={username}, is_admin={is_admin}")
                 return [{"id": user_id, "username": username, "is_admin": is_admin}], 1
             return [], 0
 
@@ -73,17 +67,12 @@ class MockDatabaseClient:
                     }
                 ], 1
             if username == "admin" or username.startswith("test_admin_"):
-                return [
-                    {"id": 2, "username": username, "password": "hashed_password", "is_admin": True}
-                ], 1
+                return [{"id": 2, "username": username, "password": "hashed_password", "is_admin": True}], 1
             # Nonexistent user for testing
             return [], 0
 
         # Check user exists by username or email
-        if (
-            "SELECT username, email FROM users WHERE username = :username OR email = :email"
-            in query
-        ):
+        if "SELECT username, email FROM users WHERE username = :username OR email = :email" in query:
             username = params.get("username")
             email = params.get("email")
             if username == "testuser" or email == "test@example.com":

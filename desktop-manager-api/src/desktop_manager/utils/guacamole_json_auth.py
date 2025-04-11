@@ -10,7 +10,7 @@ import hashlib
 import hmac
 import json
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
@@ -21,7 +21,7 @@ from desktop_manager.config.settings import get_settings
 class GuacamoleJsonAuth:
     """Utility class for generating Guacamole JSON authentication tokens."""
 
-    def __init__(self, secret_key: Optional[str] = None, guacamole_url: Optional[str] = None):
+    def __init__(self, secret_key: str | None = None, guacamole_url: str | None = None):
         """Initialize the GuacamoleJsonAuth utility.
 
         Args:
@@ -45,17 +45,14 @@ class GuacamoleJsonAuth:
                 self.key_bytes = bytes.fromhex(self.secret_key)
             # For any other string, generate MD5 hash
             else:
-                # MD5 is used here as specified in the Guacamole JSON auth protocol
-                # Despite being cryptographically weak, this matches the implementation
-                # required by the Guacamole server
-                self.key_bytes = hashlib.md5(self.secret_key.encode()).digest()
+                self.key_bytes = hashlib.md5(self.secret_key.encode()).digest()  # noqa: S324
         except ValueError as e:
             raise ValueError(f"Invalid hex value in secret key: {e}") from e
 
     def generate_auth_data(
         self,
         username: str,
-        connections: Dict[str, Dict[str, Any]],
+        connections: dict[str, dict[str, Any]],
         expires_in_ms: int = 3600000,  # Default: 1 hour in milliseconds
     ) -> str:
         """Generate an encrypted and signed JSON auth token for Guacamole.

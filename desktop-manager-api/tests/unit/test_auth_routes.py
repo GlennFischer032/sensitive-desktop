@@ -301,9 +301,7 @@ def test_login_missing_fields(client):
 
 def test_login_invalid_credentials(client, test_user):
     """Test login with invalid credentials."""
-    response = client.post(
-        "/auth/login", json={"username": "testuser", "password": "wrongpassword"}
-    )
+    response = client.post("/auth/login", json={"username": "testuser", "password": "wrongpassword"})
     assert response.status_code == 400
     data = json.loads(response.data)
     assert data["error"] == "Username/password authentication has been disabled"

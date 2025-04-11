@@ -3,7 +3,7 @@
 This module provides a client for interacting with the API token management endpoints.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .base import APIError, BaseClient, ClientRequest
 
@@ -11,7 +11,7 @@ from .base import APIError, BaseClient, ClientRequest
 class TokensClient(BaseClient):
     """Client for token-related API interactions."""
 
-    def list_tokens(self) -> Dict[str, List[Dict[str, Any]]]:
+    def list_tokens(self) -> dict[str, list[dict[str, Any]]]:
         """Get list of API tokens.
 
         Returns:
@@ -34,9 +34,9 @@ class TokensClient(BaseClient):
     def create_token(
         self,
         name: str,
-        description: Optional[str] = None,
+        description: str | None = None,
         expires_in_days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a new API token.
 
         Args:
@@ -71,31 +71,7 @@ class TokensClient(BaseClient):
             self.logger.error(f"Error creating token: {str(e)}")
             raise
 
-    def get_token(self, token_id: str) -> Dict[str, Any]:
-        """Get details for a specific token.
-
-        Args:
-            token_id: The unique ID of the token
-
-        Returns:
-            Dict[str, Any]: Token details
-
-        Raises:
-            APIError: If request fails
-        """
-
-        try:
-            request = ClientRequest(
-                endpoint=f"/api/tokens/{token_id}",
-                timeout=10,
-            )
-            data, _ = self.get(request=request)
-            return data
-        except APIError as e:
-            self.logger.error(f"Error fetching token details: {str(e)}")
-            raise
-
-    def revoke_token(self, token_id: str) -> Dict[str, Any]:
+    def revoke_token(self, token_id: str) -> dict[str, Any]:
         """Revoke a token.
 
         Args:

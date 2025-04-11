@@ -230,17 +230,13 @@ def test_app(test_db, test_user):
                 # Return all connections from the test database
                 connections = test_db.query(Connection).all()
                 result = []
-                logging.debug(
-                    f"Mock DB - Listing all connections for admin, found {len(connections)}"
-                )
+                logging.debug(f"Mock DB - Listing all connections for admin, found {len(connections)}")
                 for connection in connections:
                     connection_dict = {
                         "id": connection.id,
                         "name": connection.name,
                         "created_by": connection.created_by,
-                        "created_at": str(connection.created_at)
-                        if connection.created_at
-                        else "2023-01-01T00:00:00",
+                        "created_at": str(connection.created_at) if connection.created_at else "2023-01-01T00:00:00",
                         "guacamole_connection_id": connection.guacamole_connection_id,
                         "target_host": connection.target_host,
                         "target_port": connection.target_port,
@@ -249,9 +245,7 @@ def test_app(test_db, test_user):
                         "status": "running",
                     }
                     result.append(connection_dict)
-                    logging.debug(
-                        f"Mock DB - Adding connection: {connection.name} (id: {connection.id})"
-                    )
+                    logging.debug(f"Mock DB - Adding connection: {connection.name} (id: {connection.id})")
                 logging.debug(f"Mock DB - Returning {len(result)} connections")
                 return result, len(result)
 
@@ -263,17 +257,13 @@ def test_app(test_db, test_user):
                 username = params.get("username") or params.get("created_by")
                 connections = test_db.query(Connection).filter_by(created_by=username).all()
                 result = []
-                logging.debug(
-                    f"Mock DB - Listing connections for user {username}, found {len(connections)}"
-                )
+                logging.debug(f"Mock DB - Listing connections for user {username}, found {len(connections)}")
                 for connection in connections:
                     connection_dict = {
                         "id": connection.id,
                         "name": connection.name,
                         "created_by": connection.created_by,
-                        "created_at": str(connection.created_at)
-                        if connection.created_at
-                        else "2023-01-01T00:00:00",
+                        "created_at": str(connection.created_at) if connection.created_at else "2023-01-01T00:00:00",
                         "guacamole_connection_id": connection.guacamole_connection_id,
                         "target_host": connection.target_host,
                         "target_port": connection.target_port,
@@ -282,9 +272,7 @@ def test_app(test_db, test_user):
                         "status": "running",
                     }
                     result.append(connection_dict)
-                    logging.debug(
-                        f"Mock DB - Adding user connection: {connection.name} (id: {connection.id})"
-                    )
+                    logging.debug(f"Mock DB - Adding user connection: {connection.name} (id: {connection.id})")
                 logging.debug(f"Mock DB - Returning {len(result)} connections for user {username}")
                 return result, len(result)
 
@@ -305,9 +293,7 @@ def test_app(test_db, test_user):
                     "name": params.get("name", "test-connection"),
                     "created_at": datetime.utcnow(),
                     "created_by": params.get("created_by", test_user.username),
-                    "guacamole_connection_id": params.get(
-                        "guacamole_connection_id", "connection_id"
-                    ),
+                    "guacamole_connection_id": params.get("guacamole_connection_id", "connection_id"),
                 }
             ], 1
 
@@ -370,9 +356,7 @@ def test_app(test_db, test_user):
                             user = test_db.query(User).filter(User.id == data["user_id"]).first()
                             if user:
                                 request.current_user = user
-                                logging.info(
-                                    f"Set request.current_user to {user.username} from token user_id"
-                                )
+                                logging.info(f"Set request.current_user to {user.username} from token user_id")
                                 return f(*args, **kwargs)
                             else:
                                 logging.error(f"User with id {data['user_id']} not found")
@@ -383,9 +367,7 @@ def test_app(test_db, test_user):
                                 user = test_db.query(User).filter(User.id == user_id).first()
                                 if user:
                                     request.current_user = user
-                                    logging.info(
-                                        f"Set request.current_user to {user.username} from token sub"
-                                    )
+                                    logging.info(f"Set request.current_user to {user.username} from token sub")
                                     return f(*args, **kwargs)
                             except (ValueError, TypeError):
                                 logging.error(f"Invalid sub value: {data['sub']}")
@@ -421,9 +403,7 @@ def test_app(test_db, test_user):
                 logging.error("No current_user found on request!")
                 return jsonify({"message": "Authentication required!"}), 401
 
-            logging.info(
-                f"Checking admin status for user: {current_user.username}, is_admin: {current_user.is_admin}"
-            )
+            logging.info(f"Checking admin status for user: {current_user.username}, is_admin: {current_user.is_admin}")
 
             # Check if user is admin
             if not current_user.is_admin:
@@ -448,12 +428,8 @@ def test_app(test_db, test_user):
         side_effect=lambda *args, **kwargs: Blueprint(*args, **kwargs),
     ), patch("desktop_manager.core.auth.admin_required", mock_admin_required):
         # Register the blueprint with a unique name for testing and the correct URL prefix
-        app.register_blueprint(
-            connections_bp, name="connections_bp_test", url_prefix="/api/connections"
-        )
-        logging.debug(
-            "Registered connections blueprint with name 'connections_bp_test' and prefix '/api/connections'"
-        )
+        app.register_blueprint(connections_bp, name="connections_bp_test", url_prefix="/api/connections")
+        logging.debug("Registered connections blueprint with name 'connections_bp_test' and prefix '/api/connections'")
 
         # Debug route information
         logging.debug("Registered routes:")
@@ -488,9 +464,7 @@ def mock_rancher_client():
 @pytest.fixture()
 def mock_guacamole():
     """Mock guacamole client for tests."""
-    with patch(
-        "desktop_manager.clients.factory.client_factory.get_guacamole_client"
-    ) as mock_client:
+    with patch("desktop_manager.clients.factory.client_factory.get_guacamole_client") as mock_client:
         mock_guacamole_client = Mock(spec=GuacamoleClient)
 
         # Configure common mock methods
@@ -511,9 +485,7 @@ def mock_guacamole_json_auth():
     """Mock GuacamoleJsonAuth class."""
     with patch("desktop_manager.api.routes.connection_routes.GuacamoleJsonAuth") as mock_class:
         mock_instance = Mock()
-        mock_instance.generate_auth_data.return_value = (
-            "http://guacamole-test:8080/guacamole/#/?data=mock-auth-token"
-        )
+        mock_instance.generate_auth_data.return_value = "http://guacamole-test:8080/guacamole/#/?data=mock-auth-token"
         mock_class.return_value = mock_instance
         yield mock_instance
 
@@ -750,9 +722,7 @@ def test_list_connections_empty(test_client, test_user):
     token = create_auth_token(test_user)
 
     # Get the list of connections
-    response = test_client.get(
-        "/api/connections/list", headers={"Authorization": f"Bearer {token}"}
-    )
+    response = test_client.get("/api/connections/list", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == HTTPStatus.OK
     response_data = json.loads(response.data)
     assert "connections" in response_data
@@ -856,9 +826,7 @@ def test_list_connections_non_admin(test_client, test_db, test_user, non_admin_t
 
     # Verify the user assignments
     admin_conn_count = test_db.query(Connection).filter_by(created_by=test_user.username).count()
-    non_admin_conn_count = (
-        test_db.query(Connection).filter_by(created_by=non_admin.username).count()
-    )
+    non_admin_conn_count = test_db.query(Connection).filter_by(created_by=non_admin.username).count()
 
     assert admin_conn_count >= 2  # At least our 2 connections
     assert non_admin_conn_count >= 2  # At least our 2 connections
@@ -912,17 +880,13 @@ def test_get_nonexistent_connection(test_client, test_user):
     token = create_auth_token(test_user)
 
     # Test getting a connection that doesn't exist
-    response = test_client.get(
-        "/api/connections/nonexistent", headers={"Authorization": f"Bearer {token}"}
-    )
+    response = test_client.get("/api/connections/nonexistent", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == HTTPStatus.NOT_FOUND
     response_data = json.loads(response.data)
     assert "error" in response_data
 
 
-def test_scale_down_cleanup_failure(
-    test_client, mock_rancher_client, mock_guacamole, test_db, test_user
-):
+def test_scale_down_cleanup_failure(test_client, mock_rancher_client, mock_guacamole, test_db, test_user):
     """Test scale down when cleanup operations fail."""
     # Create a test connection
     connection_name = f"test-conn-{str(uuid.uuid4())[:8]}"
@@ -996,9 +960,7 @@ def test_get_connection_auth_url_nonexistent(test_client, test_user):
     token = create_auth_token(test_user)
 
     # Make request with nonexistent ID
-    response = test_client.get(
-        "/api/connections/connect/999999", headers={"Authorization": f"Bearer {token}"}
-    )
+    response = test_client.get("/api/connections/connect/999999", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == HTTPStatus.NOT_FOUND
 
 
@@ -1032,9 +994,7 @@ def test_direct_connect_nonexistent(test_client, test_user):
     token = create_auth_token(test_user)
 
     # Make request with nonexistent ID
-    response = test_client.get(
-        "/api/connections/direct-connect/999999", headers={"Authorization": f"Bearer {token}"}
-    )
+    response = test_client.get("/api/connections/direct-connect/999999", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == HTTPStatus.NOT_FOUND
 
 
@@ -1064,9 +1024,7 @@ def test_get_connection_forbidden(test_client, test_db):
 
     # Create another user
     another_username = f"other_user_{str(uuid.uuid4())[:8]}"
-    another_user = User(
-        username=another_username, email=f"{another_username}@example.com", is_admin=False
-    )
+    another_user = User(username=another_username, email=f"{another_username}@example.com", is_admin=False)
     test_db.add(another_user)
     test_db.commit()
 

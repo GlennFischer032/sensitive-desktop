@@ -1,8 +1,8 @@
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import wraps
 from http import HTTPStatus
-from typing import Callable, Dict, Optional
 
 from flask import current_app, render_template, request
 
@@ -21,7 +21,7 @@ class RateLimiter:
         self._redis = None
         self._app = None
 
-    def is_rate_limited(self, key: str, limits: Optional[Dict[str, tuple]] = None) -> tuple[bool, Optional[int]]:
+    def is_rate_limited(self, key: str, limits: dict[str, tuple] | None = None) -> tuple[bool, int | None]:
         """
         Check if a key is rate limited.
 
@@ -82,10 +82,10 @@ rate_limiter = RateLimiter()
 
 
 def _build_custom_limits(
-    requests_per_second: Optional[int],
-    requests_per_minute: Optional[int],
-    requests_per_hour: Optional[int],
-) -> Dict[str, tuple]:
+    requests_per_second: int | None,
+    requests_per_minute: int | None,
+    requests_per_hour: int | None,
+) -> dict[str, tuple]:
     """Build custom rate limits dictionary from individual settings."""
     custom_limits = {}
     if requests_per_second is not None:
@@ -98,9 +98,9 @@ def _build_custom_limits(
 
 
 def rate_limit(
-    requests_per_second: Optional[int] = None,
-    requests_per_minute: Optional[int] = None,
-    requests_per_hour: Optional[int] = None,
+    requests_per_second: int | None = None,
+    requests_per_minute: int | None = None,
+    requests_per_hour: int | None = None,
     override_global: bool = True,
 ):
     """

@@ -91,7 +91,7 @@ markers = [
 
 # Ruff configuration
 [tool.ruff]
-target-version = "py38"
+target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
@@ -142,7 +142,7 @@ max-complexity = 10
 extend-immutable-calls = ["marshmallow.fields.Field"]
 
 [tool.ruff.lint.pycodestyle]
-max-doc-length = 100
+max-doc-length = 120
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

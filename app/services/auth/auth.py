@@ -1,6 +1,6 @@
 import logging
 from http import HTTPStatus
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import requests
 from flask import session
@@ -31,7 +31,7 @@ class RateLimitError(AuthError):
         )
 
 
-def handle_auth_response(response: requests.Response) -> Tuple[Dict[str, Any], int]:
+def handle_auth_response(response: requests.Response) -> tuple[dict[str, Any], int]:
     """
     Handle authentication API response.
 
@@ -76,7 +76,7 @@ def is_authenticated() -> bool:
     return session.get("logged_in", False)
 
 
-def get_current_user() -> Optional[Dict[str, Any]]:
+def get_current_user() -> dict[str, Any] | None:
     """
     Get current authenticated user info.
 

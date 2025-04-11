@@ -54,12 +54,16 @@ test = [
     "SQLAlchemy-Utils>=0.41.0"
 ]
 
+dev = [
+    "debugpy",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["desktop_manager*"]
 
 [tool.black]
-line-length = 100
+line-length = 120
 target-version = ['py311']
 include = '\.pyi?$'
 extend-exclude = '''
@@ -113,8 +117,8 @@ exclude_lines = [
 
 # Ruff configuration
 [tool.ruff]
-target-version = "py38"
-line-length = 100
+target-version = "py311"
+line-length = 120
 # Enable auto-fixing
 fix = true
 # Enable unsafe fixes for more automation
@@ -168,15 +172,6 @@ ignore = [
     "PLR0911",  # Too many return statements
     "PLR0912",  # Too many branches
     "PLR0915",  # Too many statements
-    "S113",     # Probable use of requests call without timeout
-    "S603",     # subprocess call: check for execution of untrusted input
-    "S324",     # Probable use of insecure hash functions in hashlib: md5
-    "ARG001",   # Unused function argument
-    "E501",     # Line too long
-    "E402",     # Module level import not at top of file
-    "F401",     # Module imported but unused
-    "B904",     # Within an except clause, raise exceptions with raise ... from err
-    "SIM102",   # Use a single if statement instead of nested if statements
 ]
 # Allow Ruff to automatically fix issues including unused imports
 unfixable = []
@@ -222,7 +217,7 @@ max-complexity = 10
 extend-immutable-calls = ["marshmallow.fields.Field"]
 
 [tool.ruff.lint.pycodestyle]
-max-doc-length = 100
+max-doc-length = 120
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -232,5 +227,5 @@ check-typed-exception = true
 
 # Flake8 config for compatibility
 [tool.flake8]
-max-line-length = 100
+max-line-length = 120
 exclude = ".git,__pycache__,build,dist"

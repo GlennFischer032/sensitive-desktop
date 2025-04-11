@@ -4,7 +4,7 @@ This module provides the base client class and error handling for all clients.
 """
 
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import requests
 from requests.exceptions import RequestException, Timeout
@@ -21,9 +21,7 @@ class APIError(Exception):
         details: Additional error details
     """
 
-    def __init__(
-        self, message: str, status_code: int = 500, details: Optional[Dict[str, Any]] = None
-    ):
+    def __init__(self, message: str, status_code: int = 500, details: dict[str, Any] | None = None):
         """Initialize APIError.
 
         Args:
@@ -46,7 +44,7 @@ class BaseClient:
     - Logging
     """
 
-    def __init__(self, base_url: Optional[str] = None, timeout: int = 10):
+    def __init__(self, base_url: str | None = None, timeout: int = 10):
         """Initialize BaseClient.
 
         Args:
@@ -68,7 +66,7 @@ class BaseClient:
             return self.base_url
         return ""
 
-    def _get_headers(self, token: Optional[str] = None) -> Dict[str, str]:
+    def _get_headers(self, token: str | None = None) -> dict[str, str]:
         """Get headers for API requests.
 
         Args:
@@ -82,7 +80,7 @@ class BaseClient:
             headers["Authorization"] = f"Bearer {token}"
         return headers
 
-    def _handle_response(self, response: requests.Response) -> Tuple[Dict[str, Any], int]:
+    def _handle_response(self, response: requests.Response) -> tuple[dict[str, Any], int]:
         """Handle API response.
 
         Args:
@@ -98,9 +96,9 @@ class BaseClient:
             response.raise_for_status()
             data = response.json() if response.content else {}
             return data, response.status_code
-        except requests.exceptions.JSONDecodeError:
+        except requests.exceptions.JSONDecodeError as e:
             self.logger.error("Invalid JSON response, Status: %s", response.status_code)
-            raise APIError("Invalid JSON response", status_code=response.status_code)
+            raise APIError("Invalid JSON response", status_code=response.status_code) from e
         except requests.exceptions.HTTPError as e:
             status_code = response.status_code
             error_message = f"HTTP error: {e}"
@@ -116,23 +114,23 @@ class BaseClient:
                         status_code,
                         details,
                     )
-                    raise APIError(error_message, status_code=status_code, details=details)
+                    raise APIError(error_message, status_code=status_code, details=details) from e
             except (ValueError, requests.exceptions.JSONDecodeError):
                 self.logger.warning("Could not parse error response as JSON")
 
             self.logger.error("API error: %s, Status: %s", error_message, status_code)
-            raise APIError(error_message, status_code=status_code)
+            raise APIError(error_message, status_code=status_code) from e
 
     def _request(
         self,
         method: str,
         endpoint: str,
-        token: Optional[str] = None,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[Dict[str, Any], int]:
+        token: str | None = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        timeout: int | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> tuple[dict[str, Any], int]:
         """Make an API request.
 
         Args:
@@ -169,24 +167,24 @@ class BaseClient:
                 timeout=timeout,
             )
             return self._handle_response(response)
-        except Timeout:
+        except Timeout as e:
             self.logger.error("Request timeout: %s %s", method, url)
-            raise APIError("Request timed out", status_code=408)
+            raise APIError("Request timed out", status_code=408) from e
         except RequestException as e:
             self.logger.error("Request error: %s %s - %s", method, url, str(e))
-            raise APIError(f"Request failed: {e!s}", status_code=500)
+            raise APIError(f"Request failed: {e!s}", status_code=500) from e
         except Exception as e:
             self.logger.error("Unexpected error: %s %s - %s", method, url, str(e))
-            raise APIError(f"Unexpected error: {e!s}", status_code=500)
+            raise APIError(f"Unexpected error: {e!s}", status_code=500) from e
 
     def get(
         self,
         endpoint: str,
-        token: Optional[str] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[Dict[str, Any], int]:
+        token: str | None = None,
+        params: dict[str, Any] | None = None,
+        timeout: int | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> tuple[dict[str, Any], int]:
         """Make a GET request.
 
         Args:
@@ -211,12 +209,12 @@ class BaseClient:
     def post(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        token: Optional[str] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[Dict[str, Any], int]:
+        data: dict[str, Any] | None = None,
+        token: str | None = None,
+        params: dict[str, Any] | None = None,
+        timeout: int | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> tuple[dict[str, Any], int]:
         """Make a POST request.
 
         Args:
@@ -243,12 +241,12 @@ class BaseClient:
     def put(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        token: Optional[str] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[Dict[str, Any], int]:
+        data: dict[str, Any] | None = None,
+        token: str | None = None,
+        params: dict[str, Any] | None = None,
+        timeout: int | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> tuple[dict[str, Any], int]:
         """Make a PUT request.
 
         Args:
@@ -275,12 +273,12 @@ class BaseClient:
     def delete(
         self,
         endpoint: str,
-        token: Optional[str] = None,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[Dict[str, Any], int]:
+        token: str | None = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        timeout: int | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> tuple[dict[str, Any], int]:
         """Make a DELETE request.
 
         Args:
@@ -307,12 +305,12 @@ class BaseClient:
     def patch(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        token: Optional[str] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[int] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[Dict[str, Any], int]:
+        data: dict[str, Any] | None = None,
+        token: str | None = None,
+        params: dict[str, Any] | None = None,
+        timeout: int | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> tuple[dict[str, Any], int]:
         """Make a PATCH request.
 
         Args:

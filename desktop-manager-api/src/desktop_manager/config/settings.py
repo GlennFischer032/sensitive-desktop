@@ -26,9 +26,7 @@ class Settings(BaseSettings):
     GUACAMOLE_PASSWORD: str = os.getenv("GUACAMOLE_PASSWORD", "")
     GUACAMOLE_JSON_SECRET_KEY: str = os.getenv("GUACAMOLE_JSON_SECRET_KEY", "")
     GUACAMOLE_SECRET_KEY: str = os.getenv("GUACAMOLE_SECRET_KEY", "")
-    EXTERNAL_GUACAMOLE_URL: str = os.getenv(
-        "EXTERNAL_GUACAMOLE_URL", "http://localhost:8080/guacamole"
-    )
+    EXTERNAL_GUACAMOLE_URL: str = os.getenv("EXTERNAL_GUACAMOLE_URL", "http://localhost:8080/guacamole")
 
     # Rancher settings
     RANCHER_API_TOKEN: str = os.getenv("RANCHER_API_TOKEN", "")
@@ -43,9 +41,7 @@ class Settings(BaseSettings):
     DESKTOP_IMAGE: str = os.getenv("DESKTOP_IMAGE", "cerit.io/desktops/ubuntu-xfce:22.04-user")
 
     # OIDC settings
-    OIDC_PROVIDER_URL: str = os.getenv(
-        "SOCIAL_AUTH_OIDC_PROVIDER_URL", "https://login.e-infra.cz/oidc"
-    )
+    OIDC_PROVIDER_URL: str = os.getenv("SOCIAL_AUTH_OIDC_PROVIDER_URL", "https://login.e-infra.cz/oidc")
     OIDC_CLIENT_ID: str = os.getenv("SOCIAL_AUTH_OIDC_CLIENT_ID", "")
     OIDC_CLIENT_SECRET: str = os.getenv("SOCIAL_AUTH_OIDC_CLIENT_SECRET", "")
     OIDC_BACKEND_REDIRECT_URI: str = os.getenv(

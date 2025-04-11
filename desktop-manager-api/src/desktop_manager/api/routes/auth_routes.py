@@ -104,9 +104,7 @@ def register():
     organization = data.get("organization")
 
     if not username or not email or not sub:
-        return jsonify(
-            {"error": "Missing required fields: username, email, and sub are required"}
-        ), 400
+        return jsonify({"error": "Missing required fields: username, email, and sub are required"}), 400
 
     try:
         # Get database client
@@ -117,9 +115,7 @@ def register():
         SELECT username, email, sub FROM users
         WHERE username = :username OR email = :email OR sub = :sub
         """
-        existing_users, count = db_client.execute_query(
-            check_query, {"username": username, "email": email, "sub": sub}
-        )
+        existing_users, count = db_client.execute_query(check_query, {"username": username, "email": email, "sub": sub})
 
         if count > 0:
             # Check which field already exists

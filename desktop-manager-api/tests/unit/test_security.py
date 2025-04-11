@@ -19,10 +19,7 @@ def test_security_settings_defaults():
 
     # Password settings
     assert settings.MIN_PASSWORD_LENGTH == 8
-    assert (
-        settings.PASSWORD_REGEX
-        == r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
-    )
+    assert settings.PASSWORD_REGEX == r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
     assert settings.PASSWORD_HASH_ROUNDS == 12
 
     # Token settings
@@ -88,9 +85,7 @@ def test_security_settings_from_env():
             "SECURITY_SESSION_COOKIE_NAME": "test_session",
             "SECURITY_SESSION_COOKIE_SECURE": "False",
             # Use JSON format for sets and lists
-            "SECURITY_CORS_ALLOWED_ORIGINS": json.dumps(
-                ["https://test.com", "https://example.com"]
-            ),
+            "SECURITY_CORS_ALLOWED_ORIGINS": json.dumps(["https://test.com", "https://example.com"]),
             "SECURITY_RATE_LIMIT_DEFAULT_REQUESTS_PER_SECOND": "10",
             "SECURITY_CSRF_ENABLED": "False",
             "SECURITY_CSRF_TOKEN_EXPIRE_MINUTES": "120",

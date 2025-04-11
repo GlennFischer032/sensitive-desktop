@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class APIError(Exception):
@@ -9,7 +9,7 @@ class APIError(Exception):
         self,
         message: str,
         status_code: int = HTTPStatus.INTERNAL_SERVER_ERROR,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         """Initialize the API error.
 
@@ -23,7 +23,7 @@ class APIError(Exception):
         self.status_code = status_code
         self.details = details or {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert error to dictionary format."""
         return {
             "error": self.__class__.__name__,
@@ -35,47 +35,47 @@ class APIError(Exception):
 class ValidationError(APIError):
     """Raised when input validation fails."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message, HTTPStatus.BAD_REQUEST, details)
 
 
 class DatabaseError(APIError):
     """Raised when database operations fail."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message, HTTPStatus.INTERNAL_SERVER_ERROR, details)
 
 
 class GuacamoleError(APIError):
     """Raised when Guacamole operations fail."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message, HTTPStatus.INTERNAL_SERVER_ERROR, details)
 
 
 class UserNotFoundError(APIError):
     """Raised when a requested user is not found."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message, HTTPStatus.NOT_FOUND, details)
 
 
 class UserAlreadyExistsError(APIError):
     """Raised when attempting to create a user that already exists."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message, HTTPStatus.CONFLICT, details)
 
 
 class AuthenticationError(APIError):
     """Raised when authentication fails."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message, HTTPStatus.UNAUTHORIZED, details)
 
 
 class AuthorizationError(APIError):
     """Raised when authorization fails."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message, HTTPStatus.FORBIDDEN, details)

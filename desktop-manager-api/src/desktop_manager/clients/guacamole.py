@@ -4,7 +4,7 @@ This module provides a client for interacting with Apache Guacamole.
 """
 
 import logging
-from typing import Any, Dict, Literal, NotRequired, Optional, TypedDict, Union
+from typing import Any, Literal, NotRequired, TypedDict
 
 import requests
 
@@ -23,7 +23,7 @@ class GuacamoleUserAttributes(TypedDict, total=False):
     access_window_end: str
     valid_from: str
     valid_until: str
-    timezone: Optional[str]
+    timezone: str | None
 
 
 class GuacamoleUser(TypedDict):
@@ -101,7 +101,7 @@ class GuacamolePatchOperation(TypedDict):
 
     op: Literal["add", "remove"]
     path: str
-    value: Union[str, None]
+    value: str | None
 
 
 class GuacamoleAuthResponse(TypedDict):
@@ -137,9 +137,9 @@ class GuacamoleClient(BaseClient):
 
     def __init__(
         self,
-        guacamole_url: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        guacamole_url: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
         data_source: str = "postgresql",
     ):
         """Initialize GuacamoleClient.
@@ -197,17 +197,17 @@ class GuacamoleClient(BaseClient):
                 return data.get("authToken")
             except requests.exceptions.RequestException as e:
                 self.logger.error("Request error during login: %s", str(e))
-                raise APIError(f"Failed to login to Guacamole: {e!s}", status_code=401)
+                raise APIError(f"Failed to login to Guacamole: {e!s}", status_code=401) from e
         except Exception as e:
             self.logger.error("Failed to login to Guacamole: %s", str(e))
-            raise APIError(f"Failed to login to Guacamole: {e!s}", status_code=401)
+            raise APIError(f"Failed to login to Guacamole: {e!s}", status_code=401) from e
 
     def create_user(
         self,
         token: str,
         username: str,
         password: str,
-        attributes: Optional[Dict[str, Any]] = None,
+        attributes: dict[str, Any] | None = None,
     ) -> None:
         """Create a user in Guacamole.
 
@@ -235,7 +235,7 @@ class GuacamoleClient(BaseClient):
             self.logger.info("Created user %s in Guacamole", username)
         except APIError as e:
             self.logger.error("Failed to create user in Guacamole: %s", str(e))
-            raise APIError(f"Failed to create user in Guacamole: {e!s}", status_code=e.status_code)
+            raise APIError(f"Failed to create user in Guacamole: {e!s}", status_code=e.status_code) from e
 
     def delete_user(self, token: str, username: str) -> None:
         """Delete a user from Guacamole.
@@ -253,11 +253,9 @@ class GuacamoleClient(BaseClient):
             self.logger.info("Deleted user %s from Guacamole", username)
         except APIError as e:
             self.logger.error("Failed to delete user from Guacamole: %s", str(e))
-            raise APIError(
-                f"Failed to delete user from Guacamole: {e!s}", status_code=e.status_code
-            )
+            raise APIError(f"Failed to delete user from Guacamole: {e!s}", status_code=e.status_code) from e
 
-    def get_users(self, token: str) -> Dict[str, Any]:
+    def get_users(self, token: str) -> dict[str, Any]:
         """Get all users from Guacamole.
 
         Args:
@@ -275,7 +273,7 @@ class GuacamoleClient(BaseClient):
             return data
         except APIError as e:
             self.logger.error("Failed to get users from Guacamole: %s", str(e))
-            raise APIError(f"Failed to get users from Guacamole: {e!s}", status_code=e.status_code)
+            raise APIError(f"Failed to get users from Guacamole: {e!s}", status_code=e.status_code) from e
 
     def ensure_group(self, token: str, group_name: str) -> None:
         """Ensure a group exists in Guacamole.
@@ -304,7 +302,7 @@ class GuacamoleClient(BaseClient):
                 self.logger.info("Group %s already exists in Guacamole", group_name)
         except APIError as e:
             self.logger.error("Failed to ensure group in Guacamole: %s", str(e))
-            raise APIError(f"Failed to ensure group in Guacamole: {e!s}", status_code=e.status_code)
+            raise APIError(f"Failed to ensure group in Guacamole: {e!s}", status_code=e.status_code) from e
 
     def add_user_to_group(self, token: str, username: str, group_name: str) -> None:
         """Add a user to a group in Guacamole.
@@ -334,9 +332,7 @@ class GuacamoleClient(BaseClient):
             self.logger.info("Added user %s to group %s in Guacamole", username, group_name)
         except APIError as e:
             self.logger.error("Failed to add user to group in Guacamole: %s", str(e))
-            raise APIError(
-                f"Failed to add user to group in Guacamole: {e!s}", status_code=e.status_code
-            )
+            raise APIError(f"Failed to add user to group in Guacamole: {e!s}", status_code=e.status_code) from e
 
     def remove_user_from_group(self, token: str, username: str, group_name: str) -> None:
         """Remove a user from a group in Guacamole.
@@ -350,14 +346,14 @@ class GuacamoleClient(BaseClient):
             APIError: If removing user from group fails
         """
         try:
-            endpoint = f"/api/session/data/{self.data_source}/userGroups/{group_name}/memberUsers/{username}?token={token}"
+            endpoint = (
+                f"/api/session/data/{self.data_source}/userGroups/{group_name}/memberUsers/{username}?token={token}"
+            )
             self.delete(endpoint=endpoint)
             self.logger.info("Removed user %s from group %s in Guacamole", username, group_name)
         except APIError as e:
             self.logger.error("Failed to remove user from group in Guacamole: %s", str(e))
-            raise APIError(
-                f"Failed to remove user from group in Guacamole: {e!s}", status_code=e.status_code
-            )
+            raise APIError(f"Failed to remove user from group in Guacamole: {e!s}", status_code=e.status_code) from e
 
     def create_connection(
         self,
@@ -365,7 +361,7 @@ class GuacamoleClient(BaseClient):
         connection_name: str,
         ip_address: str,
         password: str,
-        parameters: Optional[Dict[str, str]] = None,
+        parameters: dict[str, str] | None = None,
     ) -> str:
         """Create a VNC connection in Guacamole.
 
@@ -411,15 +407,11 @@ class GuacamoleClient(BaseClient):
             data, _ = self.post(endpoint=endpoint, data=connection_data)
 
             connection_id = data.get("identifier")
-            self.logger.info(
-                "Created connection %s in Guacamole with ID %s", connection_name, connection_id
-            )
+            self.logger.info("Created connection %s in Guacamole with ID %s", connection_name, connection_id)
             return connection_id
         except APIError as e:
             self.logger.error("Failed to create connection in Guacamole: %s", str(e))
-            raise APIError(
-                f"Failed to create connection in Guacamole: {e!s}", status_code=e.status_code
-            )
+            raise APIError(f"Failed to create connection in Guacamole: {e!s}", status_code=e.status_code) from e
 
     def delete_connection(self, token: str, connection_id: str) -> None:
         """Delete a connection from Guacamole.
@@ -432,16 +424,12 @@ class GuacamoleClient(BaseClient):
             APIError: If connection deletion fails
         """
         try:
-            endpoint = (
-                f"/api/session/data/{self.data_source}/connections/{connection_id}?token={token}"
-            )
+            endpoint = f"/api/session/data/{self.data_source}/connections/{connection_id}?token={token}"
             self.delete(endpoint=endpoint)
             self.logger.info("Deleted connection %s from Guacamole", connection_id)
         except APIError as e:
             self.logger.error("Failed to delete connection from Guacamole: %s", str(e))
-            raise APIError(
-                f"Failed to delete connection from Guacamole: {e!s}", status_code=e.status_code
-            )
+            raise APIError(f"Failed to delete connection from Guacamole: {e!s}", status_code=e.status_code) from e
 
     def grant_permission(
         self,
@@ -462,9 +450,7 @@ class GuacamoleClient(BaseClient):
             APIError: If granting permission fails
         """
         try:
-            endpoint = (
-                f"/api/session/data/{self.data_source}/users/{username}/permissions?token={token}"
-            )
+            endpoint = f"/api/session/data/{self.data_source}/users/{username}/permissions?token={token}"
             patch_data = [
                 {
                     "op": "add",
@@ -481,9 +467,7 @@ class GuacamoleClient(BaseClient):
             )
         except APIError as e:
             self.logger.error("Failed to grant permission in Guacamole: %s", str(e))
-            raise APIError(
-                f"Failed to grant permission in Guacamole: {e!s}", status_code=e.status_code
-            )
+            raise APIError(f"Failed to grant permission in Guacamole: {e!s}", status_code=e.status_code) from e
 
     def grant_group_permission(
         self,
@@ -521,15 +505,13 @@ class GuacamoleClient(BaseClient):
             )
         except APIError as e:
             self.logger.error("Failed to grant group permission in Guacamole: %s", str(e))
-            raise APIError(
-                f"Failed to grant group permission in Guacamole: {e!s}", status_code=e.status_code
-            )
+            raise APIError(f"Failed to grant group permission in Guacamole: {e!s}", status_code=e.status_code) from e
 
     def update_user(
         self,
         token: str,
         username: str,
-        attributes: Dict[str, Any],
+        attributes: dict[str, Any],
     ) -> None:
         """Update a user's attributes in Guacamole.
 
@@ -554,13 +536,13 @@ class GuacamoleClient(BaseClient):
             self.logger.info("Updated user %s in Guacamole", username)
         except APIError as e:
             self.logger.error("Failed to update user in Guacamole: %s", str(e))
-            raise APIError(f"Failed to update user in Guacamole: {e!s}", status_code=e.status_code)
+            raise APIError(f"Failed to update user in Guacamole: {e!s}", status_code=e.status_code) from e
 
     def get_user_permissions(
         self,
         token: str,
         username: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get a user's permissions in Guacamole.
 
         Args:
@@ -574,17 +556,13 @@ class GuacamoleClient(BaseClient):
             APIError: If getting permissions fails
         """
         try:
-            endpoint = (
-                f"/api/session/data/{self.data_source}/users/{username}/permissions?token={token}"
-            )
+            endpoint = f"/api/session/data/{self.data_source}/users/{username}/permissions?token={token}"
             data, _ = self.get(endpoint=endpoint)
             self.logger.info("Retrieved permissions for user %s from Guacamole", username)
             return data
         except APIError as e:
             self.logger.error("Failed to get user permissions from Guacamole: %s", str(e))
-            raise APIError(
-                f"Failed to get user permissions from Guacamole: {e!s}", status_code=e.status_code
-            )
+            raise APIError(f"Failed to get user permissions from Guacamole: {e!s}", status_code=e.status_code) from e
 
     def copy_user_permissions(
         self,
@@ -621,9 +599,7 @@ class GuacamoleClient(BaseClient):
                         target_username,
                     )
                 except APIError as e:
-                    self.logger.error(
-                        "Failed to copy permission for connection %s: %s", connection_id, str(e)
-                    )
+                    self.logger.error("Failed to copy permission for connection %s: %s", connection_id, str(e))
 
             # Log completion
             self.logger.info(
@@ -633,16 +609,14 @@ class GuacamoleClient(BaseClient):
             )
         except APIError as e:
             self.logger.error("Failed to copy user permissions in Guacamole: %s", str(e))
-            raise APIError(
-                f"Failed to copy user permissions in Guacamole: {e!s}", status_code=e.status_code
-            )
+            raise APIError(f"Failed to copy user permissions in Guacamole: {e!s}", status_code=e.status_code) from e
 
     def create_user_if_not_exists(
         self,
         token: str,
         username: str,
         password: str,
-        attributes: Optional[Dict[str, Any]] = None,
+        attributes: dict[str, Any] | None = None,
     ) -> None:
         """Create a user in Guacamole if they don't already exist.
 
@@ -671,17 +645,13 @@ class GuacamoleClient(BaseClient):
             except APIError as e:
                 # If we can't get the list of users, try to create the user directly
                 if e.status_code == 404:
-                    self.logger.warning(
-                        "Could not check if user exists, attempting to create: %s", str(e)
-                    )
+                    self.logger.warning("Could not check if user exists, attempting to create: %s", str(e))
                     self.create_user(token, username, password, attributes)
                 else:
                     raise
         except APIError as e:
             self.logger.error("Failed to check/create user in Guacamole: %s", str(e))
-            raise APIError(
-                f"Failed to check/create user in Guacamole: {e!s}", status_code=e.status_code
-            )
+            raise APIError(f"Failed to check/create user in Guacamole: {e!s}", status_code=e.status_code) from e
 
     def check_connection_exists(self, token: str, connection_id: str) -> bool:
         """Check if a connection exists in Guacamole.
@@ -694,9 +664,7 @@ class GuacamoleClient(BaseClient):
             bool: True if connection exists, False otherwise
         """
         try:
-            endpoint = (
-                f"/api/session/data/{self.data_source}/connections/{connection_id}?token={token}"
-            )
+            endpoint = f"/api/session/data/{self.data_source}/connections/{connection_id}?token={token}"
             data, _ = self.get(endpoint=endpoint)
             # If we got a response, the connection exists
             return True
@@ -710,7 +678,7 @@ class GuacamoleClient(BaseClient):
             raise APIError(
                 f"Failed to check if connection exists in Guacamole: {e!s}",
                 status_code=e.status_code,
-            )
+            ) from e
 
     def get_auth_token(self, token: str) -> str:
         """Get a reusable authentication token from a session token.

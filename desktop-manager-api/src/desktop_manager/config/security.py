@@ -1,6 +1,5 @@
 from datetime import timedelta
 import os
-from typing import Dict, Set
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
@@ -29,13 +28,11 @@ class SecuritySettings(BaseSettings):
     SESSION_LIFETIME: timedelta = timedelta(minutes=30)
 
     # CORS settings
-    CORS_ALLOWED_ORIGINS: Set[str] = set(
-        os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5000,http://localhost:5001").split(
-            ","
-        )
+    CORS_ALLOWED_ORIGINS: set[str] = set(
+        os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5000,http://localhost:5001").split(",")
     )
-    CORS_ALLOWED_METHODS: Set[str] = {"GET", "POST", "PUT", "DELETE", "OPTIONS"}
-    CORS_ALLOWED_HEADERS: Set[str] = {
+    CORS_ALLOWED_METHODS: set[str] = {"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+    CORS_ALLOWED_HEADERS: set[str] = {
         "Content-Type",
         "Authorization",
         "X-Requested-With",
@@ -43,7 +40,7 @@ class SecuritySettings(BaseSettings):
         "Origin",
         "X-CSRF-Token",
     }
-    CORS_EXPOSE_HEADERS: Set[str] = {"Content-Length", "Content-Range", "X-Total-Count"}
+    CORS_EXPOSE_HEADERS: set[str] = {"Content-Length", "Content-Range", "X-Total-Count"}
     CORS_SUPPORTS_CREDENTIALS: bool = True
     CORS_MAX_AGE: int = 3600
 
@@ -54,14 +51,14 @@ class SecuritySettings(BaseSettings):
 
     # Content security settings
     MAX_CONTENT_LENGTH: int = 5 * 1024 * 1024
-    ALLOWED_CONTENT_TYPES: Set[str] = {
+    ALLOWED_CONTENT_TYPES: set[str] = {
         "application/json",
         "multipart/form-data",
         "application/x-www-form-urlencoded",
     }
 
     # Security headers
-    SECURITY_HEADERS: Dict[str, str] = {
+    SECURITY_HEADERS: dict[str, str] = {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
         "X-XSS-Protection": "1; mode=block",
@@ -177,7 +174,4 @@ def validate_password_requirements(password: str) -> bool:
     if requirements.require_numbers and not any(c.isdigit() for c in password):
         return False
 
-    return not (
-        requirements.require_special_chars
-        and not any(c in requirements.special_chars for c in password)
-    )
+    return not (requirements.require_special_chars and not any(c in requirements.special_chars for c in password))

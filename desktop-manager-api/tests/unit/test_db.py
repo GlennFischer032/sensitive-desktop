@@ -74,6 +74,4 @@ def test_foreign_key_constraint(test_db):
 
     # The exact exception type might vary between SQLite and MySQL,
     # but there should be some kind of integrity error
-    assert any(
-        word in str(exc_info.value).lower() for word in ["foreign", "integrity", "constraint"]
-    )
+    assert any(word in str(exc_info.value).lower() for word in ["foreign", "integrity", "constraint"])

@@ -1,6 +1,6 @@
 from http import HTTPStatus
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any
 
 from flask import Blueprint, jsonify, request
 
@@ -13,7 +13,7 @@ desktop_config_bp = Blueprint("desktop_config_bp", __name__)
 
 @desktop_config_bp.route("/list", methods=["GET"])
 @token_required
-def list_configurations() -> Tuple[Dict[str, Any], int]:
+def list_configurations() -> tuple[dict[str, Any], int]:
     """List desktop configurations.
 
     This endpoint returns a list of desktop configurations,
@@ -54,9 +54,7 @@ def list_configurations() -> Tuple[Dict[str, Any], int]:
                 WHERE dc.is_public = TRUE OR dca.username IS NOT NULL
                 ORDER BY dc.name ASC
                 """
-                configurations, _ = db_client.execute_query(
-                    query, {"username": current_user.username}
-                )
+                configurations, _ = db_client.execute_query(query, {"username": current_user.username})
 
             # Add user access information to each configuration
             result = []
@@ -77,9 +75,7 @@ def list_configurations() -> Tuple[Dict[str, Any], int]:
                         "name": config["name"],
                         "description": config["description"],
                         "image": config["image"],
-                        "created_at": config["created_at"].isoformat()
-                        if config["created_at"]
-                        else None,
+                        "created_at": config["created_at"].isoformat() if config["created_at"] else None,
                         "created_by": config["created_by"],
                         "is_public": config["is_public"],
                         "min_cpu": config["min_cpu"],
@@ -107,7 +103,7 @@ def list_configurations() -> Tuple[Dict[str, Any], int]:
 @desktop_config_bp.route("/create", methods=["POST"])
 @token_required
 @admin_required
-def create_configuration() -> Tuple[Dict[str, Any], int]:
+def create_configuration() -> tuple[dict[str, Any], int]:
     """Create a new desktop configuration.
 
     This endpoint creates a new desktop configuration with the provided details.
@@ -155,7 +151,8 @@ def create_configuration() -> Tuple[Dict[str, Any], int]:
             (name, description, image, created_by, is_public, min_cpu, max_cpu, min_ram, max_ram)
             VALUES
             (:name, :description, :image, :created_by, :is_public, :min_cpu, :max_cpu, :min_ram, :max_ram)
-            RETURNING id, name, description, image, created_at, created_by, is_public, min_cpu, max_cpu, min_ram, max_ram
+            RETURNING id, name, description, image, created_at,
+                created_by, is_public, min_cpu, max_cpu, min_ram, max_ram
             """
 
             insert_data = {
@@ -184,9 +181,7 @@ def create_configuration() -> Tuple[Dict[str, Any], int]:
                     VALUES
                     (:config_id, :username)
                     """
-                    db_client.execute_query(
-                        access_query, {"config_id": created_config["id"], "username": username}
-                    )
+                    db_client.execute_query(access_query, {"config_id": created_config["id"], "username": username})
 
             return jsonify(
                 {
@@ -224,7 +219,7 @@ def create_configuration() -> Tuple[Dict[str, Any], int]:
 @desktop_config_bp.route("/update/<int:config_id>", methods=["PUT"])
 @token_required
 @admin_required
-def update_configuration(config_id: int) -> Tuple[Dict[str, Any], int]:
+def update_configuration(config_id: int) -> tuple[dict[str, Any], int]:
     """Update an existing desktop configuration.
 
     This endpoint updates an existing desktop configuration with the provided details.
@@ -273,9 +268,7 @@ def update_configuration(config_id: int) -> Tuple[Dict[str, Any], int]:
             SELECT id FROM desktop_configurations
             WHERE name = :name AND id != :id
             """
-            name_check, name_count = db_client.execute_query(
-                name_check_query, {"name": data["name"], "id": config_id}
-            )
+            name_check, name_count = db_client.execute_query(name_check_query, {"name": data["name"], "id": config_id})
             if name_count > 0:
                 return (
                     jsonify({"error": f"Configuration with name '{data['name']}' already exists"}),
@@ -295,7 +288,8 @@ def update_configuration(config_id: int) -> Tuple[Dict[str, Any], int]:
                 min_ram = :min_ram,
                 max_ram = :max_ram
             WHERE id = :id
-            RETURNING id, name, description, image, created_at, created_by, is_public, min_cpu, max_cpu, min_ram, max_ram
+            RETURNING id, name, description, image, created_at,
+                created_by, is_public, min_cpu, max_cpu, min_ram, max_ram
             """
 
             update_data = {
@@ -332,9 +326,7 @@ def update_configuration(config_id: int) -> Tuple[Dict[str, Any], int]:
                     VALUES
                     (:config_id, :username)
                     """
-                    db_client.execute_query(
-                        access_query, {"config_id": config_id, "username": username}
-                    )
+                    db_client.execute_query(access_query, {"config_id": config_id, "username": username})
 
             return jsonify(
                 {
@@ -371,7 +363,7 @@ def update_configuration(config_id: int) -> Tuple[Dict[str, Any], int]:
 
 @desktop_config_bp.route("/get/<int:config_id>", methods=["GET"])
 @token_required
-def get_configuration(config_id: int) -> Tuple[Dict[str, Any], int]:
+def get_configuration(config_id: int) -> tuple[dict[str, Any], int]:
     """Get a specific desktop configuration.
 
     This endpoint returns detailed information about a specific desktop configuration.
@@ -417,9 +409,7 @@ def get_configuration(config_id: int) -> Tuple[Dict[str, Any], int]:
 
             if count == 0:
                 return (
-                    jsonify(
-                        {"error": f"Configuration with ID {config_id} not found or access denied"}
-                    ),
+                    jsonify({"error": f"Configuration with ID {config_id} not found or access denied"}),
                     HTTPStatus.NOT_FOUND,
                 )
 
@@ -467,7 +457,7 @@ def get_configuration(config_id: int) -> Tuple[Dict[str, Any], int]:
 @desktop_config_bp.route("/delete/<int:config_id>", methods=["DELETE"])
 @token_required
 @admin_required
-def delete_configuration(config_id: int) -> Tuple[Dict[str, Any], int]:
+def delete_configuration(config_id: int) -> tuple[dict[str, Any], int]:
     """Delete a desktop configuration.
 
     This endpoint deletes a desktop configuration by ID.
@@ -503,14 +493,13 @@ def delete_configuration(config_id: int) -> Tuple[Dict[str, Any], int]:
             connections_query = """
             SELECT id FROM connections WHERE desktop_configuration_id = :config_id
             """
-            connections, conn_count = db_client.execute_query(
-                connections_query, {"config_id": config_id}
-            )
+            connections, conn_count = db_client.execute_query(connections_query, {"config_id": config_id})
             if conn_count > 0:
                 return (
                     jsonify(
                         {
-                            "error": f"Cannot delete configuration with ID {config_id} because it is being used by {conn_count} connections"
+                            "error": f"Cannot delete configuration with ID {config_id}"
+                            f" because it is being used by {conn_count} connections"
                         }
                     ),
                     HTTPStatus.CONFLICT,
@@ -528,9 +517,7 @@ def delete_configuration(config_id: int) -> Tuple[Dict[str, Any], int]:
             """
             db_client.execute_query(delete_query, {"id": config_id})
 
-            return jsonify(
-                {"message": f"Configuration with ID {config_id} deleted successfully"}
-            ), HTTPStatus.OK
+            return jsonify({"message": f"Configuration with ID {config_id} deleted successfully"}), HTTPStatus.OK
 
         except Exception as e:
             logging.error("Database error: %s", str(e))
@@ -547,7 +534,7 @@ def delete_configuration(config_id: int) -> Tuple[Dict[str, Any], int]:
 @desktop_config_bp.route("/access/<int:config_id>", methods=["GET"])
 @token_required
 @admin_required
-def get_configuration_access(config_id: int) -> Tuple[Dict[str, Any], int]:
+def get_configuration_access(config_id: int) -> tuple[dict[str, Any], int]:
     """Get users with access to a specific configuration.
 
     This endpoint returns a list of users who have access to a private configuration.
@@ -604,7 +591,7 @@ def get_configuration_access(config_id: int) -> Tuple[Dict[str, Any], int]:
 
 @desktop_config_bp.route("/accessible", methods=["GET"])
 @token_required
-def list_accessible_configurations() -> Tuple[Dict[str, Any], int]:
+def list_accessible_configurations() -> tuple[dict[str, Any], int]:
     """List desktop configurations accessible to the current user.
 
     This endpoint returns a simplified list of desktop configurations
@@ -641,9 +628,7 @@ def list_accessible_configurations() -> Tuple[Dict[str, Any], int]:
                 WHERE dc.is_public = TRUE OR dca.username IS NOT NULL
                 ORDER BY dc.name ASC
                 """
-                configurations, _ = db_client.execute_query(
-                    query, {"username": current_user.username}
-                )
+                configurations, _ = db_client.execute_query(query, {"username": current_user.username})
 
             return jsonify({"configurations": configurations}), HTTPStatus.OK
 
