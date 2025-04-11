@@ -100,8 +100,9 @@
 // Button groups - standardized
 .button-group {
   display: inline-flex;
-  align-items: center;
+  align-items: left;
   gap: $spacing-xs;
+  justify-content: left;
 
   // Remove any margins from forms
   form, button {

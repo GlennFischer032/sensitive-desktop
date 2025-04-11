@@ -202,6 +202,28 @@ class GuacamoleClient(BaseClient):
             self.logger.error("Failed to login to Guacamole: %s", str(e))
             raise APIError(f"Failed to login to Guacamole: {e!s}", status_code=401) from e
 
+    def json_auth_login(self, data: str) -> str:
+        """Login to Guacamole using JSON auth.
+
+        Args:
+            data: JSON auth data
+
+        Returns:
+            str: Authentication token
+
+        Raises:
+            APIError: If login fails
+        """
+        try:
+            endpoint = f"{self.guacamole_url}/api/tokens"
+            headers = {"Content-Type": "application/x-www-form-urlencoded"}
+            response = requests.post(endpoint, headers=headers, data={"data": data}, timeout=self.timeout)
+            response.raise_for_status()
+            return response.json().get("authToken")
+        except Exception as e:
+            self.logger.error("Failed to login to Guacamole: %s", str(e))
+            raise APIError(f"Failed to login to Guacamole: {e!s}", status_code=401) from e
+
     def create_user(
         self,
         token: str,
@@ -680,6 +702,26 @@ class GuacamoleClient(BaseClient):
                 status_code=e.status_code,
             ) from e
 
+    def get_connection_params(self, token: str, connection_id: str) -> dict[str, Any]:
+        """Get the parameters for a connection in Guacamole.
+
+        Args:
+            token: Authentication token
+            connection_id: Connection ID
+
+        Returns:
+            dict[str, Any]: Connection parameters
+        """
+        try:
+            endpoint = f"/api/session/data/{self.data_source}/connections/{connection_id}/parameters?token={token}"
+            data, _ = self.get(endpoint=endpoint)
+            return data
+        except APIError as e:
+            self.logger.error("Failed to get connection parameters from Guacamole: %s", str(e))
+            raise APIError(
+                f"Failed to get connection parameters from Guacamole: {e!s}", status_code=e.status_code
+            ) from e
+
     def get_auth_token(self, token: str) -> str:
         """Get a reusable authentication token from a session token.
 
@@ -694,3 +736,12 @@ class GuacamoleClient(BaseClient):
         # In Guacamole, the session token can be directly used as an auth token
         # for constructing direct connection URLs
         return token
+
+    def delete_session(self, token: str) -> None:
+        """Delete a session in Guacamole.
+
+        Args:
+            token: Authentication token
+        """
+        endpoint = f"/api/session?token={token}"
+        self.delete(endpoint=endpoint)

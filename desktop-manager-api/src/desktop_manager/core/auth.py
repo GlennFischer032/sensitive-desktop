@@ -5,8 +5,8 @@ from flask import current_app, jsonify, request
 import jwt
 import requests
 
-from desktop_manager.api.models.user import User
 from desktop_manager.clients.factory import client_factory
+from desktop_manager.database.models.user import User
 
 
 def token_required(f):

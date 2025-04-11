@@ -6,6 +6,7 @@ This module defines the StoragePVC, ConnectionPVCMap, and StoragePVCAccess model
 from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from desktop_manager.api.models.base import Base
@@ -40,6 +41,12 @@ class StoragePVC(Base):
     status: str = Column(String(50), default="Pending", nullable=False)
     last_updated: datetime = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
+    # Relationship to connections through the mapping table
+    connections = relationship("Connection", secondary="connection_pvcs", back_populates="pvcs")
+
+    # Relationship to users who have access to this PVC
+    access_permissions = relationship("StoragePVCAccess", back_populates="pvc", cascade="all, delete-orphan")
+
     def __repr__(self) -> str:
         """Return string representation of the StoragePVC."""
         return f"<StoragePVC {self.name} ({self.status})>"
@@ -60,7 +67,12 @@ class ConnectionPVCMap(Base):
     __tablename__ = "connection_pvcs"
 
     id: int = Column(Integer, primary_key=True)
-    connection_id: int = Column(Integer, ForeignKey("connections.id", ondelete="CASCADE"), nullable=False)
+    # Use string reference to avoid circular dependency
+    connection_id: int = Column(
+        Integer,
+        ForeignKey("connections.id", ondelete="CASCADE", use_alter=True, name="fk_connection_pvcs_connection_id"),
+        nullable=False,
+    )
     pvc_id: int = Column(Integer, ForeignKey("storage_pvcs.id", ondelete="CASCADE"), nullable=False)
     created_at: datetime = Column(DateTime, server_default=func.now(), nullable=False)
 
@@ -87,6 +99,10 @@ class StoragePVCAccess(Base):
     pvc_id: int = Column(Integer, ForeignKey("storage_pvcs.id", ondelete="CASCADE"), nullable=False)
     username: str = Column(String(255), ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
     created_at: datetime = Column(DateTime, server_default=func.now(), nullable=False)
+
+    # Relationships
+    pvc = relationship("StoragePVC", back_populates="access_permissions")
+    user = relationship("User", foreign_keys=[username])
 
     def __repr__(self) -> str:
         """Return string representation of the StoragePVCAccess."""

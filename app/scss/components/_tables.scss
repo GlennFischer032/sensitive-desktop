@@ -93,7 +93,7 @@ td.action-buttons {
 
 // Button group in tables
 .button-group {
-  @include flex(row, center, center, wrap);
+  @include flex(row, left, center, wrap);
   gap: $spacing-xs;
   margin: 0 auto;
   width: 100%;

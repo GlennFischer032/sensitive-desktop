@@ -1,176 +1,176 @@
--- Create tables for desktop manager application
+-- -- Create tables for desktop manager application
 
--- NOTE: PostgreSQL creates databases from a separate connection, not from within a script
--- CREATE DATABASE desktop_manager;
--- Instead, database should be created before the script is run or via docker-compose
+-- -- NOTE: PostgreSQL creates databases from a separate connection, not from within a script
+-- -- CREATE DATABASE desktop_manager;
+-- -- Instead, database should be created before the script is run or via docker-compose
 
--- Users table with OIDC support
-CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(255) NOT NULL UNIQUE,
-    email VARCHAR(255) UNIQUE,
-    organization VARCHAR(255),
-    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    -- OIDC fields
-    sub VARCHAR(255) UNIQUE,  -- OIDC subject identifier
-    given_name VARCHAR(255),
-    family_name VARCHAR(255),
-    name VARCHAR(255),        -- Full name, can be extracted or combined from given/family name
-    locale VARCHAR(10),
-    email_verified BOOLEAN DEFAULT FALSE,
-    last_login TIMESTAMP
-);
+-- -- Users table with OIDC support
+-- CREATE TABLE IF NOT EXISTS users (
+--     id SERIAL PRIMARY KEY,
+--     username VARCHAR(255) NOT NULL UNIQUE,
+--     email VARCHAR(255) UNIQUE,
+--     organization VARCHAR(255),
+--     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     -- OIDC fields
+--     sub VARCHAR(255) UNIQUE,  -- OIDC subject identifier
+--     given_name VARCHAR(255),
+--     family_name VARCHAR(255),
+--     name VARCHAR(255),        -- Full name, can be extracted or combined from given/family name
+--     locale VARCHAR(10),
+--     email_verified BOOLEAN DEFAULT FALSE,
+--     last_login TIMESTAMP
+-- );
 
--- Keep existing indexes and add new ones
-CREATE INDEX idx_username ON users(username);
-CREATE INDEX idx_email ON users(email);
-CREATE INDEX idx_sub ON users(sub);
+-- -- Keep existing indexes and add new ones
+-- CREATE INDEX idx_username ON users(username);
+-- CREATE INDEX idx_email ON users(email);
+-- CREATE INDEX idx_sub ON users(sub);
 
--- Social Auth Association table for OIDC
-CREATE TABLE IF NOT EXISTS social_auth_association (
-    id SERIAL PRIMARY KEY,
-    user_id INT NOT NULL,
-    provider VARCHAR(32) NOT NULL,  -- e.g., 'oidc'
-    provider_user_id VARCHAR(255) NOT NULL,  -- maps to 'sub' in OIDC
-    provider_name VARCHAR(255),  -- e.g., 'e-infra'
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_used TIMESTAMP,
-    extra_data JSONB,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    UNIQUE (provider, provider_user_id)
-);
+-- -- Social Auth Association table for OIDC
+-- CREATE TABLE IF NOT EXISTS social_auth_association (
+--     id SERIAL PRIMARY KEY,
+--     user_id INT NOT NULL,
+--     provider VARCHAR(32) NOT NULL,  -- e.g., 'oidc'
+--     provider_user_id VARCHAR(255) NOT NULL,  -- maps to 'sub' in OIDC
+--     provider_name VARCHAR(255),  -- e.g., 'e-infra'
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     last_used TIMESTAMP,
+--     extra_data JSONB,
+--     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+--     UNIQUE (provider, provider_user_id)
+-- );
 
--- PKCE Code Verifier table for OIDC
-CREATE TABLE IF NOT EXISTS pkce_state (
-    id SERIAL PRIMARY KEY,
-    state VARCHAR(64) NOT NULL UNIQUE,
-    code_verifier VARCHAR(128) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP,
-    used BOOLEAN DEFAULT FALSE
-);
+-- -- PKCE Code Verifier table for OIDC
+-- CREATE TABLE IF NOT EXISTS pkce_state (
+--     id SERIAL PRIMARY KEY,
+--     state VARCHAR(64) NOT NULL UNIQUE,
+--     code_verifier VARCHAR(128) NOT NULL,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     expires_at TIMESTAMP,
+--     used BOOLEAN DEFAULT FALSE
+-- );
 
-CREATE INDEX idx_state ON pkce_state(state);
-CREATE INDEX idx_expires ON pkce_state(expires_at);
+-- CREATE INDEX idx_state ON pkce_state(state);
+-- CREATE INDEX idx_expires ON pkce_state(expires_at);
 
--- Desktop Configurations table
-CREATE TABLE IF NOT EXISTS desktop_configurations (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) UNIQUE NOT NULL,
-    description TEXT,
-    image VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(255),
-    is_public BOOLEAN DEFAULT FALSE,
-    min_cpu INTEGER DEFAULT 1,
-    max_cpu INTEGER DEFAULT 4,
-    min_ram VARCHAR(10) DEFAULT '4096Mi',
-    max_ram VARCHAR(10) DEFAULT '16384Mi',
-    FOREIGN KEY (created_by) REFERENCES users(username)
-);
+-- -- Desktop Configurations table
+-- CREATE TABLE IF NOT EXISTS desktop_configurations (
+--     id SERIAL PRIMARY KEY,
+--     name VARCHAR(255) UNIQUE NOT NULL,
+--     description TEXT,
+--     image VARCHAR(255) NOT NULL,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     created_by VARCHAR(255),
+--     is_public BOOLEAN DEFAULT FALSE,
+--     min_cpu INTEGER DEFAULT 1,
+--     max_cpu INTEGER DEFAULT 4,
+--     min_ram VARCHAR(10) DEFAULT '4096Mi',
+--     max_ram VARCHAR(10) DEFAULT '16384Mi',
+--     FOREIGN KEY (created_by) REFERENCES users(username)
+-- );
 
--- Desktop Configuration Access table for user permissions
-CREATE TABLE IF NOT EXISTS desktop_configuration_access (
-    id SERIAL PRIMARY KEY,
-    desktop_configuration_id INT NOT NULL,
-    username VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (desktop_configuration_id) REFERENCES desktop_configurations(id) ON DELETE CASCADE,
-    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
-    UNIQUE (desktop_configuration_id, username)
-);
+-- -- Desktop Configuration Access table for user permissions
+-- CREATE TABLE IF NOT EXISTS desktop_configuration_access (
+--     id SERIAL PRIMARY KEY,
+--     desktop_configuration_id INT NOT NULL,
+--     username VARCHAR(255) NOT NULL,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     FOREIGN KEY (desktop_configuration_id) REFERENCES desktop_configurations(id) ON DELETE CASCADE,
+--     FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
+--     UNIQUE (desktop_configuration_id, username)
+-- );
 
--- Create admin user if it doesn't exist
-INSERT INTO users (username, email, is_admin, name, email_verified)
-VALUES ('admin', 'admin@example.com', TRUE, 'System Administrator', TRUE)
-ON CONFLICT (username) DO NOTHING;
+-- -- Create admin user if it doesn't exist
+-- INSERT INTO users (username, email, is_admin, name, email_verified)
+-- VALUES ('admin', 'admin@example.com', TRUE, 'System Administrator', TRUE)
+-- ON CONFLICT (username) DO NOTHING;
 
--- Insert default desktop configuration
-INSERT INTO desktop_configurations (name, description, image, is_public, created_by, min_cpu, max_cpu, min_ram, max_ram)
-VALUES (
-    'Ubuntu XFCE',
-    'Default Ubuntu XFCE desktop environment',
-    'cerit.io/desktops/ubuntu-xfce:22.04-user',
-    TRUE,
-    'admin',
-    2,
-    4,
-    '4096Mi',
-    '16384Mi'
-)
-ON CONFLICT (name) DO NOTHING;
+-- -- Insert default desktop configuration
+-- INSERT INTO desktop_configurations (name, description, image, is_public, created_by, min_cpu, max_cpu, min_ram, max_ram)
+-- VALUES (
+--     'Ubuntu XFCE',
+--     'Default Ubuntu XFCE desktop environment',
+--     'cerit.io/desktops/ubuntu-xfce:22.04-user',
+--     TRUE,
+--     'admin',
+--     2,
+--     4,
+--     '4096Mi',
+--     '16384Mi'
+-- )
+-- ON CONFLICT (name) DO NOTHING;
 
--- Connections table
-CREATE TABLE IF NOT EXISTS connections (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(255),
-    guacamole_connection_id VARCHAR(255) NOT NULL,
-    is_stopped BOOLEAN DEFAULT FALSE,
-    persistent_home BOOLEAN DEFAULT TRUE,
-    desktop_configuration_id INT,
-    FOREIGN KEY (created_by) REFERENCES users(username),
-    FOREIGN KEY (desktop_configuration_id) REFERENCES desktop_configurations(id)
-);
+-- -- Connections table
+-- CREATE TABLE IF NOT EXISTS connections (
+--     id SERIAL PRIMARY KEY,
+--     name VARCHAR(255) UNIQUE NOT NULL,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     created_by VARCHAR(255),
+--     guacamole_connection_id VARCHAR(255) NOT NULL,
+--     is_stopped BOOLEAN DEFAULT FALSE,
+--     persistent_home BOOLEAN DEFAULT TRUE,
+--     desktop_configuration_id INT,
+--     FOREIGN KEY (created_by) REFERENCES users(username),
+--     FOREIGN KEY (desktop_configuration_id) REFERENCES desktop_configurations(id)
+-- );
 
--- Storage PVCs table
-CREATE TABLE IF NOT EXISTS storage_pvcs (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) UNIQUE NOT NULL,
-    namespace VARCHAR(255) NOT NULL,
-    size VARCHAR(20) NOT NULL,  -- e.g. "10Gi"
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_by VARCHAR(255),
-    status VARCHAR(50) DEFAULT 'Pending',
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_public BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (created_by) REFERENCES users(username)
-);
+-- -- Storage PVCs table
+-- CREATE TABLE IF NOT EXISTS storage_pvcs (
+--     id SERIAL PRIMARY KEY,
+--     name VARCHAR(255) UNIQUE NOT NULL,
+--     namespace VARCHAR(255) NOT NULL,
+--     size VARCHAR(20) NOT NULL,  -- e.g. "10Gi"
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     created_by VARCHAR(255),
+--     status VARCHAR(50) DEFAULT 'Pending',
+--     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     is_public BOOLEAN DEFAULT FALSE,
+--     FOREIGN KEY (created_by) REFERENCES users(username)
+-- );
 
--- Storage PVC Access table for user permissions
-CREATE TABLE IF NOT EXISTS storage_pvc_access (
-    id SERIAL PRIMARY KEY,
-    pvc_id INT NOT NULL,
-    username VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (pvc_id) REFERENCES storage_pvcs(id) ON DELETE CASCADE,
-    FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
-    UNIQUE (pvc_id, username)
-);
+-- -- Storage PVC Access table for user permissions
+-- CREATE TABLE IF NOT EXISTS storage_pvc_access (
+--     id SERIAL PRIMARY KEY,
+--     pvc_id INT NOT NULL,
+--     username VARCHAR(255) NOT NULL,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     FOREIGN KEY (pvc_id) REFERENCES storage_pvcs(id) ON DELETE CASCADE,
+--     FOREIGN KEY (username) REFERENCES users(username) ON DELETE CASCADE,
+--     UNIQUE (pvc_id, username)
+-- );
 
--- Connection to PVC mapping table
-CREATE TABLE IF NOT EXISTS connection_pvcs (
-    id SERIAL PRIMARY KEY,
-    connection_id INT NOT NULL,
-    pvc_id INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (connection_id) REFERENCES connections(id) ON DELETE CASCADE,
-    FOREIGN KEY (pvc_id) REFERENCES storage_pvcs(id) ON DELETE CASCADE,
-    UNIQUE (connection_id, pvc_id)
-);
+-- -- Connection to PVC mapping table
+-- CREATE TABLE IF NOT EXISTS connection_pvcs (
+--     id SERIAL PRIMARY KEY,
+--     connection_id INT NOT NULL,
+--     pvc_id INT NOT NULL,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     FOREIGN KEY (connection_id) REFERENCES connections(id) ON DELETE CASCADE,
+--     FOREIGN KEY (pvc_id) REFERENCES storage_pvcs(id) ON DELETE CASCADE,
+--     UNIQUE (connection_id, pvc_id)
+-- );
 
-CREATE INDEX idx_pvc_name ON storage_pvcs(name);
-CREATE INDEX idx_pvc_namespace ON storage_pvcs(namespace);
-CREATE INDEX idx_pvc_access ON storage_pvc_access(pvc_id, username);
-CREATE INDEX idx_connection_pvc ON connection_pvcs(connection_id, pvc_id);
+-- CREATE INDEX idx_pvc_name ON storage_pvcs(name);
+-- CREATE INDEX idx_pvc_namespace ON storage_pvcs(namespace);
+-- CREATE INDEX idx_pvc_access ON storage_pvc_access(pvc_id, username);
+-- CREATE INDEX idx_connection_pvc ON connection_pvcs(connection_id, pvc_id);
 
--- API Tokens table for admin-generated bearer tokens
-CREATE TABLE IF NOT EXISTS api_tokens (
-    id SERIAL PRIMARY KEY,
-    token_id VARCHAR(64) NOT NULL UNIQUE,  -- public identifier for the token
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL,
-    revoked BOOLEAN DEFAULT FALSE,
-    revoked_at TIMESTAMP,
-    created_by VARCHAR(255) NOT NULL,
-    last_used TIMESTAMP,
-    FOREIGN KEY (created_by) REFERENCES users(username) ON DELETE CASCADE,
-    UNIQUE (name, created_by)
-);
+-- -- API Tokens table for admin-generated bearer tokens
+-- CREATE TABLE IF NOT EXISTS api_tokens (
+--     id SERIAL PRIMARY KEY,
+--     token_id VARCHAR(64) NOT NULL UNIQUE,  -- public identifier for the token
+--     name VARCHAR(255) NOT NULL,
+--     description TEXT,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     expires_at TIMESTAMP NOT NULL,
+--     revoked BOOLEAN DEFAULT FALSE,
+--     revoked_at TIMESTAMP,
+--     created_by VARCHAR(255) NOT NULL,
+--     last_used TIMESTAMP,
+--     FOREIGN KEY (created_by) REFERENCES users(username) ON DELETE CASCADE,
+--     UNIQUE (name, created_by)
+-- );
 
-CREATE INDEX idx_api_token_id ON api_tokens(token_id);
-CREATE INDEX idx_api_token_name ON api_tokens(name, created_by);
+-- CREATE INDEX idx_api_token_id ON api_tokens(token_id);
+-- CREATE INDEX idx_api_token_name ON api_tokens(name, created_by);

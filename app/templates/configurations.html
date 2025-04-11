@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const configId = this.getAttribute('data-config-id');
             await loadConfigData(configId);
             submitBtn.textContent = 'Save Changes';
-            configForm.setAttribute('action', `/configurations/api/${configId}`);
+            configForm.setAttribute('action', `/api/configurations/${configId}`);
             configForm.setAttribute('method', 'PUT');
             // Update the modal title
             ModalManager.show('config-modal', {
@@ -267,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const response = await fetch(form.action, {
-                method: form.method,
+                method: configId ? 'PUT' : 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'

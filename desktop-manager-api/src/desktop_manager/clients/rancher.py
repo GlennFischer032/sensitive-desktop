@@ -54,7 +54,6 @@ class DesktopValues:
 
     desktop: str = "cerit.io/desktops/ubuntu-xfce:22.04-user"
     name: str = None
-    image: str = None
     image_pull_policy: str = "Always"
     service_type: str = "NodePort"
     webrtcimages: WebRTCImages = None
@@ -70,12 +69,9 @@ class DesktopValues:
     external_pvc: str | None = None  # New field for external PVC name
 
     def __post_init__(self):
-        if self.webrtcimages is None:
-            self.webrtcimages = WebRTCImages()
+        self.webrtcimages = WebRTCImages()
         if self.storage is None:
             self.storage = Storage()
-        if self.image is None:
-            self.image = self.desktop
 
         # If external_pvc is provided, configure storage to use it
         if self.external_pvc:
@@ -84,7 +80,7 @@ class DesktopValues:
     def to_dict(self) -> dict:
         values = {
             "name": self.name,
-            "image": self.image,
+            "desktop": self.desktop,
             "imagePullPolicy": self.image_pull_policy,
             "serviceType": self.service_type,
             "webrtcimages": {

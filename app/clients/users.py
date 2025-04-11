@@ -117,53 +117,6 @@ class UsersClient(BaseClient):
             self.logger.error(f"Error fetching user details: {str(e)}")
             raise
 
-    def update_user(
-        self,
-        username: str,
-        organization: str | None = None,
-        is_admin: bool | None = None,
-        locale: str | None = None,
-    ) -> dict[str, Any]:
-        """Update a user's information.
-
-        Args:
-            username: Username of the user to update
-            organization: User's organization
-            is_admin: Whether the user is an admin
-            locale: User's locale preference
-
-        Returns:
-            Dict[str, Any]: Response data
-
-        Raises:
-            APIError: If request fails
-        """
-
-        # Build request data with only provided fields
-        data = {}
-        if organization is not None:
-            data["organization"] = organization
-        if is_admin is not None:
-            data["is_admin"] = is_admin
-        if locale is not None:
-            data["locale"] = locale
-
-        if not data:
-            self.logger.error("No update fields provided")
-            raise APIError("No update fields provided", status_code=400)
-
-        try:
-            request = ClientRequest(
-                endpoint=f"/api/users/update/{username}",
-                data=data,
-                timeout=10,
-            )
-            data, _ = self.post(request=request)
-            return data
-        except APIError as e:
-            self.logger.error(f"Error updating user: {str(e)}")
-            raise
-
     def verify_user(self, sub: str) -> tuple[dict[str, Any], int]:
         """Verify if a user exists with the provided sub ID.
 

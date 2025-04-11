@@ -135,10 +135,6 @@
                     <div class="detail-value" id="detail-user-created"></div>
                 </div>
                 <div class="detail-item">
-                    <div class="detail-label">Last Login</div>
-                    <div class="detail-value" id="detail-user-last-login"></div>
-                </div>
-                <div class="detail-item">
                     <div class="detail-label">Organization</div>
                     <div class="detail-value" id="detail-user-organization"></div>
                 </div>
@@ -442,7 +438,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('detail-user-email').textContent = user.email || 'Not set';
         document.getElementById('detail-user-role').textContent = user.is_admin ? 'Administrator' : 'Regular User';
         document.getElementById('detail-user-created').textContent = formatDate(user.created_at) || 'N/A';
-        document.getElementById('detail-user-last-login').textContent = user.last_login ? formatDate(user.last_login) : 'Never';
         document.getElementById('detail-user-organization').textContent = user.organization || 'Not set';
 
         // OIDC information

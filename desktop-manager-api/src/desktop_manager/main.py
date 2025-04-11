@@ -7,7 +7,6 @@ from flask_cors import CORS
 from werkzeug.security import generate_password_hash
 
 from desktop_manager.api.routes import (
-    auth_bp,
     connections_bp,
     desktop_config_bp,
     oidc_bp,
@@ -84,7 +83,6 @@ def create_app() -> Flask:
             )
 
     # Register blueprints
-    app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(connections_bp, url_prefix="/api/connections")
     app.register_blueprint(desktop_config_bp, url_prefix="/api/desktop-config")
     app.register_blueprint(users_bp, url_prefix="/api/users")

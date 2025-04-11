@@ -6,6 +6,8 @@ from flask import Blueprint, jsonify, request
 
 from desktop_manager.clients.factory import client_factory
 from desktop_manager.core.auth import admin_required, token_required
+from desktop_manager.database.core.session import get_db_session
+from desktop_manager.database.repositories.desktop_configuration import DesktopConfigurationRepository
 
 
 desktop_config_bp = Blueprint("desktop_config_bp", __name__)
@@ -32,65 +34,41 @@ def list_configurations() -> tuple[dict[str, Any], int]:
         # Get authenticated user
         current_user = request.current_user
 
-        # Get database client
-        db_client = client_factory.get_database_client()
-
-        try:
+        with get_db_session() as session:
+            desktop_config_repo = DesktopConfigurationRepository(session)
             if current_user.is_admin:
                 # Admins can see all configurations
-                query = """
-                SELECT *
-                FROM desktop_configurations
-                ORDER BY name ASC
-                """
-                configurations, _ = db_client.execute_query(query)
+                configurations = desktop_config_repo.get_all_configurations()
             else:
                 # Non-admins can see public configurations and ones they have access to
-                query = """
-                SELECT DISTINCT dc.*
-                FROM desktop_configurations dc
-                LEFT JOIN desktop_configuration_access dca
-                    ON dc.id = dca.desktop_configuration_id AND dca.username = :username
-                WHERE dc.is_public = TRUE OR dca.username IS NOT NULL
-                ORDER BY dc.name ASC
-                """
-                configurations, _ = db_client.execute_query(query, {"username": current_user.username})
+                configurations = desktop_config_repo.get_configurations_for_user(current_user.username)
 
             # Add user access information to each configuration
             result = []
 
             for config in configurations:
-                access_query = """
-                SELECT username
-                FROM desktop_configuration_access
-                WHERE desktop_configuration_id = :config_id
-                """
-                access_list, _ = db_client.execute_query(access_query, {"config_id": config["id"]})
+                access_list = desktop_config_repo.get_access_entries(config.id)
 
-                allowed_users = [user["username"] for user in access_list]
+                allowed_users = [user.username for user in access_list]
 
                 result.append(
                     {
-                        "id": config["id"],
-                        "name": config["name"],
-                        "description": config["description"],
-                        "image": config["image"],
-                        "created_at": config["created_at"].isoformat() if config["created_at"] else None,
-                        "created_by": config["created_by"],
-                        "is_public": config["is_public"],
-                        "min_cpu": config["min_cpu"],
-                        "max_cpu": config["max_cpu"],
-                        "min_ram": config["min_ram"],
-                        "max_ram": config["max_ram"],
+                        "id": config.id,
+                        "name": config.name,
+                        "description": config.description,
+                        "image": config.image,
+                        "created_at": config.created_at.isoformat() if config.created_at else None,
+                        "created_by": config.created_by,
+                        "is_public": config.is_public,
+                        "min_cpu": config.min_cpu,
+                        "max_cpu": config.max_cpu,
+                        "min_ram": config.min_ram,
+                        "max_ram": config.max_ram,
                         "allowed_users": allowed_users,
                     }
                 )
 
             return jsonify({"configurations": result}), HTTPStatus.OK
-
-        except Exception as e:
-            logging.error("Database error: %s", str(e))
-            raise
 
     except Exception as e:
         logging.error("Error listing desktop configurations: %s", str(e))
@@ -130,83 +108,55 @@ def create_configuration() -> tuple[dict[str, Any], int]:
                 HTTPStatus.BAD_REQUEST,
             )
 
-        # Get database client
-        db_client = client_factory.get_database_client()
+        with get_db_session() as session:
+            desktop_config_repo = DesktopConfigurationRepository(session)
 
-        try:
             # Check if configuration with this name already exists
-            check_query = """
-            SELECT id FROM desktop_configurations WHERE name = :name
-            """
-            existing, count = db_client.execute_query(check_query, {"name": data["name"]})
-            if count > 0:
+            existing = desktop_config_repo.get_by_name(data["name"])
+            if existing:
                 return (
                     jsonify({"error": f"Configuration with name '{data['name']}' already exists"}),
                     HTTPStatus.CONFLICT,
                 )
-
-            # Insert the new configuration
-            insert_query = """
-            INSERT INTO desktop_configurations
-            (name, description, image, created_by, is_public, min_cpu, max_cpu, min_ram, max_ram)
-            VALUES
-            (:name, :description, :image, :created_by, :is_public, :min_cpu, :max_cpu, :min_ram, :max_ram)
-            RETURNING id, name, description, image, created_at,
-                created_by, is_public, min_cpu, max_cpu, min_ram, max_ram
-            """
-
-            insert_data = {
-                "name": data["name"],
-                "description": data.get("description", ""),
-                "image": data["image"],
-                "created_by": current_user.username,
-                "is_public": data.get("is_public", False),
-                "min_cpu": data.get("min_cpu", 1),
-                "max_cpu": data.get("max_cpu", 4),
-                "min_ram": data.get("min_ram", "4096Mi"),
-                "max_ram": data.get("max_ram", "16384Mi"),
-            }
-
-            result, _ = db_client.execute_query(insert_query, insert_data)
-            created_config = result[0]
+            config = desktop_config_repo.create_configuration(
+                {
+                    "name": data["name"],
+                    "description": data.get("description", ""),
+                    "image": data["image"],
+                    "created_by": current_user.username,
+                    "is_public": data.get("is_public", False),
+                    "min_cpu": data.get("min_cpu", 1),
+                    "max_cpu": data.get("max_cpu", 4),
+                    "min_ram": data.get("min_ram", "4096Mi"),
+                    "max_ram": data.get("max_ram", "16384Mi"),
+                }
+            )
 
             # Process user access if provided
             allowed_users = data.get("allowed_users", [])
-            if allowed_users and not created_config["is_public"]:
+            if allowed_users and not config.is_public:
                 # Insert access records
                 for username in allowed_users:
-                    access_query = """
-                    INSERT INTO desktop_configuration_access
-                    (desktop_configuration_id, username)
-                    VALUES
-                    (:config_id, :username)
-                    """
-                    db_client.execute_query(access_query, {"config_id": created_config["id"], "username": username})
+                    desktop_config_repo.create_access(config.id, username)
 
             return jsonify(
                 {
                     "configuration": {
-                        "id": created_config["id"],
-                        "name": created_config["name"],
-                        "description": created_config["description"],
-                        "image": created_config["image"],
-                        "created_at": created_config["created_at"].isoformat()
-                        if created_config["created_at"]
-                        else None,
-                        "created_by": created_config["created_by"],
-                        "is_public": created_config["is_public"],
-                        "min_cpu": created_config["min_cpu"],
-                        "max_cpu": created_config["max_cpu"],
-                        "min_ram": created_config["min_ram"],
-                        "max_ram": created_config["max_ram"],
+                        "id": config.id,
+                        "name": config.name,
+                        "description": config.description,
+                        "image": config.image,
+                        "created_at": config.created_at.isoformat() if config.created_at else None,
+                        "created_by": config.created_by,
+                        "is_public": config.is_public,
+                        "min_cpu": config.min_cpu,
+                        "max_cpu": config.max_cpu,
+                        "min_ram": config.min_ram,
+                        "max_ram": config.max_ram,
                         "allowed_users": allowed_users,
                     }
                 }
             ), HTTPStatus.CREATED
-
-        except Exception as e:
-            logging.error("Database error: %s", str(e))
-            raise
 
     except Exception as e:
         logging.error("Error creating desktop configuration: %s", str(e))
@@ -249,48 +199,25 @@ def update_configuration(config_id: int) -> tuple[dict[str, Any], int]:
             )
 
         # Get database client
-        db_client = client_factory.get_database_client()
+        client_factory.get_database_client()
 
-        try:
+        with get_db_session() as session:
+            desktop_config_repo = DesktopConfigurationRepository(session)
             # Check if configuration exists
-            check_query = """
-            SELECT * FROM desktop_configurations WHERE id = :id
-            """
-            existing, count = db_client.execute_query(check_query, {"id": config_id})
-            if count == 0:
+            existing = desktop_config_repo.get_by_id(config_id)
+            if not existing:
                 return (
                     jsonify({"error": f"Configuration with ID {config_id} not found"}),
                     HTTPStatus.NOT_FOUND,
                 )
 
             # Check if name is already used by another configuration
-            name_check_query = """
-            SELECT id FROM desktop_configurations
-            WHERE name = :name AND id != :id
-            """
-            name_check, name_count = db_client.execute_query(name_check_query, {"name": data["name"], "id": config_id})
-            if name_count > 0:
+            name_check = desktop_config_repo.get_by_name(data["name"])
+            if name_check and name_check.id != config_id:
                 return (
                     jsonify({"error": f"Configuration with name '{data['name']}' already exists"}),
                     HTTPStatus.CONFLICT,
                 )
-
-            # Update the configuration
-            update_query = """
-            UPDATE desktop_configurations
-            SET
-                name = :name,
-                description = :description,
-                image = :image,
-                is_public = :is_public,
-                min_cpu = :min_cpu,
-                max_cpu = :max_cpu,
-                min_ram = :min_ram,
-                max_ram = :max_ram
-            WHERE id = :id
-            RETURNING id, name, description, image, created_at,
-                created_by, is_public, min_cpu, max_cpu, min_ram, max_ram
-            """
 
             update_data = {
                 "id": config_id,
@@ -304,54 +231,37 @@ def update_configuration(config_id: int) -> tuple[dict[str, Any], int]:
                 "max_ram": data.get("max_ram", "16384Mi"),
             }
 
-            result, _ = db_client.execute_query(update_query, update_data)
-            updated_config = result[0]
+            updated_config = desktop_config_repo.update_configuration(config_id, update_data)
 
             # Update user access if provided
             allowed_users = data.get("allowed_users", [])
 
             # Clear existing access records
-            clear_access_query = """
-            DELETE FROM desktop_configuration_access
-            WHERE desktop_configuration_id = :config_id
-            """
-            db_client.execute_query(clear_access_query, {"config_id": config_id})
+            desktop_config_repo.clear_access(config_id)
 
             # Insert new access records if not public
-            if allowed_users and not updated_config["is_public"]:
+            if allowed_users and not updated_config.is_public:
                 for username in allowed_users:
-                    access_query = """
-                    INSERT INTO desktop_configuration_access
-                    (desktop_configuration_id, username)
-                    VALUES
-                    (:config_id, :username)
-                    """
-                    db_client.execute_query(access_query, {"config_id": config_id, "username": username})
+                    desktop_config_repo.create_access(config_id, username)
 
             return jsonify(
                 {
                     "configuration": {
-                        "id": updated_config["id"],
-                        "name": updated_config["name"],
-                        "description": updated_config["description"],
-                        "image": updated_config["image"],
-                        "created_at": updated_config["created_at"].isoformat()
-                        if updated_config["created_at"]
-                        else None,
-                        "created_by": updated_config["created_by"],
-                        "is_public": updated_config["is_public"],
-                        "min_cpu": updated_config["min_cpu"],
-                        "max_cpu": updated_config["max_cpu"],
-                        "min_ram": updated_config["min_ram"],
-                        "max_ram": updated_config["max_ram"],
+                        "id": updated_config.id,
+                        "name": updated_config.name,
+                        "description": updated_config.description,
+                        "image": updated_config.image,
+                        "created_at": updated_config.created_at.isoformat() if updated_config.created_at else None,
+                        "created_by": updated_config.created_by,
+                        "is_public": updated_config.is_public,
+                        "min_cpu": updated_config.min_cpu,
+                        "max_cpu": updated_config.max_cpu,
+                        "min_ram": updated_config.min_ram,
+                        "max_ram": updated_config.max_ram,
                         "allowed_users": allowed_users,
                     }
                 }
             ), HTTPStatus.OK
-
-        except Exception as e:
-            logging.error("Database error: %s", str(e))
-            raise
 
     except Exception as e:
         logging.error("Error updating desktop configuration: %s", str(e))
@@ -381,70 +291,43 @@ def get_configuration(config_id: int) -> tuple[dict[str, Any], int]:
         # Get authenticated user
         current_user = request.current_user
 
-        # Get database client
-        db_client = client_factory.get_database_client()
-
-        try:
+        with get_db_session() as session:
+            desktop_config_repo = DesktopConfigurationRepository(session)
             # Get the configuration
             if current_user.is_admin:
                 # Admins can see any configuration
-                query = """
-                SELECT *
-                FROM desktop_configurations
-                WHERE id = :config_id
-                """
-                result, count = db_client.execute_query(query, {"config_id": config_id})
+                config = desktop_config_repo.get_by_id(config_id)
             else:
                 # Non-admins can only see public configurations or those they have access to
-                query = """
-                SELECT DISTINCT dc.*
-                FROM desktop_configurations dc
-                LEFT JOIN desktop_configuration_access dca
-                    ON dc.id = dca.desktop_configuration_id AND dca.username = :username
-                WHERE dc.id = :config_id AND (dc.is_public = TRUE OR dca.username IS NOT NULL)
-                """
-                result, count = db_client.execute_query(
-                    query, {"config_id": config_id, "username": current_user.username}
-                )
+                config = desktop_config_repo.get_configurations_for_user(current_user.username, config_id)
 
-            if count == 0:
+            if not config:
                 return (
                     jsonify({"error": f"Configuration with ID {config_id} not found or access denied"}),
                     HTTPStatus.NOT_FOUND,
                 )
 
-            config = result[0]
-
             # Get access information
-            access_query = """
-            SELECT username
-            FROM desktop_configuration_access
-            WHERE desktop_configuration_id = :config_id
-            """
-            access_list, _ = db_client.execute_query(access_query, {"config_id": config["id"]})
-            allowed_users = [user["username"] for user in access_list]
+            access_list = desktop_config_repo.get_access_entries(config_id)
+            allowed_users = [user.username for user in access_list]
 
             # Format the response
             response = {
-                "id": config["id"],
-                "name": config["name"],
-                "description": config["description"],
-                "image": config["image"],
-                "created_at": config["created_at"].isoformat() if config["created_at"] else None,
-                "created_by": config["created_by"],
-                "is_public": config["is_public"],
-                "min_cpu": config["min_cpu"],
-                "max_cpu": config["max_cpu"],
-                "min_ram": config["min_ram"],
-                "max_ram": config["max_ram"],
+                "id": config.id,
+                "name": config.name,
+                "description": config.description,
+                "image": config.image,
+                "created_at": config.created_at.isoformat() if config.created_at else None,
+                "created_by": config.created_by,
+                "is_public": config.is_public,
+                "min_cpu": config.min_cpu,
+                "max_cpu": config.max_cpu,
+                "min_ram": config.min_ram,
+                "max_ram": config.max_ram,
                 "allowed_users": allowed_users,
             }
 
             return jsonify({"configuration": response}), HTTPStatus.OK
-
-        except Exception as e:
-            logging.error("Database error: %s", str(e))
-            raise
 
     except Exception as e:
         logging.error("Error getting desktop configuration: %s", str(e))
@@ -475,53 +358,34 @@ def delete_configuration(config_id: int) -> tuple[dict[str, Any], int]:
         # Get authenticated user
 
         # Get database client
-        db_client = client_factory.get_database_client()
-
-        try:
+        with get_db_session() as session:
+            desktop_config_repo = DesktopConfigurationRepository(session)
             # Check if configuration exists
-            check_query = """
-            SELECT id FROM desktop_configurations WHERE id = :id
-            """
-            existing, count = db_client.execute_query(check_query, {"id": config_id})
-            if count == 0:
+            existing = desktop_config_repo.get_by_id(config_id)
+            if not existing:
                 return (
                     jsonify({"error": f"Configuration with ID {config_id} not found"}),
                     HTTPStatus.NOT_FOUND,
                 )
 
-            # Check if the configuration is being used by any connections
-            connections_query = """
-            SELECT id FROM connections WHERE desktop_configuration_id = :config_id
-            """
-            connections, conn_count = db_client.execute_query(connections_query, {"config_id": config_id})
-            if conn_count > 0:
+            if desktop_config_repo.is_in_use(config_id):
                 return (
                     jsonify(
                         {
                             "error": f"Cannot delete configuration with ID {config_id}"
-                            f" because it is being used by {conn_count} connections"
+                            " because it is being used by a connection"
                         }
                     ),
                     HTTPStatus.CONFLICT,
                 )
 
             # Delete access records first
-            delete_access_query = """
-            DELETE FROM desktop_configuration_access WHERE desktop_configuration_id = :config_id
-            """
-            db_client.execute_query(delete_access_query, {"config_id": config_id})
+            desktop_config_repo.clear_access(config_id)
 
             # Delete the configuration
-            delete_query = """
-            DELETE FROM desktop_configurations WHERE id = :id
-            """
-            db_client.execute_query(delete_query, {"id": config_id})
+            desktop_config_repo.delete_configuration(config_id)
 
             return jsonify({"message": f"Configuration with ID {config_id} deleted successfully"}), HTTPStatus.OK
-
-        except Exception as e:
-            logging.error("Database error: %s", str(e))
-            raise
 
     except Exception as e:
         logging.error("Error deleting desktop configuration: %s", str(e))
@@ -550,36 +414,20 @@ def get_configuration_access(config_id: int) -> tuple[dict[str, Any], int]:
     try:
         # Get authenticated user
 
-        # Get database client
-        db_client = client_factory.get_database_client()
-
-        try:
+        with get_db_session() as session:
+            desktop_config_repo = DesktopConfigurationRepository(session)
             # Check if configuration exists
-            check_query = """
-            SELECT id, is_public FROM desktop_configurations WHERE id = :id
-            """
-            existing, count = db_client.execute_query(check_query, {"id": config_id})
-            if count == 0:
+            existing = desktop_config_repo.get_by_id(config_id)
+            if not existing:
                 return (
                     jsonify({"error": f"Configuration with ID {config_id} not found"}),
                     HTTPStatus.NOT_FOUND,
                 )
 
             # Get users with access
-            access_query = """
-            SELECT u.id, u.username, u.email
-            FROM users u
-            JOIN desktop_configuration_access dca ON u.username = dca.username
-            WHERE dca.desktop_configuration_id = :config_id
-            ORDER BY u.username
-            """
-            users, _ = db_client.execute_query(access_query, {"config_id": config_id})
+            users = desktop_config_repo.get_users_with_access(config_id)
 
             return jsonify({"users": users}), HTTPStatus.OK
-
-        except Exception as e:
-            logging.error("Database error: %s", str(e))
-            raise
 
     except Exception as e:
         logging.error("Error getting configuration access: %s", str(e))
@@ -606,35 +454,16 @@ def list_accessible_configurations() -> tuple[dict[str, Any], int]:
         # Get authenticated user
         current_user = request.current_user
 
-        # Get database client
-        db_client = client_factory.get_database_client()
-
-        try:
+        with get_db_session() as session:
+            desktop_config_repo = DesktopConfigurationRepository(session)
             if current_user.is_admin:
                 # Admins can see all configurations
-                query = """
-                SELECT id, name, description, image
-                FROM desktop_configurations
-                ORDER BY name ASC
-                """
-                configurations, _ = db_client.execute_query(query)
+                configurations = desktop_config_repo.get_all_configurations()
             else:
                 # Non-admins can see public configurations and ones they have access to
-                query = """
-                SELECT DISTINCT dc.id, dc.name, dc.description, dc.image
-                FROM desktop_configurations dc
-                LEFT JOIN desktop_configuration_access dca
-                    ON dc.id = dca.desktop_configuration_id AND dca.username = :username
-                WHERE dc.is_public = TRUE OR dca.username IS NOT NULL
-                ORDER BY dc.name ASC
-                """
-                configurations, _ = db_client.execute_query(query, {"username": current_user.username})
+                configurations = desktop_config_repo.get_configurations_for_user(current_user.username)
 
             return jsonify({"configurations": configurations}), HTTPStatus.OK
-
-        except Exception as e:
-            logging.error("Database error: %s", str(e))
-            raise
 
     except Exception as e:
         logging.error("Error listing accessible desktop configurations: %s", str(e))

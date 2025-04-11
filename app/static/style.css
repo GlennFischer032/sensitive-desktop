@@ -1136,8 +1136,9 @@ table.accessible-table {
 
 .button-group, .button-group-between, .button-group-center, .button-group-right, .action-buttons {
   display: inline-flex;
-  align-items: center;
-  gap: 0.25rem; }
+  align-items: left;
+  gap: 0.25rem;
+  justify-content: left; }
   .button-group form, .button-group-between form, .button-group-center form, .button-group-right form, .action-buttons form, .button-group button, .button-group-between button, .button-group-center button, .button-group-right button, .action-buttons button {
     margin: 0; }
   .button-group.same-size .button, .same-size.button-group-between .button, .same-size.button-group-center .button, .same-size.button-group-right .button, .same-size.action-buttons .button,
@@ -1923,7 +1924,7 @@ td.action-buttons {
 .button-group, .action-buttons, .button-group-right, .button-group-center, .button-group-between {
   display: flex;
   flex-direction: row;
-  justify-content: center;
+  justify-content: left;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.25rem;
@@ -2950,7 +2951,7 @@ body.login-page {
   text-align: center; }
   .configurations-table-container td.action-buttons .button-group, .configurations-table-container td.action-buttons .action-buttons, .configurations-table-container td.action-buttons .button-group-right, .configurations-table-container td.action-buttons .button-group-center, .configurations-table-container td.action-buttons .button-group-between {
     display: inline-flex;
-    justify-content: center;
+    justify-content: left;
     align-items: center;
     gap: 0.25rem; }
   .configurations-table-container td.action-buttons .button.small {

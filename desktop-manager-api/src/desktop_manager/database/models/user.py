@@ -1,3 +1,8 @@
+"""SQLAlchemy models for users.
+
+This module defines the User, SocialAuthAssociation, and PKCEState models for database operations.
+"""
+
 from datetime import datetime
 
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
@@ -96,10 +101,11 @@ class User(Base):
 
     id: int = Column(Integer, primary_key=True, index=True)
     username: str = Column(String(255), unique=True, index=True, nullable=False)
-    email: str = Column(String(255), unique=True, index=True, nullable=False)
+    email: str = Column(String(255), unique=True, index=True, nullable=True)
     organization: str = Column(String(255), nullable=True)
     is_admin: bool = Column(Boolean, default=False)
     created_at: datetime = Column(DateTime, server_default=func.now())
+    updated_at: datetime = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
 
     # OIDC fields
     sub: str = Column(String(255), unique=True, nullable=True)
@@ -111,12 +117,12 @@ class User(Base):
     last_login: datetime = Column(DateTime, nullable=True)
 
     # Relationships
-    connections = relationship("Connection", back_populates="creator", cascade="all, delete-orphan")
     social_auth = relationship("SocialAuthAssociation", back_populates="user", cascade="all, delete-orphan")
     desktop_configurations = relationship("DesktopConfiguration", back_populates="creator")
     desktop_configuration_access = relationship(
         "DesktopConfigurationAccess", back_populates="user", cascade="all, delete-orphan"
     )
+    connections = relationship("Connection", back_populates="creator")
 
     __table_args__ = {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"}
 
