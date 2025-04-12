@@ -5,7 +5,6 @@ This module provides a factory for creating client instances.
 
 import logging
 
-from desktop_manager.clients.database import DatabaseClient
 from desktop_manager.clients.guacamole import GuacamoleClient
 from desktop_manager.clients.rancher import RancherClient
 from desktop_manager.config.settings import get_settings
@@ -24,22 +23,8 @@ class ClientFactory:
         """Initialize ClientFactory."""
         self.logger = logging.getLogger(self.__class__.__name__)
         self.settings = get_settings()
-        self._database_client: DatabaseClient | None = None
         self._guacamole_client: GuacamoleClient | None = None
         self._rancher_client: RancherClient | None = None
-
-    def get_database_client(self) -> DatabaseClient:
-        """Get a DatabaseClient instance.
-
-        Returns:
-            DatabaseClient: DatabaseClient instance
-        """
-        if not self._database_client:
-            self.logger.info("Creating new DatabaseClient instance")
-            self._database_client = DatabaseClient(
-                connection_string=self.settings.database_url,
-            )
-        return self._database_client
 
     def get_guacamole_client(self) -> GuacamoleClient:
         """Get a GuacamoleClient instance.
@@ -70,30 +55,3 @@ class ClientFactory:
 
 # Create a singleton instance of ClientFactory
 client_factory = ClientFactory()
-
-
-def get_guacamole_client() -> GuacamoleClient:
-    """Get a GuacamoleClient instance from the singleton factory.
-
-    Returns:
-        GuacamoleClient: GuacamoleClient instance
-    """
-    return client_factory.get_guacamole_client()
-
-
-def get_database_client() -> DatabaseClient:
-    """Get a DatabaseClient instance from the singleton factory.
-
-    Returns:
-        DatabaseClient: DatabaseClient instance
-    """
-    return client_factory.get_database_client()
-
-
-def get_rancher_client() -> RancherClient:
-    """Get a RancherClient instance from the singleton factory.
-
-    Returns:
-        RancherClient: RancherClient instance
-    """
-    return client_factory.get_rancher_client()

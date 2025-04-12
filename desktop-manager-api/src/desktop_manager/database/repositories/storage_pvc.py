@@ -188,41 +188,6 @@ class StoragePVCRepository(BaseRepository[StoragePVC]):
         access_entries = self.get_pvc_access(pvc_id)
         return [access.username for access in access_entries]
 
-    # Connection-PVC mapping methods TODO: Move to ConnectionRepository
-    def get_pvc_connections(self, pvc_id: int) -> list[dict[str, Any]]:
-        """Get connections that use a specific PVC.
-
-        Args:
-            pvc_id: PVC ID
-
-        Returns:
-            List of connections with mapping information
-        """
-        result = []
-        mappings = self.session.query(ConnectionPVCMap).filter(ConnectionPVCMap.pvc_id == pvc_id).all()
-
-        for mapping in mappings:
-            # We need to use a raw query or join here since we don't have the Connection model imported
-            connection_query = """
-            SELECT id, name, created_at, created_by, is_stopped
-            FROM connections
-            WHERE id = :connection_id
-            """
-            connection_row = self.session.execute(connection_query, {"connection_id": mapping.connection_id}).first()
-
-            if connection_row:
-                connection_dict = {
-                    "id": connection_row.id,
-                    "name": connection_row.name,
-                    "created_at": connection_row.created_at,
-                    "created_by": connection_row.created_by,
-                    "is_stopped": connection_row.is_stopped,
-                    "mapping_id": mapping.id,
-                }
-                result.append(connection_dict)
-
-        return result
-
     def is_pvc_in_use(self, pvc_id: int) -> bool:
         """Check if a PVC is in use by any connection.
 

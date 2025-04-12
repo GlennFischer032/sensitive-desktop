@@ -225,7 +225,7 @@ class ConnectionRepository(BaseRepository[Connection]):
 
         return pvcs
 
-    def get_connections_for_pvc(self, pvc_id: int) -> list[dict[str, Any]]:
+    def get_connections_for_pvc(self, pvc_id: int) -> list[Connection]:
         """Get connections that use a specific PVC.
 
         Args:
@@ -234,33 +234,8 @@ class ConnectionRepository(BaseRepository[Connection]):
         Returns:
             List of connections with mapping information
         """
-        connections = []
-
-        # Using a join to get both Connection and mapping data
-        result = (
-            self.session.query(Connection, ConnectionPVCMap)
-            .join(
-                ConnectionPVCMap,
-                and_(
-                    ConnectionPVCMap.connection_id == Connection.id,
-                    ConnectionPVCMap.pvc_id == pvc_id,
-                ),
-            )
-            .all()
-        )
-
-        for connection, mapping in result:
-            connection_dict = {
-                "id": connection.id,
-                "name": connection.name,
-                "created_at": connection.created_at,
-                "created_by": connection.created_by,
-                "is_stopped": connection.is_stopped,
-                "mapping_id": mapping.id,
-            }
-            connections.append(connection_dict)
-
-        return connections
+        result = self.session.query(Connection).filter(Connection.pvcs.any(StoragePVC.id == pvc_id)).all()
+        return result
 
     def is_pvc_attached_to_connection(self, connection_id: int, pvc_id: int) -> bool:
         """Check if a PVC is attached to a specific connection.

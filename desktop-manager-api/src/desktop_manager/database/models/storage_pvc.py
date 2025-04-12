@@ -37,7 +37,7 @@ class StoragePVC(Base):
     size: str = Column(String(50), nullable=False)
     is_public: bool = Column(Boolean, default=False, nullable=False)
     created_at: datetime = Column(DateTime, server_default=func.now(), nullable=False)
-    created_by: str = Column(String(255), ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
+    created_by: str = Column(String(255), ForeignKey("users.username"), nullable=False)
     status: str = Column(String(50), default="Pending", nullable=False)
     last_updated: datetime = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
+from desktop_manager.api.models.base import Base
 from desktop_manager.config.settings import get_settings
 
 
@@ -34,6 +35,18 @@ def get_engine() -> Engine:
         logger.info("Creating database engine with connection string: %s", database_url)
         _engine = create_engine(database_url)
     return _engine
+
+
+def initialize_db() -> None:
+    """Initialize the database by creating all tables defined in the models.
+
+    This function ensures all table schemas are created in the database
+    if they don't already exist.
+    """
+    engine = get_engine()
+    logger.info("Creating database tables if they don't exist")
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database initialization completed")
 
 
 def get_session_maker() -> sessionmaker:

@@ -4,7 +4,6 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
-from desktop_manager.clients.factory import client_factory
 from desktop_manager.core.auth import admin_required, token_required
 from desktop_manager.database.core.session import get_db_session
 from desktop_manager.database.repositories.desktop_configuration import DesktopConfigurationRepository
@@ -197,9 +196,6 @@ def update_configuration(config_id: int) -> tuple[dict[str, Any], int]:
                 jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}),
                 HTTPStatus.BAD_REQUEST,
             )
-
-        # Get database client
-        client_factory.get_database_client()
 
         with get_db_session() as session:
             desktop_config_repo = DesktopConfigurationRepository(session)

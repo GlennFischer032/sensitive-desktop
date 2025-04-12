@@ -198,6 +198,8 @@ def _validate_external_pvc(external_pvc: str, current_user):
             elif current_user.username not in allowed_users:
                 raise ForbiddenError("You do not have permission to use this PVC")
 
+            return pvc.id
+
     except APIError:
         # Re-raise API errors
         raise
@@ -356,21 +358,19 @@ def _save_connection_to_database(
                 }
             )
 
-        # If external PVC was used, map it to the connection
-        if external_pvc:
-            try:
-                with get_db_session() as session:
+            # If external PVC was used, map it to the connection
+            if external_pvc:
+                try:
                     pvc_repo = StoragePVCRepository(session)
                     pvc = pvc_repo.get_by_name(external_pvc)
                     if not pvc:
                         raise NotFoundError(f"PVC '{external_pvc}' not found")
-                    pvc_id = pvc.id
 
                     conn_repo = ConnectionRepository(session)
-                    conn_repo.map_connection_to_pvc(connection.id, pvc_id)
+                    conn_repo.map_connection_to_pvc(connection.id, pvc.id)
 
-            except Exception as e:
-                logging.error("Error mapping connection to PVC: %s", str(e))
+                except Exception as e:
+                    logging.error("Error mapping connection to PVC: %s", str(e))
                 # Continue even if mapping fails
 
         return connection

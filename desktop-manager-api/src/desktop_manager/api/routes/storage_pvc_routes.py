@@ -16,6 +16,7 @@ from desktop_manager.clients.factory import client_factory
 from desktop_manager.config.settings import get_settings
 from desktop_manager.core.auth import admin_required, token_required
 from desktop_manager.database.core.session import get_db_session
+from desktop_manager.database.repositories.connection import ConnectionRepository
 from desktop_manager.database.repositories.storage_pvc import StoragePVCRepository
 
 
@@ -95,11 +96,11 @@ def create_storage_pvc() -> tuple[dict[str, Any], int]:
             }
 
             pvc = pvc_repo.create_storage_pvc(pvc_db_data)
-
-            pvc_model = StoragePVCModel.model_validate(pvc)
-
+            session.expunge(pvc)
+            res = pvc.__dict__
+            res.pop("_sa_instance_state", None)
             return (
-                jsonify({"message": "PVC created successfully", "pvc": pvc_model.model_dump()}),
+                jsonify({"message": "PVC created successfully", "pvc": pvc.__dict__}),
                 HTTPStatus.CREATED,
             )
     except Exception as e:
@@ -392,32 +393,20 @@ def get_pvc_connections(pvc_id: int) -> tuple[dict[str, Any], int]:
         Tuple[Dict[str, Any], int]: Response data and status code
     """
     try:
-        # Get database client
-        db_client = client_factory.get_database_client()
+        with get_db_session() as session:
+            conn_repo = ConnectionRepository(session)
+            connections = conn_repo.get_connections_for_pvc(pvc_id)
 
-        # Get connections using this PVC TODO: Use repository
-        connections_query = """
-        SELECT c.id, c.name, c.created_at, c.created_by, c.is_stopped,
-               cp.id AS mapping_id
-        FROM connections c
-        JOIN connection_pvcs cp ON c.id = cp.connection_id
-        WHERE cp.pvc_id = :pvc_id
-        """
-
-        connection_rows, _ = db_client.execute_query(connections_query, {"pvc_id": pvc_id})
-
-        # Format connections for response
-        connections = [
-            {
-                "id": row["id"],
-                "name": row["name"],
-                "created_at": row["created_at"].isoformat(),
-                "created_by": row["created_by"],
-                "is_stopped": row["is_stopped"],
-                "mapping_id": row["mapping_id"],
-            }
-            for row in connection_rows
-        ]
+            connections = [
+                {
+                    "id": row.id,
+                    "name": row.name,
+                    "created_at": row.created_at.isoformat(),
+                    "created_by": row.created_by,
+                    "is_stopped": row.is_stopped,
+                }
+                for row in connections
+            ]
 
         return (
             jsonify({"connections": connections}),

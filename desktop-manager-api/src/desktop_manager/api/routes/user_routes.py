@@ -48,32 +48,23 @@ def remove_user() -> tuple[dict[str, Any], int]:
             )
 
         # Get database client
-        db_client = client_factory.get_database_client()
+        with get_db_session() as session:
+            user_repo = UserRepository(session)
+            user = user_repo.get_by_username(username)
+            if not user:
+                return jsonify({"error": "User not found"}), HTTPStatus.NOT_FOUND
 
-        # Check if user exists
-        query = "SELECT * FROM users WHERE username = :username"
-        users, count = db_client.execute_query(query, {"username": username})
+            try:
+                logging.info("Removing user from Guacamole: %s", username)
+                guacamole_client = client_factory.get_guacamole_client()
+                token = guacamole_client.login()
+                guacamole_client.delete_user(token, username)
+                logging.info("Successfully removed user from Guacamole: %s", username)
+            except Exception as e:
+                logging.error("Failed to remove user from Guacamole: %s", str(e))
 
-        if count == 0:
-            return jsonify({"error": "User not found"}), HTTPStatus.NOT_FOUND
-
-        users[0]
-
-        # Remove from Guacamole
-        try:
-            logging.info("Removing user from Guacamole: %s", username)
-            guacamole_client = client_factory.get_guacamole_client()
-            token = guacamole_client.login()
-            guacamole_client.delete_user(token, username)
-            logging.info("Successfully removed user from Guacamole: %s", username)
-        except Exception as e:
-            logging.error("Failed to remove user from Guacamole: %s", str(e))
-            # Continue with removal from database even if Guacamole fails
-
-        # Remove user from database
-        delete_query = "DELETE FROM users WHERE username = :username"
-        db_client.execute_query(delete_query, {"username": username})
-        logging.info("Successfully removed user from database: %s", username)
+            user_repo.delete_user(user.id)
+            logging.info("Successfully removed user from database: %s", username)
 
         return jsonify({"message": "User removed successfully"}), HTTPStatus.OK
 
@@ -315,24 +306,20 @@ def verify_user_by_sub() -> tuple[dict[str, Any], int]:
                 HTTPStatus.BAD_REQUEST,
             )
 
-        # Get database client
-        db_client = client_factory.get_database_client()
+        with get_db_session() as session:
+            user_repo = UserRepository(session)
+            user = user_repo.get_by_sub(sub)
 
-        # Check if user exists with the provided sub
-        query = "SELECT id, username FROM users WHERE sub = :sub"
-        users, count = db_client.execute_query(query, {"sub": sub})
+            if not user:
+                return (
+                    jsonify({"exists": False, "message": "User not found"}),
+                    HTTPStatus.NOT_FOUND,
+                )
 
-        if count == 0:
             return (
-                jsonify({"exists": False, "message": "User not found"}),
-                HTTPStatus.NOT_FOUND,
+                jsonify({"exists": True, "user_id": user.id, "username": user.username}),
+                HTTPStatus.OK,
             )
-
-        user = users[0]
-        return (
-            jsonify({"exists": True, "user_id": user["id"], "username": user["username"]}),
-            HTTPStatus.OK,
-        )
 
     except Exception as e:
         logging.error("Error verifying user by sub: %s", str(e))

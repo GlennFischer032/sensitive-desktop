@@ -4,6 +4,7 @@ This module provides a client for interacting with Apache Guacamole.
 """
 
 import logging
+import time
 from typing import Any, Literal, NotRequired, TypedDict
 
 import requests
@@ -297,6 +298,21 @@ class GuacamoleClient(BaseClient):
             self.logger.error("Failed to get users from Guacamole: %s", str(e))
             raise APIError(f"Failed to get users from Guacamole: {e!s}", status_code=e.status_code) from e
 
+    def ensure_admins_permissions(self, token: str) -> None:
+        """Ensure admins permissions are set in Guacamole.
+
+        Args:
+            token: Authentication token
+        """
+        try:
+            endpoint = f"/api/session/data/{self.data_source}/userGroups/admins/permissions?token={token}"
+            response, _ = self.get(endpoint=endpoint)
+            if "ADMINISTER" not in response.get("systemPermissions", []):
+                self.patch(endpoint=endpoint, data=[{"op": "add", "path": "/systemPermissions", "value": "ADMINISTER"}])
+        except APIError as e:
+            self.logger.error("Failed to ensure admins permissions in Guacamole: %s", str(e))
+            raise APIError(f"Failed to ensure admins permissions in Guacamole: {e!s}", status_code=e.status_code) from e
+
     def ensure_group(self, token: str, group_name: str) -> None:
         """Ensure a group exists in Guacamole.
 
@@ -322,6 +338,8 @@ class GuacamoleClient(BaseClient):
                 self.logger.info("Created group %s in Guacamole", group_name)
             else:
                 self.logger.info("Group %s already exists in Guacamole", group_name)
+            if group_name == "admins":
+                self.ensure_admins_permissions(token)
         except APIError as e:
             self.logger.error("Failed to ensure group in Guacamole: %s", str(e))
             raise APIError(f"Failed to ensure group in Guacamole: {e!s}", status_code=e.status_code) from e
@@ -546,15 +564,15 @@ class GuacamoleClient(BaseClient):
             APIError: If user update fails
         """
         try:
-            endpoint = f"/api/session/data/{self.data_source}/users/{username}?token={token}"
-            patch_data = [
-                {
-                    "op": "add",
-                    "path": "/attributes",
-                    "value": attributes,
-                }
-            ]
-            self.patch(endpoint=endpoint, data=patch_data)
+            endpoint = f"/api/session/data/{self.data_source}/users/{username}"
+            put_data = {"username": username, "attributes": attributes, "lastActive": int(time.time())}
+            print(
+                self.put(
+                    endpoint=endpoint,
+                    data=put_data,
+                    headers={"Content-Type": "application/json;charset=utf-8", "Guacamole-Token": token},
+                )
+            )
             self.logger.info("Updated user %s in Guacamole", username)
         except APIError as e:
             self.logger.error("Failed to update user in Guacamole: %s", str(e))
