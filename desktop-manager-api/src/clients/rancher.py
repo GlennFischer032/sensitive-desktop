@@ -53,8 +53,6 @@ class DesktopValues:
 
     desktop: str = "cerit.io/desktops/ubuntu-xfce:22.04-user"
     name: str = None
-    image_pull_policy: str = "Always"
-    service_type: str = "NodePort"
     webrtcimages: WebRTCImages = None
     mincpu: int = 1
     maxcpu: int = 4
@@ -65,7 +63,8 @@ class DesktopValues:
     display: str = "VNC"
     storage: Storage = None
     vnc_password: str = None
-    external_pvc: str | None = None  # New field for external PVC name
+    external_pvc: str | None = None
+    persistent_home: bool = True
 
     def __post_init__(self):
         self.webrtcimages = WebRTCImages()
@@ -76,12 +75,13 @@ class DesktopValues:
         if self.external_pvc:
             self.storage.use_external_pvc(self.external_pvc)
 
+        # If persistent_home is False, disable storage
+        if not self.persistent_home:
+            self.storage.enable = False
+
     def to_dict(self) -> dict:
         values = {
-            "name": self.name,
             "desktop": self.desktop,
-            "imagePullPolicy": self.image_pull_policy,
-            "serviceType": self.service_type,
             "webrtcimages": {
                 "xserver": self.webrtcimages.xserver,
                 "pulseaudio": self.webrtcimages.pulseaudio,
@@ -297,22 +297,15 @@ class RancherClient(BaseClient):
         try:
             for attempt in range(max_retries):
                 try:
-                    # Get pod status from Rancher API
-                    url = (
-                        f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/pods"
-                        f"?namespaceId={self.namespace}&fieldSelector=metadata.namespace={self.namespace}"
-                    )
-                    response = requests.get(url, headers=self.headers, timeout=10)
-                    response.raise_for_status()
-                    pods = response.json()
+                    pods = self.list_pods()
 
                     # Log all pod names for debugging
-                    pod_names = [pod["metadata"]["name"] for pod in pods.get("data", [])]
+                    pod_names = [pod["metadata"]["name"] for pod in pods]
                     self.logger.info("Found pods in namespace: %s", pod_names)
 
                     # Check if the desktop pod exists and is ready
                     desktop_pod = None
-                    for pod in pods.get("data", []):
+                    for pod in pods:
                         pod_name = pod["metadata"]["name"]
                         # The pod name format is {connection_name}-0
                         if pod_name == f"{connection_name}-0":
@@ -373,6 +366,51 @@ class RancherClient(BaseClient):
             return False
         except Exception as e:
             error_message = f"Unexpected error checking VNC readiness: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500) from e
+
+    def check_release_uninstalled(self, connection_name: str, max_retries: int = 30, retry_interval: int = 2) -> bool:
+        """Check if a Helm release is uninstalled.
+
+        Args:
+            connection_name: Connection name
+            max_retries: Maximum number of retry attempts (default: 30)
+            retry_interval: Time to wait between retries in seconds (default: 2)
+
+        Returns:
+            bool: True if release is uninstalled, False otherwise
+
+        Raises:
+            APIError: If checking release uninstallation fails
+        """
+        try:
+            for attempt in range(max_retries):
+                try:
+                    releases = self.list_releases()
+                    release_removed = connection_name not in [release["metadata"]["name"] for release in releases]
+
+                    pods = self.list_pods()
+                    pod_removed = connection_name not in [pod["metadata"]["name"] for pod in pods]
+                    if release_removed and pod_removed:
+                        return True
+                    elif not release_removed:
+                        self.logger.warning(
+                            "Release %s not uninstalled, retrying (%s/%s)", connection_name, attempt + 1, max_retries
+                        )
+                        time.sleep(retry_interval)
+                    elif not pod_removed:
+                        self.logger.warning(
+                            "Pod %s not removed, retrying (%s/%s)", connection_name, attempt + 1, max_retries
+                        )
+                        time.sleep(retry_interval)
+                except Exception as e:
+                    self.logger.error("Error checking release status: %s", str(e))
+                    time.sleep(retry_interval)
+
+            self.logger.error("Release %s not found after %s attempts", connection_name, max_retries)
+            return False
+        except Exception as e:
+            error_message = f"Unexpected error checking release uninstallation: {e!s}"
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
 
@@ -645,3 +683,23 @@ class RancherClient(BaseClient):
             error_message = f"Unexpected error deleting PVC: {e!s}"
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
+
+    def list_pods(self) -> list[dict[str, Any]]:
+        """List all pods in the cluster.
+
+        Returns:
+            List[Dict[str, Any]]: List of pods
+        """
+        try:
+            url = f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/pods"
+            response = requests.get(url, headers=self.headers, timeout=10)
+
+            if response.status_code >= 400:
+                error_message = f"Failed to list pods: {response.text}"
+                self.logger.error(error_message)
+                raise APIError(error_message, status_code=response.status_code)
+
+            return response.json().get("data", [])
+        except requests.RequestException as e:
+            error_message = f"Failed to list pods: {e!s}"
+            self.logger.error(error_message)

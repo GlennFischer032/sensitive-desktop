@@ -6,6 +6,7 @@ This module provides a repository for storage PVC operations.
 from typing import Any
 
 from database.models.storage_pvc import ConnectionPVCMap, StoragePVC, StoragePVCAccess
+from database.models.user import User
 from database.repositories.base import BaseRepository
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -138,6 +139,21 @@ class StoragePVCRepository(BaseRepository[StoragePVC]):
             .order_by(StoragePVC.name)
             .all()
         )
+
+    def user_has_access_to_pvc(self, pvc_id: int, username: str) -> bool:
+        """Check if a user has access to a PVC.
+
+        Args:
+            pvc_id: PVC ID
+            username: Username
+        """
+        user = self.session.query(User).filter(User.username == username).first()
+        if not user:
+            return False
+        pvc = self.get_by_id(pvc_id)
+        if not pvc:
+            return False
+        return user in pvc.users or pvc.is_public or user.is_admin
 
     # PVC Access methods
     def create_pvc_access(self, pvc_id: int, username: str) -> StoragePVCAccess:

@@ -299,14 +299,14 @@ def get_auth_url(connection_id):
         in: path
         type: string
         required: true
-        description: ID of the connection to connect to
-    responses:
-      200:
-        description: Authentication URL retrieved successfully
-        schema:
-          type: object
-          properties:
-            auth_url:
+          description: ID of the connection to connect to
+      responses:
+        200:
+          description: Authentication URL retrieved successfully
+          schema:
+            type: object
+            properties:
+              auth_url:
               type: string
       404:
         description: Connection not found
@@ -359,6 +359,97 @@ def get_dashboard_auth_url():
     except Exception as e:
         current_app.logger.error(f"API Error getting dashboard auth URL: {str(e)}")
         return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@connections_api_bp.route("/attach-pvc", methods=["POST"])
+@login_required
+def attach_pvc():
+    """Attach a PVC to a connection.
+    ---
+    tags:
+      - Connections API
+    parameters:
+      - name: connection_id
+        in: path
+        type: string
+        required: true
+        description: ID of the connection to attach the PVC to
+      - name: pvc_id
+        in: body
+        type: string
+        required: true
+        description: ID of the PVC to attach
+    responses:
+      200:
+        description: PVC attached successfully
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      400:
+        description: Invalid request data
+      500:
+        description: Server error
+    """
+    try:
+        current_app.logger.info("API: Attaching PVC to connection")
+        data = request.get_json()
+        connection_id = data.get("connection_id")
+        pvc_id = data.get("pvc_id")
+
+        connections_client = client_factory.get_connections_client()
+        response_data = connections_client.attach_pvc_to_connection(connection_id, pvc_id)
+
+        return jsonify(response_data), HTTPStatus.OK
+
+    except APIError as e:
+        current_app.logger.error(f"API Error attaching PVC: {e.message}")
+        return jsonify({"error": e.message}), e.status_code
+    except Exception as e:
+        current_app.logger.error(f"API Error attaching PVC: {str(e)}")
+        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@connections_api_bp.route("/detach-pvc", methods=["POST"])
+@login_required
+def detach_pvc():
+    """Detach a PVC from a connection.
+    ---
+    tags:
+      - Connections API
+    parameters:
+      - name: connection_id
+        in: path
+        type: string
+        required: true
+        description: ID of the connection to detach the PVC from
+    responses:
+      200:
+        description: PVC detached successfully
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      400:
+        description: Invalid request data
+      500:
+        description: Server error
+    """
+    try:
+        current_app.logger.info("API: Detaching PVC from connection")
+        data = request.get_json()
+        connection_id = data.get("connection_id")
+
+        connections_client = client_factory.get_connections_client()
+        response_data = connections_client.detach_pvc_from_connection(connection_id)
+
+        return jsonify(response_data), HTTPStatus.OK
+
+    except APIError as e:
+        current_app.logger.error(f"API Error detaching PVC: {e.message}")
+        return jsonify({"error": e.message}), e.status_code
 
 
 # Helper functions

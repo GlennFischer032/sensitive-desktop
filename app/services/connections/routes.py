@@ -55,6 +55,12 @@ def view_connections():
         except Exception as e:
             current_app.logger.error(f"Error fetching storage PVCs: {str(e)}")
 
+        # Enhance connections data with PVC information
+        for conn in connections:
+            # Check if the connection has an external PVC attached
+            # The connection will have an 'external_pvc' field if a PVC is attached
+            conn["has_external_pvc"] = bool(conn.get("external_pvc", False))
+
         current_app.logger.info(f"Found {len(connections)} connections")
         return render_template(
             "connections.html",

@@ -5,7 +5,7 @@ This module defines the StoragePVC, ConnectionPVCMap, and StoragePVCAccess model
 
 from datetime import datetime
 
-from models.base import Base
+from schemas.base import Base
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -43,8 +43,7 @@ class StoragePVC(Base):
     # Relationship to connections through the mapping table
     connections = relationship("Connection", secondary="connection_pvcs", back_populates="pvcs")
 
-    # Relationship to users who have access to this PVC
-    access_permissions = relationship("StoragePVCAccess", back_populates="pvc", cascade="all, delete-orphan")
+    users = relationship("User", secondary="storage_pvc_access", back_populates="pvcs")
 
     def __repr__(self) -> str:
         """Return string representation of the StoragePVC."""
@@ -98,10 +97,6 @@ class StoragePVCAccess(Base):
     pvc_id: int = Column(Integer, ForeignKey("storage_pvcs.id", ondelete="CASCADE"), nullable=False)
     username: str = Column(String(255), ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
     created_at: datetime = Column(DateTime, server_default=func.now(), nullable=False)
-
-    # Relationships
-    pvc = relationship("StoragePVC", back_populates="access_permissions")
-    user = relationship("User", foreign_keys=[username])
 
     def __repr__(self) -> str:
         """Return string representation of the StoragePVCAccess."""

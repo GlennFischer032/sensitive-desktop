@@ -14,7 +14,7 @@ from database.core.session import get_db_session
 from database.repositories.connection import ConnectionRepository
 from database.repositories.storage_pvc import StoragePVCRepository
 from flask import Blueprint, jsonify, request
-from models.storage_pvc import (
+from schemas.storage_pvc import (
     StoragePVC as StoragePVCModel,
 )
 

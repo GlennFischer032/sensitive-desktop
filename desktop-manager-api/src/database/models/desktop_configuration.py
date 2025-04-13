@@ -5,7 +5,7 @@ This module defines the DesktopConfiguration and DesktopConfigurationAccess mode
 
 from datetime import datetime
 
-from models.base import Base
+from schemas.base import Base
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -38,7 +38,7 @@ class DesktopConfiguration(Base):
     description: str = Column(Text, nullable=True)
     image: str = Column(String(255), nullable=False)
     created_at: datetime = Column(DateTime, server_default=func.now())
-    created_by: str = Column(String(255), ForeignKey("users.username", ondelete="CASCADE"))
+    created_by: str = Column(String(255), ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
     is_public: bool = Column(Boolean, default=False)
     min_cpu: int = Column(Integer, default=1)
     max_cpu: int = Column(Integer, default=4)
@@ -46,10 +46,8 @@ class DesktopConfiguration(Base):
     max_ram: str = Column(String(10), default="16384Mi")
 
     # Relationships
-    creator = relationship("User", back_populates="desktop_configurations")
-    user_access = relationship(
-        "DesktopConfigurationAccess", back_populates="desktop_configuration", cascade="all, delete-orphan"
-    )
+    creator = relationship("User", back_populates="created_desktop_configurations")
+    users = relationship("User", secondary="desktop_configuration_access", back_populates="desktop_configurations")
     connections = relationship("Connection", back_populates="desktop_configuration")
 
     def __repr__(self) -> str:
@@ -78,10 +76,6 @@ class DesktopConfigurationAccess(Base):
     )
     username: str = Column(String(255), ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
     created_at: datetime = Column(DateTime, server_default=func.now())
-
-    # Relationships
-    desktop_configuration = relationship("DesktopConfiguration", back_populates="user_access")
-    user = relationship("User", back_populates="desktop_configuration_access")
 
     def __repr__(self) -> str:
         """Return string representation of the DesktopConfigurationAccess."""

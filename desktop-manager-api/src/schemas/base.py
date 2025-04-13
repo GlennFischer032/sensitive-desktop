@@ -3,7 +3,6 @@
 This module defines the base class for all SQLAlchemy models.
 """
 
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase
 
@@ -25,9 +24,3 @@ class Base(DeclarativeBase):
     """Base class for all SQLAlchemy models."""
 
     metadata = metadata
-
-
-class APIModel(BaseModel):
-    """Base model for API responses with common configuration."""
-
-    model_config = ConfigDict(from_attributes=True)

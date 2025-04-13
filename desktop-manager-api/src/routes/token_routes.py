@@ -14,8 +14,8 @@ from database.core.session import get_db_session
 from database.repositories.token import TokenRepository
 from flask import Blueprint, current_app, jsonify, request
 import jwt
-from models.token import Token, TokenCreate, TokenResponse
 from pydantic import ValidationError
+from schemas.token import Token, TokenCreate, TokenResponse
 
 
 logger = logging.getLogger(__name__)

@@ -179,6 +179,28 @@ class ConnectionRepository(BaseRepository[Connection]):
             return True
         return False
 
+    def attach_pvc_to_connection(self, connection_id: int, pvc_id: int) -> None:
+        """Attach a PVC to a connection.
+
+        Args:
+            connection_id: Connection ID
+            pvc_id: PVC ID
+        """
+        mapping = ConnectionPVCMap(connection_id=connection_id, pvc_id=pvc_id)
+        self.session.add(mapping)
+        self.session.commit()
+
+    def detach_pvc_from_connection(self, connection_id: int) -> None:
+        """Detach a PVC from a connection.
+
+        Args:
+            connection_id: Connection ID
+        """
+        mapping = self.session.query(ConnectionPVCMap).filter(ConnectionPVCMap.connection_id == connection_id).first()
+        if mapping:
+            self.session.delete(mapping)
+            self.session.commit()
+
     def get_connection_pvcs(self, connection_id: int) -> list[dict[str, Any]]:
         """Get PVCs associated with a connection.
 

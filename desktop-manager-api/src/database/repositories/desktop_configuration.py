@@ -3,6 +3,7 @@
 This module provides a repository for desktop configuration operations.
 """
 
+from datetime import datetime
 from typing import Any
 
 from database.models.connection import Connection
@@ -62,7 +63,7 @@ class DesktopConfigurationRepository(BaseRepository[DesktopConfiguration]):
             name=data["name"],
             description=data.get("description", ""),
             image=data["image"],
-            created_by=data["created_by"],
+            created_at=datetime.now(),
             is_public=data.get("is_public", False),
             min_cpu=data.get("min_cpu", 1),
             max_cpu=data.get("max_cpu", 4),
@@ -238,8 +239,6 @@ class DesktopConfigurationRepository(BaseRepository[DesktopConfiguration]):
         Returns:
             True if in use, False otherwise
         """
-        from desktop_manager.database.models.connection import Connection
-
         count = self.session.query(Connection).filter(Connection.desktop_configuration_id == config_id).count()
         return count > 0
 

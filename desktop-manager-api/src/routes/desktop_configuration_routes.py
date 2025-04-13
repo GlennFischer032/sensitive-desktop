@@ -56,7 +56,6 @@ def list_configurations() -> tuple[dict[str, Any], int]:
                         "description": config.description,
                         "image": config.image,
                         "created_at": config.created_at.isoformat() if config.created_at else None,
-                        "created_by": config.created_by,
                         "is_public": config.is_public,
                         "min_cpu": config.min_cpu,
                         "max_cpu": config.max_cpu,
@@ -91,7 +90,6 @@ def create_configuration() -> tuple[dict[str, Any], int]:
     """
     try:
         # Get authenticated user
-        current_user = request.current_user
 
         # Validate input data
         data = request.get_json()
@@ -121,7 +119,6 @@ def create_configuration() -> tuple[dict[str, Any], int]:
                     "name": data["name"],
                     "description": data.get("description", ""),
                     "image": data["image"],
-                    "created_by": current_user.username,
                     "is_public": data.get("is_public", False),
                     "min_cpu": data.get("min_cpu", 1),
                     "max_cpu": data.get("max_cpu", 4),
@@ -145,7 +142,6 @@ def create_configuration() -> tuple[dict[str, Any], int]:
                         "description": config.description,
                         "image": config.image,
                         "created_at": config.created_at.isoformat() if config.created_at else None,
-                        "created_by": config.created_by,
                         "is_public": config.is_public,
                         "min_cpu": config.min_cpu,
                         "max_cpu": config.max_cpu,
@@ -247,7 +243,6 @@ def update_configuration(config_id: int) -> tuple[dict[str, Any], int]:
                         "description": updated_config.description,
                         "image": updated_config.image,
                         "created_at": updated_config.created_at.isoformat() if updated_config.created_at else None,
-                        "created_by": updated_config.created_by,
                         "is_public": updated_config.is_public,
                         "min_cpu": updated_config.min_cpu,
                         "max_cpu": updated_config.max_cpu,
@@ -313,7 +308,6 @@ def get_configuration(config_id: int) -> tuple[dict[str, Any], int]:
                 "description": config.description,
                 "image": config.image,
                 "created_at": config.created_at.isoformat() if config.created_at else None,
-                "created_by": config.created_by,
                 "is_public": config.is_public,
                 "min_cpu": config.min_cpu,
                 "max_cpu": config.max_cpu,

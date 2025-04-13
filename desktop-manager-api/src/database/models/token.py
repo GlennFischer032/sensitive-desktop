@@ -5,7 +5,7 @@ This module defines the Token model for database operations.
 
 from datetime import datetime
 
-from models.base import Base
+from schemas.base import Base
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
 

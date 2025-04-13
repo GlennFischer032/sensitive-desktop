@@ -6,7 +6,6 @@ This module provides models for managing Persistent Volume Claims (PVCs) for des
 from datetime import datetime
 from typing import Any
 
-from models.base import APIModel
 from pydantic import BaseModel, Field
 
 
@@ -32,7 +31,7 @@ class StoragePVCUpdate(BaseModel):
     last_updated: datetime | None = Field(None, description="Last updated timestamp")
 
 
-class StoragePVC(APIModel, StoragePVCBase):
+class StoragePVC(StoragePVCBase):
     """Model for storage PVC data."""
 
     id: int = Field(..., description="PVC ID")
@@ -41,27 +40,9 @@ class StoragePVC(APIModel, StoragePVCBase):
     status: str = Field("Pending", description="PVC status")
     last_updated: datetime = Field(..., description="Last updated timestamp")
 
-    @classmethod
-    def from_row(cls, row: dict[str, Any]) -> "StoragePVC":
-        """Create a StoragePVC instance from a database row.
-
-        Args:
-            row: Database row as dictionary
-
-        Returns:
-            StoragePVC: StoragePVC instance
-        """
-        return cls(
-            id=row["id"],
-            name=row["name"],
-            namespace=row["namespace"],
-            size=row["size"],
-            is_public=row["is_public"],
-            created_at=row["created_at"],
-            created_by=row["created_by"],
-            status=row["status"],
-            last_updated=row["last_updated"],
-        )
+    class Config:
+        from_attributes = True
+        orm_mode = True
 
     @classmethod
     def list_from_rows(cls, rows: list[dict[str, Any]]) -> list["StoragePVC"]:
@@ -76,7 +57,7 @@ class StoragePVC(APIModel, StoragePVCBase):
         return [cls.from_row(row) for row in rows]
 
 
-class ConnectionPVCMap(APIModel):
+class ConnectionPVCMap(BaseModel):
     """Model for mapping connections to PVCs."""
 
     id: int = Field(..., description="Mapping ID")
@@ -114,7 +95,7 @@ class ConnectionPVCMap(APIModel):
         return [cls.from_row(row) for row in rows]
 
 
-class StoragePVCAccess(APIModel):
+class StoragePVCAccess(BaseModel):
     """Model for storage PVC access control."""
 
     id: int = Field(..., description="Access ID")

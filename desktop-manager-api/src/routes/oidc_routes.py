@@ -309,8 +309,8 @@ def oidc_callback() -> tuple[dict[str, Any], int]:
             if not association:
                 # Create new social auth association
                 user_repo.create_social_auth(
-                    user.id,
                     {
+                        "user_id": user.id,
                         "provider": "oidc",
                         "provider_user_id": sub,
                         "extra_data": json.dumps({"id_token": id_token, "access_token": access_token}),

@@ -5,7 +5,7 @@ This module defines the User, SocialAuthAssociation, and PKCEState models for da
 
 from datetime import datetime
 
-from models.base import Base
+from schemas.base import Base
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -117,11 +117,12 @@ class User(Base):
 
     # Relationships
     social_auth = relationship("SocialAuthAssociation", back_populates="user", cascade="all, delete-orphan")
-    desktop_configurations = relationship("DesktopConfiguration", back_populates="creator")
-    desktop_configuration_access = relationship(
-        "DesktopConfigurationAccess", back_populates="user", cascade="all, delete-orphan"
-    )
     connections = relationship("Connection", back_populates="creator")
+    created_desktop_configurations = relationship("DesktopConfiguration", back_populates="creator")
+    desktop_configurations = relationship(
+        "DesktopConfiguration", secondary="desktop_configuration_access", back_populates="users"
+    )
+    pvcs = relationship("StoragePVC", secondary="storage_pvc_access", back_populates="users")
 
     __table_args__ = {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"}
 

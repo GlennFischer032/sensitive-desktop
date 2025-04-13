@@ -44,6 +44,13 @@
                             onsubmit="handleStop(event, '{{ conn.name }}')">
                             <button type="submit" class="button small danger delete-btn">Stop</button>
                         </form>
+                        {% if storage_pvcs %}
+                        {% if conn.has_external_pvc %}
+                        <button type="button" class="button small info" onclick="handleDetachStorage({{ conn.id }})">Disconnect Storage</button>
+                        {% else %}
+                        <button type="button" class="button small info" onclick="handleAttachStorage({{ conn.id }})">Connect Storage</button>
+                        {% endif %}
+                        {% endif %}
                     </div>
                     {% else %}
                     <div class="button-group-actions">
@@ -55,6 +62,13 @@
                               onsubmit="handleDelete(event, '{{ conn.name }}')">
                             <button type="submit" class="button small danger permanent-delete-btn">Delete</button>
                         </form>
+                        {% if storage_pvcs %}
+                        {% if conn.has_external_pvc %}
+                        <button type="button" class="button small info" onclick="handleDetachStorage({{ conn.id }})">Disconnect Storage</button>
+                        {% else %}
+                        <button type="button" class="button small info" onclick="handleAttachStorage({{ conn.id }})">Connect Storage</button>
+                        {% endif %}
+                        {% endif %}
                     </div>
                     {% endif %}
                 </td>
@@ -131,6 +145,32 @@
 
     {{ loading(id="create-loading", text="Creating connection...") }}
     {{ error_message(id="create-error") }}
+{% endcall %}
+
+<!-- Attach Storage Modal -->
+{% call modal(id="attach-storage-modal", title="Attach Storage", size="sm") %}
+    <form id="attach-storage-form">
+        <input type="hidden" id="attach-connection-id" name="connection_id">
+
+        <div class="form-group">
+            <label for="attach-pvc-id">Storage PVC:</label>
+            <select id="attach-pvc-id" name="pvc_id" required>
+                <option value="">Select a storage PVC</option>
+                {% for pvc in storage_pvcs %}
+                <option value="{{ pvc.id }}">{{ pvc.name }} ({{ pvc.size }})</option>
+                {% endfor %}
+            </select>
+            <small class="form-help">Select a persistent volume claim to attach to this desktop for additional storage.</small>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button primary">Attach Storage</button>
+            <button type="button" class="button secondary close-modal">Cancel</button>
+        </div>
+    </form>
+
+    {{ loading(id="attach-loading", text="Attaching storage...") }}
+    {{ error_message(id="attach-error") }}
 {% endcall %}
 
 {{ modal_js() }}
@@ -488,7 +528,141 @@ document.addEventListener('DOMContentLoaded', function() {
             createError.classList.remove('hidden');
         }
     });
+
+    // Attach Storage form submission
+    document.getElementById('attach-storage-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const form = this;
+        const attachLoading = document.getElementById('attach-loading');
+        const attachError = document.getElementById('attach-error');
+
+        // Hide any previous error
+        attachError.classList.add('hidden');
+        attachError.textContent = '';
+
+        // Show loading
+        form.style.display = 'none';
+        attachLoading.classList.remove('hidden');
+
+        const connectionId = document.getElementById('attach-connection-id').value;
+        const pvcId = document.getElementById('attach-pvc-id').value;
+
+        try {
+            const response = await fetch('/api/connections/attach-pvc', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    connection_id: connectionId,
+                    pvc_id: pvcId
+                })
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to attach storage');
+            }
+
+            // Show success notification
+            const notificationContainer = document.createElement('div');
+            notificationContainer.className = 'notification-container';
+            notificationContainer.innerHTML = `
+                <div class="notification success">
+                    Storage attached successfully
+                </div>
+            `;
+            document.body.appendChild(notificationContainer);
+
+            // Remove notification after delay
+            setTimeout(() => {
+                notificationContainer.querySelector('.notification').style.opacity = '0';
+                setTimeout(() => notificationContainer.remove(), 300);
+            }, 3000);
+
+            // Reload the page to show updated connection
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        } catch (error) {
+            // Show error
+            attachLoading.classList.add('hidden');
+            form.style.display = 'block';
+            attachError.textContent = error.message;
+            attachError.classList.remove('hidden');
+        }
+    });
 });
+
+function handleAttachStorage(connectionId) {
+    document.getElementById('attach-connection-id').value = connectionId;
+    ModalManager.show('attach-storage-modal');
+}
+
+async function handleDetachStorage(connectionId) {
+    if (!confirm('Are you sure you want to disconnect storage from this connection?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/connections/detach-pvc', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                connection_id: connectionId
+            })
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to detach storage');
+        }
+
+        // Show success notification
+        const notificationContainer = document.createElement('div');
+        notificationContainer.className = 'notification-container';
+        notificationContainer.innerHTML = `
+            <div class="notification success">
+                Storage disconnected successfully
+            </div>
+        `;
+        document.body.appendChild(notificationContainer);
+
+        // Remove notification after delay
+        setTimeout(() => {
+            notificationContainer.querySelector('.notification').style.opacity = '0';
+            setTimeout(() => notificationContainer.remove(), 300);
+        }, 3000);
+
+        // Reload the page to show updated connection
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    } catch (error) {
+        console.error('Error detaching storage:', error);
+
+        // Show error notification
+        const notificationContainer = document.createElement('div');
+        notificationContainer.className = 'notification-container';
+        notificationContainer.innerHTML = `
+            <div class="notification error">
+                Error: ${error.message}
+            </div>
+        `;
+        document.body.appendChild(notificationContainer);
+
+        // Remove notification after delay
+        setTimeout(() => {
+            notificationContainer.querySelector('.notification').style.opacity = '0';
+            setTimeout(() => notificationContainer.remove(), 300);
+        }, 3000);
+    }
+}
 </script>
 
 {% endblock %}

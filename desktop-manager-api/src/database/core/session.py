@@ -5,13 +5,14 @@ This module provides functions for managing database sessions.
 
 from collections.abc import Generator
 from contextlib import contextmanager
+from functools import wraps
 import logging
 
 from config.settings import get_settings
-from models.base import Base
+from flask import g, request
+from schemas.base import Base
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 
@@ -31,7 +32,6 @@ def get_engine() -> Engine:
     if _engine is None:
         settings = get_settings()
         database_url = settings.database_url
-        logger.info("Creating database engine with connection string: %s", database_url)
         _engine = create_engine(database_url)
     return _engine
 
@@ -67,17 +67,28 @@ def get_db_session() -> Generator[Session, None, None]:
     Raises:
         Exception: Any exception that occurs during session use
     """
-    session_factory = get_session_maker()
-    session = session_factory()
-    try:
-        logger.debug("Creating new database session")
-        yield session
-        session.commit()
-        logger.debug("Committed database session")
-    except SQLAlchemyError as e:
-        session.rollback()
-        logger.error("Rolling back database session due to error: %s", str(e))
-        raise
-    finally:
-        session.close()
-        logger.debug("Closed database session")
+    engine = get_engine()  # Ensure engine is initialized
+    with Session(engine) as session:
+        try:
+            yield session
+        except Exception:
+            raise
+
+
+def with_db_session(func):
+    """Decorator to manage database sessions for Flask routes."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        with get_db_session() as session:
+            request.db_session = session
+            try:
+                result = func(*args, **kwargs)
+                return result
+            except Exception:
+                raise
+            finally:
+                if hasattr(g, "db_session"):
+                    delattr(g, "db_session")
+
+    return wrapper

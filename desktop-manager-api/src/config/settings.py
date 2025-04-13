@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     RANCHER_API_TOKEN: str = os.getenv("RANCHER_API_TOKEN", "")
     RANCHER_API_URL: str = os.getenv("RANCHER_API_URL", "")
     RANCHER_CLUSTER_ID: str = os.getenv("RANCHER_CLUSTER_ID", "")
-    RANCHER_CLUSTER_NAME: str = os.getenv("RANCHER_CLUSTER_NAME", "")
+    RANCHER_CLUSTER_NAME: str = os.getenv("RANCHER_CLUSTER_NAME", "kuba-cluster")
     RANCHER_PROJECT_ID: str = os.getenv("RANCHER_PROJECT_ID", "")
     RANCHER_REPO_NAME: str = os.getenv("RANCHER_REPO_NAME", "")
     NAMESPACE: str = os.getenv("NAMESPACE", "default")

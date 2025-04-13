@@ -38,6 +38,16 @@ class ConnectionsClient(BaseClient):
 
             connections = data.get("connections", [])
 
+            # Debug log to check connection data structure
+            if connections:
+                # Check for external_pvc field
+                has_external_pvc = any("external_pvc" in conn for conn in connections)
+                self.logger.info(f"Connections data includes external_pvc field: {has_external_pvc}")
+
+                # Example of first connection data structure if available
+                if len(connections) > 0:
+                    self.logger.debug(f"Example connection data keys: {connections[0].keys()}")
+
             return connections
         except APIError as e:
             self.logger.error(f"Error fetching connections: {str(e)}")
@@ -232,4 +242,49 @@ class ConnectionsClient(BaseClient):
             return data
         except APIError as e:
             self.logger.error(f"Error getting Guacamole dashboard auth URL: {str(e)}")
+            raise
+
+    def attach_pvc_to_connection(self, connection_id: int, pvc_id: int) -> dict[str, Any]:
+        """Attach a PVC to a connection.
+
+        Args:
+            connection_id: Connection ID
+            pvc_id: PVC ID
+
+        Returns:
+            Dict[str, Any]: Response data
+
+        Raises:
+            APIError: If request fails
+        """
+        try:
+            data, _ = self.post(
+                ClientRequest(
+                    endpoint="/api/connections/attach-pvc",
+                    data={"connection_id": connection_id, "pvc_id": pvc_id},
+                    timeout=180,
+                )
+            )
+            return data
+        except APIError as e:
+            self.logger.error(f"Error attaching PVC to connection: {str(e)}")
+            raise
+
+    def detach_pvc_from_connection(self, connection_id: int) -> dict[str, Any]:
+        """Detach a PVC from a connection.
+
+        Args:
+            connection_id: Connection ID
+        """
+        try:
+            data, _ = self.post(
+                ClientRequest(
+                    endpoint="/api/connections/detach-pvc",
+                    data={"connection_id": connection_id},
+                    timeout=180,
+                )
+            )
+            return data
+        except APIError as e:
+            self.logger.error(f"Error detaching PVC from connection: {str(e)}")
             raise

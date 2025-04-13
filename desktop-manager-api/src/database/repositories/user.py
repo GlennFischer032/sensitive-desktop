@@ -154,7 +154,7 @@ class UserRepository(BaseRepository[User]):
         return self.session.query(User).order_by(User.username).all()
 
     # Social auth association methods
-    def create_social_auth(self, user_id: int, data: dict[str, Any]) -> SocialAuthAssociation:
+    def create_social_auth(self, data: dict[str, Any]) -> SocialAuthAssociation:
         """Create a social auth association.
 
         Args:
@@ -165,7 +165,7 @@ class UserRepository(BaseRepository[User]):
             Created social auth association
         """
         social_auth = SocialAuthAssociation(
-            user_id=user_id,
+            user_id=data["user_id"],
             provider=data["provider"],
             provider_user_id=data["provider_user_id"],
             provider_name=data.get("provider_name"),
@@ -241,7 +241,7 @@ class UserRepository(BaseRepository[User]):
         Returns:
             PKCE state if found, None otherwise
         """
-        return self.session.query(PKCEState).filter(PKCEState.state == state, PKCEState.used is False).first()
+        return self.session.query(PKCEState).filter(PKCEState.state == state, PKCEState.used == False).first()  # noqa
 
     def mark_pkce_state_used(self, state_id: int) -> PKCEState | None:
         """Mark a PKCE state as used.
