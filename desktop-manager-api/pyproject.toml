@@ -25,6 +25,7 @@ dependencies = [
     "kubernetes",
     "werkzeug",
     "PyJWT",
+    "sqlmodel",
     # Guacamole JSON Auth dependency
     "pycryptodome",
     # Social Auth dependencies

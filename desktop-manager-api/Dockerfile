@@ -48,7 +48,7 @@ USER appuser
 # Set environment variables
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
-ENV FLASK_APP=desktop_manager.main:app
+ENV FLASK_APP=main:app
 
 EXPOSE 5000
 

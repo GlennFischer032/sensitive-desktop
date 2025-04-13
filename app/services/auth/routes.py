@@ -295,7 +295,7 @@ def debug_login():  # noqa
 
                 exp_time = datetime.utcnow() + timedelta(hours=24)
                 payload = {
-                    "sub": str(user_data.get("user_id")),
+                    "sub": sub,
                     "name": username,
                     "iat": datetime.utcnow(),
                     "exp": exp_time,
