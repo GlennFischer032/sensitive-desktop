@@ -4,18 +4,15 @@ This module implements routes for managing API tokens for admin users.
 These tokens can be used for API authentication when using external tools.
 """
 
-from datetime import datetime
 from http import HTTPStatus
 import logging
 from typing import Any
 
 from core.auth import admin_required, token_required
-from database.core.session import get_db_session
-from database.repositories.token import TokenRepository
-from flask import Blueprint, current_app, jsonify, request
-import jwt
-from pydantic import ValidationError
-from schemas.token import Token, TokenCreate, TokenResponse
+from database.core.session import with_db_session
+from flask import Blueprint, jsonify, request
+from services.connections import APIError
+from services.token import TokenService
 
 
 logger = logging.getLogger(__name__)
@@ -23,6 +20,7 @@ token_bp = Blueprint("token_bp", __name__)
 
 
 @token_bp.route("/api/tokens", methods=["POST"])
+@with_db_session
 @token_required
 @admin_required
 def create_token() -> tuple[dict[str, Any], int]:
@@ -38,47 +36,17 @@ def create_token() -> tuple[dict[str, Any], int]:
     try:
         # Get request data and validate with Pydantic model
         data = request.get_json()
-        if not data:
-            return jsonify({"error": "Missing request data"}), HTTPStatus.BAD_REQUEST
-
-        try:
-            token_data = TokenCreate(**data)
-        except ValidationError as e:
-            return jsonify({"error": str(e)}), HTTPStatus.BAD_REQUEST
         current_user = request.current_user
 
-        with get_db_session() as session:
-            token_repo = TokenRepository(session)
-            token = token_repo.create_token(
-                name=token_data.name,
-                description=token_data.description,
-                expires_in_days=token_data.expires_in_days,
-                created_by=current_user.username,
-            )
+        # Create service instance and create token
+        token_service = TokenService()
+        response_data = token_service.create_token(data, current_user, request.db_session)
 
-            # Generate JWT token with custom expiration
-            payload = {
-                "sub": f"token:{token.token_id}",  # Prefix to distinguish from user IDs
-                "name": current_user.username,
-                "token_id": token.token_id,
-                "iat": datetime.utcnow(),
-                "exp": token.expires_at,
-                "admin": current_user.is_admin,  # Preserve admin privileges
-            }
+        return jsonify(response_data), HTTPStatus.CREATED
 
-            token_jwt = jwt.encode(payload, current_app.config["SECRET_KEY"], algorithm="HS256")
-
-            # Create response object
-            response = TokenResponse(
-                token=token_jwt,
-                token_id=token.token_id,
-                name=token.name,
-                expires_at=token.expires_at,
-                created_by=current_user.username,
-            )
-
-            return jsonify(response.model_dump()), HTTPStatus.CREATED
-
+    except APIError as e:
+        logger.error("API error in create_token: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         logger.error("Failed to create API token: %s", str(e))
         return (
@@ -88,6 +56,7 @@ def create_token() -> tuple[dict[str, Any], int]:
 
 
 @token_bp.route("/api/tokens", methods=["GET"])
+@with_db_session
 @token_required
 @admin_required
 def list_tokens() -> tuple[dict[str, Any], int]:
@@ -101,15 +70,15 @@ def list_tokens() -> tuple[dict[str, Any], int]:
     try:
         current_user = request.current_user
 
-        with get_db_session() as session:
-            token_repo = TokenRepository(session)
-            tokens = token_repo.get_tokens_for_user(current_user.username)
+        # Create service instance and list tokens
+        token_service = TokenService()
+        response_data = token_service.list_tokens(current_user, request.db_session)
 
-            # Convert to Pydantic models for validation and to format dates correctly
-            token_list = [Token.model_validate(token) for token in tokens]
+        return jsonify(response_data), HTTPStatus.OK
 
-            return jsonify({"tokens": [t.model_dump() for t in token_list]}), HTTPStatus.OK
-
+    except APIError as e:
+        logger.error("API error in list_tokens: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         logger.error("Failed to list API tokens: %s", str(e))
         return (
@@ -119,6 +88,7 @@ def list_tokens() -> tuple[dict[str, Any], int]:
 
 
 @token_bp.route("/api/tokens/<token_id>", methods=["DELETE"])
+@with_db_session
 @token_required
 @admin_required
 def revoke_token(token_id: str) -> tuple[dict[str, Any], int]:
@@ -133,12 +103,15 @@ def revoke_token(token_id: str) -> tuple[dict[str, Any], int]:
             - HTTP status code
     """
     try:
-        with get_db_session() as session:
-            token_repo = TokenRepository(session)
-            token_repo.revoke_token(token_id)
+        # Create service instance and revoke token
+        token_service = TokenService()
+        response_data = token_service.revoke_token(token_id, request.db_session)
 
-        return jsonify({"message": "Token successfully revoked"}), HTTPStatus.OK
+        return jsonify(response_data), HTTPStatus.OK
 
+    except APIError as e:
+        logger.error("API error in revoke_token: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         logger.error("Failed to revoke API token: %s", str(e))
         return (

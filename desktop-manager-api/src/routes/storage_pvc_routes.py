@@ -7,22 +7,18 @@ from http import HTTPStatus
 import logging
 from typing import Any
 
-from clients.factory import client_factory
-from config.settings import get_settings
 from core.auth import admin_required, token_required
-from database.core.session import get_db_session
-from database.repositories.connection import ConnectionRepository
-from database.repositories.storage_pvc import StoragePVCRepository
+from database.core.session import with_db_session
 from flask import Blueprint, jsonify, request
-from schemas.storage_pvc import (
-    StoragePVC as StoragePVCModel,
-)
+from services.connections import APIError
+from services.storage_pvc import StoragePVCService
 
 
 storage_pvc_bp = Blueprint("storage_pvc_bp", __name__)
 
 
 @storage_pvc_bp.route("/create", methods=["POST"])
+@with_db_session
 @token_required
 @admin_required
 def create_storage_pvc() -> tuple[dict[str, Any], int]:
@@ -40,68 +36,18 @@ def create_storage_pvc() -> tuple[dict[str, Any], int]:
 
     try:
         current_user = request.current_user
-        # Parse and validate input data
+        # Parse input data
         data = request.get_json()
-        if not data:
-            return (
-                jsonify({"error": "No input data provided"}),
-                HTTPStatus.BAD_REQUEST,
-            )
 
-        # Extract and validate required fields
-        name = data.get("name")
-        size = data.get("size", "10Gi")
-        is_public = data.get("is_public", False)
+        # Create service instance and create storage PVC
+        pvc_service = StoragePVCService()
+        response_data = pvc_service.create_storage_pvc(data, current_user, request.db_session)
 
-        if not name:
-            return (
-                jsonify({"error": "Missing required field: name"}),
-                HTTPStatus.BAD_REQUEST,
-            )
+        return jsonify(response_data), HTTPStatus.CREATED
 
-        # Get settings and clients
-        settings = get_settings()
-        namespace = settings.NAMESPACE
-
-        # Use the repository to check if PVC already exists
-        with get_db_session() as session:
-            pvc_repo = StoragePVCRepository(session)
-            existing_pvc = pvc_repo.get_by_name(name)
-
-            if existing_pvc:
-                return (
-                    jsonify({"error": f"PVC with name '{name}' already exists"}),
-                    HTTPStatus.CONFLICT,
-                )
-
-            # Create PVC in Kubernetes
-            rancher_client = client_factory.get_rancher_client()
-            logging.info("Creating PVC '%s' in namespace '%s' with size '%s'", name, namespace, size)
-            pvc_data = rancher_client.create_pvc(
-                name=name,
-                namespace=namespace,
-                size=size,
-            )
-            logging.info("PVC created successfully: %s", pvc_data)
-
-            # Store PVC in database using repository
-            pvc_db_data = {
-                "name": name,
-                "namespace": namespace,
-                "size": size,
-                "created_by": current_user.username,
-                "status": "Pending",
-                "is_public": is_public,
-            }
-
-            pvc = pvc_repo.create_storage_pvc(pvc_db_data)
-            session.expunge(pvc)
-            res = pvc.__dict__
-            res.pop("_sa_instance_state", None)
-            return (
-                jsonify({"message": "PVC created successfully", "pvc": pvc.__dict__}),
-                HTTPStatus.CREATED,
-            )
+    except APIError as e:
+        logging.error("API error in create_storage_pvc: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         error_message = f"Failed to create PVC: {e!s}"
         logging.error(error_message)
@@ -112,6 +58,7 @@ def create_storage_pvc() -> tuple[dict[str, Any], int]:
 
 
 @storage_pvc_bp.route("/list", methods=["GET"])
+@with_db_session
 @token_required
 def list_storage_pvcs() -> tuple[dict[str, Any], int]:
     """List storage PVCs.
@@ -123,34 +70,15 @@ def list_storage_pvcs() -> tuple[dict[str, Any], int]:
         # Get current user
         current_user = request.current_user
 
-        # Use repository to get PVCs from database
-        with get_db_session() as session:
-            pvc_repo = StoragePVCRepository(session)
+        # Create service instance and list storage PVCs
+        pvc_service = StoragePVCService()
+        response_data = pvc_service.list_storage_pvcs(current_user, request.db_session)
 
-            # Different handling for admins vs regular users
-            if current_user.is_admin:
-                pvcs = pvc_repo.get_pvcs_for_admin()
-            else:
-                # For regular users, only show accessible PVCs
-                pvcs = pvc_repo.get_pvcs_for_user(current_user.username)
+        return jsonify(response_data), HTTPStatus.OK
 
-            # Process the PVCs and add access information
-            result = []
-            for pvc in pvcs:
-                # Get users with access to this PVC
-                allowed_users = pvc_repo.get_pvc_users(pvc.id)
-
-                # Convert to API model
-                pvc_model = StoragePVCModel.model_validate(pvc)
-                pvc_dict = pvc_model.model_dump()
-                pvc_dict["allowed_users"] = allowed_users
-
-                result.append(pvc_dict)
-
-            return (
-                jsonify({"pvcs": result}),
-                HTTPStatus.OK,
-            )
+    except APIError as e:
+        logging.error("API error in list_storage_pvcs: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         error_message = f"Failed to list PVCs: {e!s}"
         logging.error(error_message)
@@ -161,6 +89,7 @@ def list_storage_pvcs() -> tuple[dict[str, Any], int]:
 
 
 @storage_pvc_bp.route("/<int:pvc_id>", methods=["DELETE"])
+@with_db_session
 @token_required
 @admin_required
 def delete_storage_pvc(pvc_id: int) -> tuple[dict[str, Any], int]:
@@ -173,43 +102,15 @@ def delete_storage_pvc(pvc_id: int) -> tuple[dict[str, Any], int]:
         Tuple[Dict[str, Any], int]: Response data and status code
     """
     try:
-        # Use repository to get and delete PVC
-        with get_db_session() as session:
-            pvc_repo = StoragePVCRepository(session)
+        # Create service instance and delete storage PVC
+        pvc_service = StoragePVCService()
+        response_data = pvc_service.delete_storage_pvc(pvc_id, request.db_session)
 
-            # Get PVC from database
-            pvc = pvc_repo.get_by_id(pvc_id)
-            if not pvc:
-                return (
-                    jsonify({"error": f"PVC with ID {pvc_id} not found"}),
-                    HTTPStatus.NOT_FOUND,
-                )
+        return jsonify(response_data), HTTPStatus.OK
 
-            # Check if PVC is being used by any connection
-            if pvc_repo.is_pvc_in_use(pvc.id):
-                return (
-                    jsonify({"error": "Cannot delete PVC that is in use by one or more connections"}),
-                    HTTPStatus.CONFLICT,
-                )
-
-            # Delete PVC from Kubernetes
-            rancher_client = client_factory.get_rancher_client()
-            try:
-                rancher_client.delete_pvc(
-                    name=pvc.name,
-                    namespace=pvc.namespace,
-                )
-            except Exception as e:
-                logging.warning("Failed to delete PVC from Kubernetes: %s", str(e))
-                # Continue with database deletion
-
-            # Delete PVC from database
-            pvc_repo.delete_storage_pvc(pvc.id)
-
-            return (
-                jsonify({"message": f"PVC '{pvc.name}' deleted successfully"}),
-                HTTPStatus.OK,
-            )
+    except APIError as e:
+        logging.error("API error in delete_storage_pvc: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         error_message = f"Failed to delete PVC: {e!s}"
         logging.error(error_message)
@@ -220,6 +121,7 @@ def delete_storage_pvc(pvc_id: int) -> tuple[dict[str, Any], int]:
 
 
 @storage_pvc_bp.route("/<int:pvc_id>/access", methods=["GET"])
+@with_db_session
 @token_required
 @admin_required
 def get_pvc_access(pvc_id: int) -> tuple[dict[str, Any], int]:
@@ -232,15 +134,15 @@ def get_pvc_access(pvc_id: int) -> tuple[dict[str, Any], int]:
         Tuple[Dict[str, Any], int]: Response data and status code
     """
     try:
-        # Get users with access
-        with get_db_session() as session:
-            pvc_repo = StoragePVCRepository(session)
-            allowed_users = pvc_repo.get_pvc_users(pvc_id)
+        # Create service instance and get PVC access
+        pvc_service = StoragePVCService()
+        response_data = pvc_service.get_pvc_access(pvc_id, request.db_session)
 
-            return (
-                jsonify({"users": allowed_users}),
-                HTTPStatus.OK,
-            )
+        return jsonify(response_data), HTTPStatus.OK
+
+    except APIError as e:
+        logging.error("API error in get_pvc_access: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         error_message = f"Failed to get PVC access: {e!s}"
         logging.error(error_message)
@@ -251,6 +153,7 @@ def get_pvc_access(pvc_id: int) -> tuple[dict[str, Any], int]:
 
 
 @storage_pvc_bp.route("/<int:pvc_id>/access", methods=["POST"])
+@with_db_session
 @token_required
 @admin_required
 def update_pvc_access(pvc_id: int) -> tuple[dict[str, Any], int]:
@@ -265,46 +168,16 @@ def update_pvc_access(pvc_id: int) -> tuple[dict[str, Any], int]:
     try:
         # Parse input data
         data = request.get_json()
-        if not data:
-            return (
-                jsonify({"error": "No input data provided"}),
-                HTTPStatus.BAD_REQUEST,
-            )
 
-        # Get is_public and allowed_users from data
-        is_public = data.get("is_public", False)
-        allowed_users = data.get("allowed_users", [])
+        # Create service instance and update PVC access
+        pvc_service = StoragePVCService()
+        response_data = pvc_service.update_pvc_access(pvc_id, data, request.db_session)
 
-        # Use repository to update PVC access
-        with get_db_session() as session:
-            pvc_repo = StoragePVCRepository(session)
+        return jsonify(response_data), HTTPStatus.OK
 
-            # Get the PVC to check ownership
-            pvc = pvc_repo.get_by_id(pvc_id)
-            if not pvc:
-                return (
-                    jsonify({"error": f"PVC with ID {pvc_id} not found"}),
-                    HTTPStatus.NOT_FOUND,
-                )
-
-            # Update is_public status
-            pvc_repo.update_storage_pvc(pvc_id, {"is_public": is_public})
-
-            # Clear existing access
-            pvc_repo.clear_pvc_access(pvc_id)
-
-            # Add new access if not public
-            if not is_public and allowed_users:
-                for username in allowed_users:
-                    try:
-                        pvc_repo.create_pvc_access(pvc_id, username)
-                    except Exception as e:
-                        logging.warning("Failed to add access for user %s: %s", username, str(e))
-
-            return (
-                jsonify({"message": "PVC access updated successfully"}),
-                HTTPStatus.OK,
-            )
+    except APIError as e:
+        logging.error("API error in update_pvc_access: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         error_message = f"Failed to update PVC access: {e!s}"
         logging.error(error_message)
@@ -315,6 +188,7 @@ def update_pvc_access(pvc_id: int) -> tuple[dict[str, Any], int]:
 
 
 @storage_pvc_bp.route("/<int:pvc_id>", methods=["GET"])
+@with_db_session
 @token_required
 @admin_required
 def get_storage_pvc_by_id(pvc_id: int) -> tuple[dict[str, Any], int]:
@@ -327,49 +201,15 @@ def get_storage_pvc_by_id(pvc_id: int) -> tuple[dict[str, Any], int]:
         Tuple[Dict[str, Any], int]: Response data and status code
     """
     try:
-        # Use repository to get PVC
-        with get_db_session() as session:
-            pvc_repo = StoragePVCRepository(session)
+        # Create service instance and get storage PVC by ID
+        pvc_service = StoragePVCService()
+        response_data = pvc_service.get_storage_pvc_by_id(pvc_id, request.db_session)
 
-            # Get PVC from database
-            pvc = pvc_repo.get_by_id(pvc_id)
-            if not pvc:
-                return (
-                    jsonify({"error": f"PVC with ID {pvc_id} not found"}),
-                    HTTPStatus.NOT_FOUND,
-                )
+        return jsonify(response_data), HTTPStatus.OK
 
-            # Get PVC details from Rancher
-            rancher_client = client_factory.get_rancher_client()
-            try:
-                pvc_k8s_data = rancher_client.get_pvc(
-                    name=pvc.name,
-                    namespace=pvc.namespace,
-                )
-                # Update status if needed
-                k8s_status = pvc_k8s_data.get("status", {}).get("phase", "Unknown")
-                if k8s_status != pvc.status:
-                    pvc_repo.update_storage_pvc(
-                        pvc.id,
-                        {"status": k8s_status},
-                    )
-                    pvc.status = k8s_status
-            except Exception as e:
-                logging.warning("Failed to get PVC details from Rancher: %s", str(e))
-                # Continue with database data
-
-            # Get access information
-            allowed_users = pvc_repo.get_pvc_users(pvc.id)
-
-            # Convert to API model
-            pvc_model = StoragePVCModel.model_validate(pvc)
-            pvc_dict = pvc_model.model_dump()
-            pvc_dict["allowed_users"] = allowed_users
-
-            return (
-                jsonify({"pvc": pvc_dict}),
-                HTTPStatus.OK,
-            )
+    except APIError as e:
+        logging.error("API error in get_storage_pvc_by_id: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         error_message = f"Failed to get PVC details: {e!s}"
         logging.error(error_message)
@@ -380,6 +220,7 @@ def get_storage_pvc_by_id(pvc_id: int) -> tuple[dict[str, Any], int]:
 
 
 @storage_pvc_bp.route("/connections/<int:pvc_id>", methods=["GET"])
+@with_db_session
 @token_required
 @admin_required
 def get_pvc_connections(pvc_id: int) -> tuple[dict[str, Any], int]:
@@ -392,25 +233,15 @@ def get_pvc_connections(pvc_id: int) -> tuple[dict[str, Any], int]:
         Tuple[Dict[str, Any], int]: Response data and status code
     """
     try:
-        with get_db_session() as session:
-            conn_repo = ConnectionRepository(session)
-            connections = conn_repo.get_connections_for_pvc(pvc_id)
+        # Create service instance and get PVC connections
+        pvc_service = StoragePVCService()
+        response_data = pvc_service.get_pvc_connections(pvc_id, request.db_session)
 
-            connections = [
-                {
-                    "id": row.id,
-                    "name": row.name,
-                    "created_at": row.created_at.isoformat(),
-                    "created_by": row.created_by,
-                    "is_stopped": row.is_stopped,
-                }
-                for row in connections
-            ]
+        return jsonify(response_data), HTTPStatus.OK
 
-        return (
-            jsonify({"connections": connections}),
-            HTTPStatus.OK,
-        )
+    except APIError as e:
+        logging.error("API error in get_pvc_connections: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         error_message = f"Failed to get connections for PVC: {e!s}"
         logging.error(error_message)

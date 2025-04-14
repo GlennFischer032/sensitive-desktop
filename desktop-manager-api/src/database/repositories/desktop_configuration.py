@@ -65,6 +65,7 @@ class DesktopConfigurationRepository(BaseRepository[DesktopConfiguration]):
             image=data["image"],
             created_at=datetime.now(),
             is_public=data.get("is_public", False),
+            created_by=data["created_by"],
             min_cpu=data.get("min_cpu", 1),
             max_cpu=data.get("max_cpu", 4),
             min_ram=data.get("min_ram", "4096Mi"),

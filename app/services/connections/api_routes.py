@@ -287,47 +287,6 @@ def delete_connection(connection_name):
         return jsonify({"status": "error", "error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
-@connections_api_bp.route("/<connection_id>/auth-url", methods=["GET"])
-@login_required
-def get_auth_url(connection_id):
-    """Get authentication URL for direct connection.
-    ---
-    tags:
-      - Connections API
-    parameters:
-      - name: connection_id
-        in: path
-        type: string
-        required: true
-          description: ID of the connection to connect to
-      responses:
-        200:
-          description: Authentication URL retrieved successfully
-          schema:
-            type: object
-            properties:
-              auth_url:
-              type: string
-      404:
-        description: Connection not found
-      500:
-        description: Server error
-    """
-    try:
-        current_app.logger.info(f"API: Getting auth URL for connection: {connection_id}")
-        connections_client = client_factory.get_connections_client()
-        data = connections_client.direct_connect(connection_id)
-
-        return jsonify(data), HTTPStatus.OK
-
-    except APIError as e:
-        current_app.logger.error(f"API Error getting auth URL: {e.message}")
-        return jsonify({"error": e.message}), e.status_code
-    except Exception as e:
-        current_app.logger.error(f"API Error getting auth URL: {str(e)}")
-        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
-
-
 @connections_api_bp.route("/dashboard-auth-url", methods=["GET"])
 @login_required
 def get_dashboard_auth_url():

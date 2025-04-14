@@ -2,18 +2,18 @@ from http import HTTPStatus
 import logging
 from typing import Any
 
-from clients.factory import client_factory
 from core.auth import admin_required, token_required
-from database.core.session import get_db_session
-from database.repositories.user import UserRepository
+from database.core.session import with_db_session
 from flask import Blueprint, jsonify, request
-from schemas.user import UserList, UserResponse
+from services.connections import APIError
+from services.user import UserService
 
 
 users_bp = Blueprint("users_bp", __name__)
 
 
 @users_bp.route("/removeuser", methods=["POST"])
+@with_db_session
 @token_required
 @admin_required
 def remove_user() -> tuple[dict[str, Any], int]:
@@ -36,37 +36,19 @@ def remove_user() -> tuple[dict[str, Any], int]:
             )
 
         username = data["username"]
-        logging.info("Request to remove user: %s", username)
 
         # Get the current authenticated user
         current_user = request.current_user
-        if current_user.username == username:
-            return (
-                jsonify({"error": "You cannot remove your own account"}),
-                HTTPStatus.BAD_REQUEST,
-            )
 
-        # Get database client
-        with get_db_session() as session:
-            user_repo = UserRepository(session)
-            user = user_repo.get_by_username(username)
-            if not user:
-                return jsonify({"error": "User not found"}), HTTPStatus.NOT_FOUND
+        # Create UserService instance and remove user
+        user_service = UserService()
+        response_data = user_service.remove_user(username, current_user, request.db_session)
 
-            try:
-                logging.info("Removing user from Guacamole: %s", username)
-                guacamole_client = client_factory.get_guacamole_client()
-                token = guacamole_client.login()
-                guacamole_client.delete_user(token, username)
-                logging.info("Successfully removed user from Guacamole: %s", username)
-            except Exception as e:
-                logging.error("Failed to remove user from Guacamole: %s", str(e))
+        return jsonify(response_data), HTTPStatus.OK
 
-            user_repo.delete_user(user.id)
-            logging.info("Successfully removed user from database: %s", username)
-
-        return jsonify({"message": "User removed successfully"}), HTTPStatus.OK
-
+    except APIError as e:
+        logging.error("API error in remove_user: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         logging.error("Error removing user: %s", str(e))
         return (
@@ -76,6 +58,7 @@ def remove_user() -> tuple[dict[str, Any], int]:
 
 
 @users_bp.route("/createuser", methods=["POST"])
+@with_db_session
 @token_required
 @admin_required
 def create_user() -> tuple[dict[str, Any], int]:
@@ -93,77 +76,16 @@ def create_user() -> tuple[dict[str, Any], int]:
     try:
         # Parse and validate request data
         data = request.get_json()
-        if not data:
-            return jsonify({"error": "Missing request data"}), HTTPStatus.BAD_REQUEST
 
-        # Check for required fields
-        username = data.get("username")
-        sub = data.get("sub")
-        is_admin = data.get("is_admin", False)
+        # Create UserService instance and create user
+        user_service = UserService()
+        response_data = user_service.create_user(data, request.db_session)
 
-        if not username or not sub:
-            return jsonify({"error": "Username and sub are required"}), HTTPStatus.BAD_REQUEST
+        return jsonify(response_data), HTTPStatus.CREATED
 
-        if len(username) < 3:
-            return jsonify({"error": "Username must be at least 3 characters long"}), HTTPStatus.BAD_REQUEST
-
-        with get_db_session() as session:
-            user_repo = UserRepository(session)
-            existing_users = user_repo.get_by_username(username) or user_repo.get_by_sub(sub)
-
-            if existing_users:
-                # Check which field already exists
-                if existing_users.username == username:
-                    return jsonify({"error": "Username already exists"}), HTTPStatus.CONFLICT
-                if existing_users.sub == sub:
-                    return jsonify({"error": "User with this OIDC subject already exists"}), HTTPStatus.CONFLICT
-
-            # Create minimal user with just username and sub
-            # Other fields will be populated during the first OIDC login
-            user = user_repo.create_user({"username": username, "sub": sub, "is_admin": is_admin})
-
-            logging.info("Created user in database: %s with sub: %s", username, sub)
-
-            # Create in Guacamole
-            try:
-                guacamole_client = client_factory.get_guacamole_client()
-                token = guacamole_client.login()
-
-                # Create user in Guacamole with empty password for JSON auth
-                guacamole_client.create_user_if_not_exists(
-                    token=token,
-                    username=username,
-                    password="",  # Empty password for JSON auth
-                    attributes={
-                        "guac_full_name": f"{username} ({sub})",
-                        "guac_organization": "Default",
-                    },
-                )
-
-                # Add user to appropriate groups
-                if is_admin:
-                    guacamole_client.ensure_group(token, "admins")
-                    guacamole_client.add_user_to_group(token, username, "admins")
-                    logging.info("Added user to admins group: %s", username)
-
-                guacamole_client.ensure_group(token, "all_users")
-                guacamole_client.add_user_to_group(token, username, "all_users")
-                logging.info("Added user to all_users group: %s", username)
-            except Exception as e:
-                logging.error("Error creating user in Guacamole: %s", str(e))
-                # Continue even if Guacamole fails
-
-            # Format response
-            user_response = {
-                "id": user.id,
-                "username": user.username,
-                "is_admin": user.is_admin,
-                "created_at": user.created_at,
-                "message": "User created successfully. User details will be filled from OIDC during first login.",
-            }
-
-            return jsonify(user_response), HTTPStatus.CREATED
-
+    except APIError as e:
+        logging.error("API error in create_user: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         logging.error("Error creating user: %s", str(e))
         return (
@@ -173,6 +95,7 @@ def create_user() -> tuple[dict[str, Any], int]:
 
 
 @users_bp.route("/list", methods=["GET"])
+@with_db_session
 @token_required
 @admin_required
 def list_users() -> tuple[dict[str, Any], int]:
@@ -186,34 +109,15 @@ def list_users() -> tuple[dict[str, Any], int]:
             - HTTP status code
     """
     try:
-        with get_db_session() as session:
-            user_repo = UserRepository(session)
-            users = user_repo.get_all_users()
+        # Create UserService instance and list users
+        user_service = UserService()
+        response_data = user_service.list_users(request.db_session)
 
-            # Format response
-            user_list = UserList(
-                users=[
-                    UserResponse(
-                        id=user.id,
-                        username=user.username,
-                        email=user.email,
-                        is_admin=user.is_admin,
-                        organization=user.organization,
-                        created_at=user.created_at,
-                        last_login=user.last_login,
-                        sub=user.sub,
-                        given_name=user.given_name,
-                        family_name=user.family_name,
-                        name=user.name,
-                        locale=user.locale,
-                        email_verified=user.email_verified,
-                    )
-                    for user in users
-                ]
-            )
+        return jsonify(response_data), HTTPStatus.OK
 
-            return jsonify(user_list.model_dump()), HTTPStatus.OK
-
+    except APIError as e:
+        logging.error("API error in list_users: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         logging.error("Error listing users: %s", str(e))
         return (
@@ -223,6 +127,7 @@ def list_users() -> tuple[dict[str, Any], int]:
 
 
 @users_bp.route("/<username>", methods=["GET"])
+@with_db_session
 @token_required
 @admin_required
 def get_user(username: str) -> tuple[dict[str, Any], int]:
@@ -240,43 +145,15 @@ def get_user(username: str) -> tuple[dict[str, Any], int]:
             - HTTP status code
     """
     try:
-        with get_db_session() as session:
-            user_repo = UserRepository(session)
-            user = user_repo.get_by_username(username)
+        # Create UserService instance and get user
+        user_service = UserService()
+        response_data = user_service.get_user(username, request.db_session)
 
-            if not user:
-                return jsonify({"error": "User not found"}), HTTPStatus.NOT_FOUND
+        return jsonify(response_data), HTTPStatus.OK
 
-            associations = user.social_auth
-            # Format user information
-            user_info = {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email,
-                "organization": user.organization,
-                "is_admin": user.is_admin,
-                "created_at": user.created_at,
-                "sub": user.sub,
-                "given_name": user.given_name,
-                "family_name": user.family_name,
-                "name": user.name,
-                "locale": user.locale,
-                "email_verified": user.email_verified,
-                "last_login": user.last_login,
-                "auth_providers": [
-                    {
-                        "provider": assoc.provider,
-                        "provider_user_id": assoc.provider_user_id,
-                        "provider_name": assoc.provider_name,
-                        "created_at": assoc.created_at,
-                        "last_used": assoc.last_used,
-                    }
-                    for assoc in associations
-                ],
-            }
-
-            return jsonify({"user": user_info}), HTTPStatus.OK
-
+    except APIError as e:
+        logging.error("API error in get_user: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         logging.error("Error getting user: %s", str(e))
         return (
@@ -286,6 +163,7 @@ def get_user(username: str) -> tuple[dict[str, Any], int]:
 
 
 @users_bp.route("/verify", methods=["GET"])  # TODO: Remove this endpoint
+@with_db_session
 def verify_user_by_sub() -> tuple[dict[str, Any], int]:
     """Verify if a user with the given sub exists.
 
@@ -299,27 +177,23 @@ def verify_user_by_sub() -> tuple[dict[str, Any], int]:
     """
     try:
         sub = request.args.get("sub")
-        if not sub:
-            return (
-                jsonify({"error": "Missing sub parameter"}),
-                HTTPStatus.BAD_REQUEST,
-            )
 
-        with get_db_session() as session:
-            user_repo = UserRepository(session)
-            user = user_repo.get_by_sub(sub)
-
-            if not user:
+        # Create UserService instance and verify user by sub
+        user_service = UserService()
+        try:
+            response_data = user_service.verify_user_by_sub(sub, request.db_session)
+            return jsonify(response_data), HTTPStatus.OK
+        except APIError as e:
+            if e.status_code == HTTPStatus.NOT_FOUND:
                 return (
                     jsonify({"exists": False, "message": "User not found"}),
                     HTTPStatus.NOT_FOUND,
                 )
+            raise
 
-            return (
-                jsonify({"exists": True, "user_id": user.id, "username": user.username}),
-                HTTPStatus.OK,
-            )
-
+    except APIError as e:
+        logging.error("API error in verify_user_by_sub: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
     except Exception as e:
         logging.error("Error verifying user by sub: %s", str(e))
         return (
