@@ -170,7 +170,7 @@ def test_request_get_success(mock_request, app):
             mock_request.return_value = mock_response
 
             # Create client and request
-            client = BaseClient()
+            client = BaseClient(token="test-token")
             request = ClientRequest(endpoint="/test", params={"query": "value"})
 
             # Call get method
@@ -214,7 +214,7 @@ def test_request_post_success(mock_request, app):
             mock_request.return_value = mock_response
 
             # Create client and request
-            client = BaseClient()
+            client = BaseClient(token="test-token")
             request = ClientRequest(endpoint="/resource", data={"name": "Test Resource"}, timeout=5)
 
             # Call post method
@@ -248,7 +248,7 @@ def test_request_timeout(mock_request, app):
         mock_request.side_effect = Timeout("Request timed out")
 
         # Create client and request
-        client = BaseClient()
+        client = BaseClient(token="test-token")
         request = ClientRequest(endpoint="/test", timeout=5)
 
         # Call method and verify exception
@@ -273,7 +273,7 @@ def test_request_connection_error(mock_request, app):
         mock_request.side_effect = RequestsConnectionError("Connection refused")
 
         # Create client and request
-        client = BaseClient()
+        client = BaseClient(token="test-token")
         request = ClientRequest(endpoint="/test")
 
         # Call method and verify exception

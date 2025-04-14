@@ -6,14 +6,14 @@ from flask import (
 )
 
 from app.clients.factory import client_factory
-from app.middleware.auth import login_required
+from app.middleware.auth import token_required
 from app.middleware.security import rate_limit
 
 from . import storage_bp
 
 
 @storage_bp.route("/")
-@login_required
+@token_required
 @rate_limit(requests_per_minute=20)
 def view_pvcs():
     """View storage PVCs management page.
@@ -28,12 +28,12 @@ def view_pvcs():
         description: Error fetching storage PVCs
     """
     try:
-        storage_client = client_factory.get_storage_client()
+        storage_client = client_factory.get_storage_client(token=session["token"])
         pvcs = storage_client.list_storage()
 
         users = []
         if session.get("is_admin"):
-            users_client = client_factory.get_users_client()
+            users_client = client_factory.get_users_client(token=session["token"])
             users = users_client.list_users()
 
         current_app.logger.info(f"Retrieved {len(pvcs)} storage PVCs")

@@ -53,7 +53,7 @@ def session_manager(f):
             # Check if session needs refresh
             if is_authenticated():
                 try:
-                    refresh_token()
+                    refresh_token(token=session["token"])
                 except AuthError:
                     # Clear invalid session
                     session.clear()

@@ -9,6 +9,7 @@ from http import HTTPStatus
 from flask import jsonify, session
 
 from app.clients.factory import client_factory
+from app.middleware.auth import token_required
 from app.services.auth.auth import AuthError, is_authenticated, logout
 
 from . import auth_api_bp
@@ -22,7 +23,7 @@ def auth_status():
     """Get the current authentication status.
     ---
     tags:
-      - Auth API
+      - Unauthenticated Routes
     responses:
       200:
         description: Current authentication status
@@ -55,11 +56,12 @@ def auth_status():
 
 
 @auth_api_bp.route("/refresh", methods=["POST"])
+@token_required
 def api_refresh_token():
     """Refresh authentication token.
     ---
     tags:
-      - Auth API
+      - Login Required Routes
     responses:
       200:
         description: Token refreshed successfully
@@ -79,7 +81,7 @@ def api_refresh_token():
             return jsonify({"error": "No token in session"}), HTTPStatus.UNAUTHORIZED
 
         # Get the auth client and refresh token
-        auth_client = client_factory.get_auth_client()
+        auth_client = client_factory.get_auth_client(token=session["token"])
         data, status_code = auth_client.refresh_token()
 
         # Handle successful response

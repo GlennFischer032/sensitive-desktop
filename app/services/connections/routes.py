@@ -7,12 +7,13 @@ from flask import (
     redirect,
     render_template,
     request,
+    session,
     url_for,
 )
 
 from app.clients.base import APIError
 from app.clients.factory import client_factory
-from app.middleware.auth import login_required
+from app.middleware.auth import token_required
 from app.middleware.security import rate_limit
 
 from . import connections_bp
@@ -22,7 +23,7 @@ MAX_CONNECTION_NAME_LENGTH = 12
 
 
 @connections_bp.route("/")
-@login_required
+@token_required
 def view_connections():
     """List all available connections for the current user.
     This endpoint displays a page with all connections accessible to the logged-in user.
@@ -37,12 +38,12 @@ def view_connections():
     """
     try:
         current_app.logger.info("Fetching connections from API...")
-        connections_client = client_factory.get_connections_client()
+        connections_client = client_factory.get_connections_client(token=session["token"])
         connections = connections_client.list_connections()
 
         # Fetch desktop configurations for the add connection modal
         try:
-            desktop_configs_client = client_factory.get_desktop_configurations_client()
+            desktop_configs_client = client_factory.get_desktop_configurations_client(token=session["token"])
             desktop_configurations = desktop_configs_client.list_configurations()
         except Exception as e:
             current_app.logger.error(f"Error fetching desktop configurations: {str(e)}")
@@ -50,7 +51,7 @@ def view_connections():
 
         storage_pvcs = []
         try:
-            storage_client = client_factory.get_storage_client()
+            storage_client = client_factory.get_storage_client(token=session["token"])
             storage_pvcs = storage_client.list_storage()
         except Exception as e:
             current_app.logger.error(f"Error fetching storage PVCs: {str(e)}")
@@ -79,7 +80,7 @@ def view_connections():
 
 
 @connections_bp.route("/add", methods=["POST"])
-@login_required
+@token_required
 @rate_limit(requests_per_minute=10)
 def add_connection():  # noqa: PLR0911
     """Create a new connection.
@@ -143,7 +144,7 @@ def add_connection():  # noqa: PLR0911
             connection_name, persistent_home, desktop_configuration_id, external_pvc
         )
 
-        connections_client = client_factory.get_connections_client()
+        connections_client = client_factory.get_connections_client(token=session["token"])
         try:
             connections_client.add_connection(**connection_data)
         except APIError as e:
@@ -215,7 +216,7 @@ def _prepare_connection_data(connection_name, persistent_home, desktop_configura
 
 
 @connections_bp.route("/direct-connect/<connection_id>")
-@login_required
+@token_required
 def direct_connect(connection_id):
     """Connect to remote desktop via Guacamole.
     This endpoint redirects the user to Guacamole for direct connection to a remote desktop.
@@ -235,7 +236,7 @@ def direct_connect(connection_id):
         description: Error connecting to desktop
     """
     try:
-        connections_client = client_factory.get_connections_client()
+        connections_client = client_factory.get_connections_client(token=session["token"])
         data = connections_client.direct_connect(connection_id)
 
         guacamole_url = data.get("auth_url")
@@ -254,7 +255,7 @@ def direct_connect(connection_id):
 
 
 @connections_bp.route("/guacamole-dashboard")
-@login_required
+@token_required
 def guacamole_dashboard():
     """Access the Guacamole dashboard with automatic authentication.
     This endpoint redirects to the Guacamole dashboard with automatic authentication.
@@ -268,7 +269,7 @@ def guacamole_dashboard():
         description: Error accessing Guacamole dashboard
     """
     try:
-        connections_client = client_factory.get_connections_client()
+        connections_client = client_factory.get_connections_client(token=session["token"])
         data = connections_client.guacamole_dashboard()
 
         guacamole_url = data.get("auth_url")

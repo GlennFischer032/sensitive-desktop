@@ -5,22 +5,22 @@ This module provides API endpoints for managing desktop configurations, separate
 
 from http import HTTPStatus
 
-from flask import current_app, jsonify, request
+from flask import current_app, jsonify, request, session
 
 from app.clients.base import APIError
 from app.clients.factory import client_factory
-from app.middleware.auth import admin_required, login_required
+from app.middleware.auth import admin_required, token_required
 
 from . import configurations_api_bp
 
 
 @configurations_api_bp.route("/", methods=["GET"])
-@login_required
+@token_required
 def list_configurations():
     """Get a list of all desktop configurations.
     ---
     tags:
-      - Configurations API
+      - Login Required Routes
     responses:
       200:
         description: A list of desktop configurations
@@ -45,7 +45,7 @@ def list_configurations():
     """
     try:
         current_app.logger.info("API: Fetching desktop configurations")
-        desktop_configs_client = client_factory.get_desktop_configurations_client()
+        desktop_configs_client = client_factory.get_desktop_configurations_client(token=session["token"])
         configs = desktop_configs_client.list_configurations()
 
         return jsonify({"configurations": configs}), HTTPStatus.OK
@@ -58,12 +58,12 @@ def list_configurations():
 
 
 @configurations_api_bp.route("/<int:config_id>", methods=["GET"])
-@login_required
+@token_required
 def get_configuration(config_id):
     """Get details for a specific desktop configuration.
     ---
     tags:
-      - Configurations API
+      - Login Required Routes
     parameters:
       - name: config_id
         in: path
@@ -85,7 +85,7 @@ def get_configuration(config_id):
     """
     try:
         current_app.logger.info(f"API: Fetching configuration with ID: {config_id}")
-        desktop_configs_client = client_factory.get_desktop_configurations_client()
+        desktop_configs_client = client_factory.get_desktop_configurations_client(token=session["token"])
         config_response = desktop_configs_client.get_configuration(config_id)
 
         return jsonify(config_response), HTTPStatus.OK
@@ -98,13 +98,13 @@ def get_configuration(config_id):
 
 
 @configurations_api_bp.route("/", methods=["POST"])
-@login_required
+@token_required
 @admin_required
 def create_configuration():
     """Create a new desktop configuration.
     ---
     tags:
-      - Configurations API
+      - Admin Required Routes
     parameters:
       - name: body
         in: body
@@ -161,7 +161,7 @@ def create_configuration():
             return jsonify({"error": "No JSON data provided"}), HTTPStatus.BAD_REQUEST
 
         current_app.logger.info(f"API: Creating new configuration: {data.get('name')}")
-        desktop_configs_client = client_factory.get_desktop_configurations_client()
+        desktop_configs_client = client_factory.get_desktop_configurations_client(token=session["token"])
         desktop_configs_client.create_configuration(config_data=data)
 
         return jsonify({"success": True, "message": "Configuration created successfully"}), HTTPStatus.CREATED
@@ -174,13 +174,13 @@ def create_configuration():
 
 
 @configurations_api_bp.route("/<int:config_id>", methods=["PUT"])
-@login_required
+@token_required
 @admin_required
 def update_configuration(config_id):
     """Update an existing desktop configuration.
     ---
     tags:
-      - Configurations API
+      - Admin Required Routes
     parameters:
       - name: config_id
         in: path
@@ -242,7 +242,7 @@ def update_configuration(config_id):
             return jsonify({"error": "No JSON data provided"}), HTTPStatus.BAD_REQUEST
 
         current_app.logger.info(f"API: Updating configuration with ID: {config_id}")
-        desktop_configs_client = client_factory.get_desktop_configurations_client()
+        desktop_configs_client = client_factory.get_desktop_configurations_client(token=session["token"])
         desktop_configs_client.update_configuration(config_id=config_id, config_data=data)
 
         return jsonify({"success": True, "message": "Configuration updated successfully"}), HTTPStatus.OK
@@ -255,13 +255,13 @@ def update_configuration(config_id):
 
 
 @configurations_api_bp.route("/<int:config_id>", methods=["DELETE"])
-@login_required
+@token_required
 @admin_required
 def delete_configuration(config_id):
     """Delete a desktop configuration.
     ---
     tags:
-      - Configurations API
+      - Admin Required Routes
     parameters:
       - name: config_id
         in: path
@@ -285,7 +285,7 @@ def delete_configuration(config_id):
     """
     try:
         current_app.logger.info(f"API: Deleting configuration with ID: {config_id}")
-        desktop_configs_client = client_factory.get_desktop_configurations_client()
+        desktop_configs_client = client_factory.get_desktop_configurations_client(token=session["token"])
         desktop_configs_client.delete_configuration(config_id=config_id)
 
         return jsonify({"success": True, "message": "Configuration deleted successfully"}), HTTPStatus.OK

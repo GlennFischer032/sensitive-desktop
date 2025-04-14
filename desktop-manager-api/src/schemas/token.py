@@ -30,6 +30,9 @@ class Token(BaseModel):
     revoked: bool = Field(False, description="Whether the token has been revoked")
     revoked_at: datetime | None = Field(None, description="Timestamp when token was revoked")
 
+    class Config:
+        from_attributes = True
+
 
 class TokenResponse(BaseModel):
     """Schema for a newly created token response that includes the actual JWT token."""

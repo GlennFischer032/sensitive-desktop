@@ -1,11 +1,11 @@
 """Routes for desktop configurations."""
 import logging
 
-from flask import flash, render_template
+from flask import flash, render_template, session
 
 from app.clients.base import APIError
 from app.clients.factory import client_factory
-from app.middleware.auth import login_required
+from app.middleware.auth import token_required
 
 from . import configurations_bp
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 @configurations_bp.route("/")
-@login_required
+@token_required
 def list_configurations() -> str:
     """List all desktop configurations.
     This endpoint displays a page with all available desktop configurations.
@@ -27,7 +27,7 @@ def list_configurations() -> str:
         description: Error fetching configurations
     """
     try:
-        desktop_configs_client = client_factory.get_desktop_configurations_client()
+        desktop_configs_client = client_factory.get_desktop_configurations_client(token=session["token"])
         configs = desktop_configs_client.list_configurations()
 
         # Get all users for the modal form

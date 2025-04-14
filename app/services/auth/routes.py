@@ -52,7 +52,7 @@ def logout():
         description: User logged out successfully and redirected to login page
     """
     current_app.logger.info(f"Logging out user: {session.get('username')}")
-    auth_client = client_factory.get_auth_client()
+    auth_client = client_factory.get_auth_client(token=session.get("token"))
     auth_client.logout()
     return redirect(url_for("auth.login"))
 
@@ -102,7 +102,7 @@ def oidc_callback():
         callback_url = os.environ.get("OIDC_REDIRECT_URI", request.base_url)
         logger.info(f"Using callback URL: {callback_url}")
 
-        auth_client = client_factory.get_auth_client()
+        auth_client = client_factory.get_auth_client(token=session.get("token"))
         response_data, status_code = auth_client.oidc_callback(
             code=code,
             state=state,
@@ -161,7 +161,7 @@ def oidc_login():
               example: Failed to initiate login
     """
     try:
-        auth_client = client_factory.get_auth_client()
+        auth_client = client_factory.get_auth_client(token=session.get("token"))
         response_data, status_code = auth_client.oidc_login()
 
         if status_code != HTTPStatus.OK:
@@ -269,7 +269,7 @@ def debug_login():  # noqa
             return jsonify({"error": "Sub ID is required"}), 400
 
         try:
-            users_client = client_factory.get_users_client()
+            users_client = client_factory.get_users_client(token=session.get("token"))
 
             try:
                 user_data, status_code = users_client.verify_user(sub=sub)

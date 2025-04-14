@@ -3,6 +3,7 @@ import logging
 from typing import Any
 
 from database.repositories.token import TokenRepository
+from database.repositories.user import UserRepository
 from flask import current_app
 import jwt
 from pydantic import ValidationError
@@ -131,3 +132,36 @@ class TokenService:
             error_message = f"Failed to revoke API token: {e!s}"
             logging.error(error_message)
             raise APIError(error_message) from e
+
+    def api_login(self, token, session) -> dict[str, Any]:
+        """API login endpoint.
+
+        This endpoint allows API clients send a JWT and recieve user data.
+        """
+        data = jwt.decode(token, current_app.config["SECRET_KEY"], algorithms=["HS256"])
+        token_id = data.get("token_id")
+        if not token_id:
+            raise BadRequestError("Token is invalid")
+
+        token_repo = TokenRepository(session)
+        token = token_repo.get_by_token_id(token_id)
+        if not token:
+            raise NotFoundError(f"Token with ID {token_id} not found")
+
+        if token.revoked:
+            raise BadRequestError("Token is revoked")
+
+        if token.expires_at < datetime.utcnow():
+            raise BadRequestError("Token is expired")
+
+        user_repo = UserRepository(session)
+        user = user_repo.get_by_username(data.get("name"))
+        if not user:
+            raise NotFoundError(f"User with username {data.get('name')} not found")
+
+        user_data = {
+            "username": user.username,
+            "is_admin": user.is_admin,
+            "email": user.email,
+        }
+        return user_data

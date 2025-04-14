@@ -94,3 +94,19 @@ class TokensClient(BaseClient):
         except APIError as e:
             self.logger.error(f"Error revoking token: {str(e)}")
             raise
+
+    def api_login(self, token: str) -> tuple[dict[str, Any], int]:
+        """API login endpoint.
+
+        This endpoint allows API clients to authenticate and receive user data.
+        """
+        try:
+            request = ClientRequest(
+                endpoint="/api/tokens/api-login",
+                data={"token": token},
+                timeout=5,
+            )
+            return self.post(request=request)
+        except APIError as e:
+            self.logger.error(f"API login error: {str(e)}")
+            raise

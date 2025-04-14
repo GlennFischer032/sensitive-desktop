@@ -10,7 +10,7 @@ from flask import current_app, jsonify, request, session
 
 from app.clients.base import APIError
 from app.clients.factory import client_factory
-from app.middleware.auth import login_required
+from app.middleware.auth import token_required
 from app.middleware.security import rate_limit
 
 from . import connections_api_bp
@@ -20,12 +20,12 @@ MAX_CONNECTION_NAME_LENGTH = 12
 
 
 @connections_api_bp.route("/", methods=["GET"])
-@login_required
+@token_required
 def list_connections():
     """Get a list of all connections for the current user.
     ---
     tags:
-      - Connections API
+      - Login Required Routes
     parameters:
       - name: username
         in: query
@@ -47,14 +47,13 @@ def list_connections():
     """
     try:
         username = None
-        # Allow filtering by username for admins
-        if session.get("is_admin") and request.args.get("username"):
+        if request.args.get("username"):
             username = request.args.get("username")
             current_app.logger.info(f"API: Fetching connections for user: {username}")
         else:
             current_app.logger.info("API: Fetching connections for current user")
 
-        connections_client = client_factory.get_connections_client()
+        connections_client = client_factory.get_connections_client(token=session["token"])
         connections = connections_client.list_connections(username)
 
         return jsonify({"connections": connections}), HTTPStatus.OK
@@ -67,13 +66,13 @@ def list_connections():
 
 
 @connections_api_bp.route("/", methods=["POST"])
-@login_required
+@token_required
 @rate_limit(requests_per_minute=10)
 def create_connection():  # noqa: PLR0911
     """Create a new connection.
     ---
     tags:
-      - Connections API
+      - Login Required Routes
     parameters:
       - name: body
         in: body
@@ -136,7 +135,7 @@ def create_connection():  # noqa: PLR0911
 
         # Create connection
         current_app.logger.info(f"API: Creating new connection: {connection_name}")
-        connections_client = client_factory.get_connections_client()
+        connections_client = client_factory.get_connections_client(token=session["token"])
         try:
             connections_client.add_connection(**connection_data)
         except APIError as e:
@@ -157,13 +156,13 @@ def create_connection():  # noqa: PLR0911
 
 
 @connections_api_bp.route("/<connection_name>/stop", methods=["POST"])
-@login_required
+@token_required
 @rate_limit(requests_per_minute=10)
 def stop_connection(connection_name):
     """Stop a running connection.
     ---
     tags:
-      - Connections API
+      - Login Required Routes
     parameters:
       - name: connection_name
         in: path
@@ -186,7 +185,7 @@ def stop_connection(connection_name):
     """
     try:
         current_app.logger.info(f"API: Stopping connection: {connection_name}")
-        connections_client = client_factory.get_connections_client()
+        connections_client = client_factory.get_connections_client(token=session["token"])
         connections_client.stop_connection(connection_name)
 
         return jsonify({"status": "success", "message": "Connection stopped successfully"}), HTTPStatus.OK
@@ -200,13 +199,13 @@ def stop_connection(connection_name):
 
 
 @connections_api_bp.route("/<connection_name>/resume", methods=["POST"])
-@login_required
+@token_required
 @rate_limit(requests_per_minute=10)
 def resume_connection(connection_name):
     """Resume a stopped connection.
     ---
     tags:
-      - Connections API
+      - Login Required Routes
     parameters:
       - name: connection_name
         in: path
@@ -230,7 +229,7 @@ def resume_connection(connection_name):
     """
     try:
         current_app.logger.info(f"API: Resuming connection: {connection_name}")
-        connections_client = client_factory.get_connections_client()
+        connections_client = client_factory.get_connections_client(token=session["token"])
         connections_client.resume_connection(connection_name)
 
         return jsonify({"status": "success", "message": "Connection resumed successfully"}), HTTPStatus.OK
@@ -244,13 +243,13 @@ def resume_connection(connection_name):
 
 
 @connections_api_bp.route("/<connection_name>", methods=["DELETE"])
-@login_required
+@token_required
 @rate_limit(requests_per_minute=10)
 def delete_connection(connection_name):
     """Delete a connection permanently.
     ---
     tags:
-      - Connections API
+      - Login Required Routes
     parameters:
       - name: connection_name
         in: path
@@ -274,7 +273,7 @@ def delete_connection(connection_name):
     """
     try:
         current_app.logger.info(f"API: Deleting connection: {connection_name}")
-        connections_client = client_factory.get_connections_client()
+        connections_client = client_factory.get_connections_client(token=session["token"])
         connections_client.delete_connection(connection_name)
 
         return jsonify({"status": "success", "message": "Connection permanently deleted"}), HTTPStatus.OK
@@ -288,12 +287,12 @@ def delete_connection(connection_name):
 
 
 @connections_api_bp.route("/dashboard-auth-url", methods=["GET"])
-@login_required
+@token_required
 def get_dashboard_auth_url():
     """Get authentication URL for Guacamole dashboard.
     ---
     tags:
-      - Connections API
+      - Login Required Routes
     responses:
       200:
         description: Dashboard authentication URL retrieved successfully
@@ -307,7 +306,7 @@ def get_dashboard_auth_url():
     """
     try:
         current_app.logger.info("API: Getting Guacamole dashboard auth URL")
-        connections_client = client_factory.get_connections_client()
+        connections_client = client_factory.get_connections_client(token=session["token"])
         data = connections_client.guacamole_dashboard()
 
         return jsonify(data), HTTPStatus.OK
@@ -321,12 +320,12 @@ def get_dashboard_auth_url():
 
 
 @connections_api_bp.route("/attach-pvc", methods=["POST"])
-@login_required
+@token_required
 def attach_pvc():
     """Attach a PVC to a connection.
     ---
     tags:
-      - Connections API
+      - Login Required Routes
     parameters:
       - name: connection_id
         in: path
@@ -357,7 +356,7 @@ def attach_pvc():
         connection_id = data.get("connection_id")
         pvc_id = data.get("pvc_id")
 
-        connections_client = client_factory.get_connections_client()
+        connections_client = client_factory.get_connections_client(token=session["token"])
         response_data = connections_client.attach_pvc_to_connection(connection_id, pvc_id)
 
         return jsonify(response_data), HTTPStatus.OK
@@ -371,12 +370,12 @@ def attach_pvc():
 
 
 @connections_api_bp.route("/detach-pvc", methods=["POST"])
-@login_required
+@token_required
 def detach_pvc():
     """Detach a PVC from a connection.
     ---
     tags:
-      - Connections API
+      - Login Required Routes
     parameters:
       - name: connection_id
         in: path
@@ -401,7 +400,7 @@ def detach_pvc():
         data = request.get_json()
         connection_id = data.get("connection_id")
 
-        connections_client = client_factory.get_connections_client()
+        connections_client = client_factory.get_connections_client(token=session["token"])
         response_data = connections_client.detach_pvc_from_connection(connection_id)
 
         return jsonify(response_data), HTTPStatus.OK

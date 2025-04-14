@@ -11,7 +11,6 @@ import requests
 from app.services.auth.auth import (
     AuthError,
     RateLimitError,
-    get_current_user,
     is_authenticated,
     logout,
     refresh_token,
@@ -92,39 +91,6 @@ class TestSessionFunctions:
         assert result is False
         mock_session.get.assert_called_once_with("logged_in", False)
 
-    @patch("app.services.auth.auth.session")
-    def test_get_current_user_authenticated(self, mock_session, app_context):
-        """Test get_current_user returns user data when authenticated"""
-        mock_session.get.side_effect = lambda key, default=None: {
-            "logged_in": True,
-            "username": "test-user",
-            "is_admin": False,
-        }.get(key, default)
-
-        mock_session.__getitem__.side_effect = lambda key: {
-            "username": "test-user",
-            "is_admin": False,
-        }[key]
-
-        user = get_current_user()
-
-        assert user.get("username") == "test-user"
-        assert user.get("is_admin") is False
-
-    @patch("app.services.auth.auth.session")
-    @patch("app.services.auth.auth.is_authenticated")
-    def test_get_current_user_unauthenticated(self, mock_is_authenticated, mock_session, app_context):
-        """Test get_current_user returns None when not authenticated"""
-        # Setup unauthenticated state
-        mock_is_authenticated.return_value = False
-
-        # Get current user
-        user = get_current_user()
-
-        # Verify result is None
-        assert user is None
-        mock_is_authenticated.assert_called_once()
-
 
 class TestRefreshToken:
     @pytest.fixture()
@@ -151,20 +117,23 @@ class TestRefreshToken:
         mock_get_auth_client.return_value = mock_auth_client
 
         # Call refresh token
-        refresh_token()
+        refresh_token(token="old-token")
 
         # Verify token was updated in session
         mock_session.__setitem__.assert_called_once_with("token", "new-token")
 
     @patch("app.services.auth.auth.is_authenticated")
-    def test_refresh_token_not_authenticated(self, mock_is_authenticated, app_context):
+    @patch("app.clients.factory.client_factory.get_auth_client")
+    def test_refresh_token_not_authenticated(self, mock_get_auth_client, mock_is_authenticated, app_context):
         """Test token refresh when not authenticated"""
         # Setup unauthenticated state
         mock_is_authenticated.return_value = False
-
+        mock_get_auth_client.return_value = MagicMock(
+            refresh_token=MagicMock(side_effect=AuthError("Not authenticated"))
+        )
         # Call refresh token and expect AuthError
         with pytest.raises(AuthError) as excinfo:
-            refresh_token()
+            refresh_token(token="")
 
         # Verify error message
         assert str(excinfo.value) == "Not authenticated"
@@ -186,7 +155,7 @@ class TestRefreshToken:
 
         # Call refresh token and expect AuthError
         with pytest.raises(AuthError) as excinfo:
-            refresh_token()
+            refresh_token(token="old-token")
 
         # Verify error message
         assert "Network error" in str(excinfo.value)
@@ -210,7 +179,7 @@ class TestRefreshToken:
         mock_get_auth_client.return_value = mock_auth_client
 
         # Call refresh token - no token update should happen
-        refresh_token()
+        refresh_token(token="old-token")
 
         # Verify token was NOT updated in session (no __setitem__ call)
         mock_session.__setitem__.assert_not_called()

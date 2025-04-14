@@ -5,22 +5,22 @@ This module provides API endpoints for managing storage PVCs, separate from UI r
 
 from http import HTTPStatus
 
-from flask import current_app, jsonify, request
+from flask import current_app, jsonify, request, session
 
 from app.clients.base import APIError
 from app.clients.factory import client_factory
-from app.middleware.auth import admin_required, login_required
+from app.middleware.auth import admin_required, token_required
 
 from . import storage_api_bp
 
 
 @storage_api_bp.route("/pvcs", methods=["GET"])
-@login_required
+@token_required
 def list_pvcs():
     """Get a list of all storage PVCs.
     ---
     tags:
-      - Storage API
+      - Login Required Routes
     responses:
       200:
         description: A list of storage PVCs
@@ -50,7 +50,7 @@ def list_pvcs():
     """
     try:
         current_app.logger.info("API: Fetching storage PVCs")
-        storage_client = client_factory.get_storage_client()
+        storage_client = client_factory.get_storage_client(token=session["token"])
         pvcs = storage_client.list_storage()
 
         return jsonify({"pvcs": pvcs}), HTTPStatus.OK
@@ -60,12 +60,12 @@ def list_pvcs():
 
 
 @storage_api_bp.route("/pvcs/<int:pvc_id>", methods=["GET"])
-@login_required
+@token_required
 def get_pvc(pvc_id):
     """Get details for a specific PVC.
     ---
     tags:
-      - Storage API
+      - Login Required Routes
     parameters:
       - name: pvc_id
         in: path
@@ -85,7 +85,7 @@ def get_pvc(pvc_id):
         description: Server error
     """
     try:
-        storage_client = client_factory.get_storage_client()
+        storage_client = client_factory.get_storage_client(token=session["token"])
         pvc = storage_client.get_storage(pvc_id)
 
         return jsonify(pvc)
@@ -95,13 +95,13 @@ def get_pvc(pvc_id):
 
 
 @storage_api_bp.route("/pvcs", methods=["POST"])
-@login_required
+@token_required
 @admin_required
 def create_pvc():
     """Create a new storage PVC.
     ---
     tags:
-      - Storage API
+      - Admin Required Routes
     parameters:
       - name: body
         in: body
@@ -149,7 +149,7 @@ def create_pvc():
             return jsonify({"error": "Name and size are required"}), HTTPStatus.BAD_REQUEST
 
         current_app.logger.info(f"API: Creating new PVC with name: {data['name']}")
-        storage_client = client_factory.get_storage_client()
+        storage_client = client_factory.get_storage_client(token=session["token"])
         pvc = storage_client.create_storage(**data)
 
         return jsonify(pvc), HTTPStatus.CREATED
@@ -159,12 +159,13 @@ def create_pvc():
 
 
 @storage_api_bp.route("/pvcs/access/<int:pvc_id>", methods=["GET"])
-@login_required
+@token_required
+@admin_required
 def get_pvc_access(pvc_id):
     """Get access control information for a PVC.
     ---
     tags:
-      - Storage API
+      - Admin Required Routes
     parameters:
       - name: pvc_id
         in: path
@@ -189,7 +190,7 @@ def get_pvc_access(pvc_id):
         description: Server error
     """
     try:
-        storage_client = client_factory.get_storage_client()
+        storage_client = client_factory.get_storage_client(token=session["token"])
         data = storage_client.get_pvc_access(pvc_id)
         return jsonify(data), HTTPStatus.OK
     except APIError as e:
@@ -201,13 +202,13 @@ def get_pvc_access(pvc_id):
 
 
 @storage_api_bp.route("/pvcs/access/<int:pvc_id>", methods=["POST"])
-@login_required
+@token_required
 @admin_required
 def update_pvc_access(pvc_id):
     """Update access control for a PVC.
     ---
     tags:
-      - Storage API
+      - Admin Required Routes
     parameters:
       - name: pvc_id
         in: path
@@ -248,7 +249,7 @@ def update_pvc_access(pvc_id):
         is_public = data.get("is_public", False)
         allowed_users = data.get("allowed_users", [])
 
-        storage_client = client_factory.get_storage_client()
+        storage_client = client_factory.get_storage_client(token=session["token"])
         result = storage_client.update_pvc_access(pvc_id, is_public, allowed_users)
         return jsonify(result), HTTPStatus.OK
     except APIError as e:
@@ -260,12 +261,13 @@ def update_pvc_access(pvc_id):
 
 
 @storage_api_bp.route("/pvcs/connections/<int:pvc_id>", methods=["GET"])
-@login_required
+@token_required
+@admin_required
 def get_pvc_connections(pvc_id):
     """Get connections using a specific PVC.
     ---
     tags:
-      - Storage API
+      - Admin Required Routes
     parameters:
       - name: pvc_id
         in: path
@@ -288,7 +290,7 @@ def get_pvc_connections(pvc_id):
         description: Server error
     """
     try:
-        storage_client = client_factory.get_storage_client()
+        storage_client = client_factory.get_storage_client(token=session["token"])
         connections = storage_client.get_pvc_connections(pvc_id)
         return jsonify(connections), HTTPStatus.OK
     except Exception as e:
@@ -297,13 +299,13 @@ def get_pvc_connections(pvc_id):
 
 
 @storage_api_bp.route("/pvcs/<string:pvc_name>", methods=["DELETE"])
-@login_required
+@token_required
 @admin_required
 def delete_pvc(pvc_name):
     """Delete a PVC by name.
     ---
     tags:
-      - Storage API
+      - Admin Required Routes
     parameters:
       - name: pvc_name
         in: path
@@ -325,7 +327,7 @@ def delete_pvc(pvc_name):
     """
     try:
         current_app.logger.info(f"API: Deleting PVC: {pvc_name}")
-        storage_client = client_factory.get_storage_client()
+        storage_client = client_factory.get_storage_client(token=session["token"])
         result = storage_client.delete_storage(pvc_name)
         return jsonify(result), HTTPStatus.OK
     except Exception as e:

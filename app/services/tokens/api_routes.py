@@ -6,10 +6,10 @@ This module provides API endpoints for managing API tokens, separate from UI rou
 from http import HTTPStatus
 
 from dateutil import parser
-from flask import current_app, jsonify, request
+from flask import current_app, jsonify, request, session
 
 from app.clients.factory import client_factory
-from app.middleware.auth import admin_required, login_required
+from app.middleware.auth import admin_required, token_required
 
 from . import tokens_api_bp
 
@@ -37,13 +37,13 @@ def parse_date_safely(date_str):
 
 
 @tokens_api_bp.route("/", methods=["GET"])
-@login_required
+@token_required
 @admin_required
 def list_tokens():
     """Get a list of all API tokens.
     ---
     tags:
-      - Tokens API
+      - Admin Required Routes
     responses:
       200:
         description: A list of API tokens
@@ -82,7 +82,7 @@ def list_tokens():
     """
     try:
         current_app.logger.info("API: Fetching tokens list")
-        tokens_client = client_factory.get_tokens_client()
+        tokens_client = client_factory.get_tokens_client(token=session["token"])
         response = tokens_client.list_tokens()
 
         tokens = response.get("tokens", [])
@@ -103,13 +103,13 @@ def list_tokens():
 
 
 @tokens_api_bp.route("/", methods=["POST"])
-@login_required
+@token_required
 @admin_required
 def create_token():
     """Create a new API token.
     ---
     tags:
-      - Tokens API
+      - Admin Required Routes
     parameters:
       - name: body
         in: body
@@ -166,7 +166,7 @@ def create_token():
             return jsonify({"error": "Token name is required"}), HTTPStatus.BAD_REQUEST
 
         current_app.logger.info(f"API: Creating new token with name: {name}")
-        tokens_client = client_factory.get_tokens_client()
+        tokens_client = client_factory.get_tokens_client(token=session["token"])
         response = tokens_client.create_token(
             name=name,
             description=description,
@@ -187,13 +187,13 @@ def create_token():
 
 
 @tokens_api_bp.route("/<token_id>", methods=["DELETE"])
-@login_required
+@token_required
 @admin_required
 def revoke_token(token_id):
     """Revoke an API token.
     ---
     tags:
-      - Tokens API
+      - Admin Required Routes
     parameters:
       - name: token_id
         in: path
@@ -215,7 +215,7 @@ def revoke_token(token_id):
     """
     try:
         current_app.logger.info(f"API: Revoking token with ID: {token_id}")
-        tokens_client = client_factory.get_tokens_client()
+        tokens_client = client_factory.get_tokens_client(token=session["token"])
         tokens_client.revoke_token(token_id)
 
         return jsonify({"message": "Token revoked successfully"}), HTTPStatus.OK

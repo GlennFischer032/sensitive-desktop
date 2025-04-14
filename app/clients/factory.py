@@ -21,7 +21,7 @@ class ClientFactory:
         """Initialize factory with empty client cache."""
         self._clients: dict[str, Any] = {}
 
-    def get_auth_client(self) -> AuthClient:
+    def get_auth_client(self, token: str) -> AuthClient:
         """Get AuthClient.
 
         Returns:
@@ -30,10 +30,11 @@ class ClientFactory:
         if "auth" not in self._clients:
             self._clients["auth"] = AuthClient(
                 base_url=current_app.config["API_URL"],
+                token=token,
             )
         return self._clients["auth"]
 
-    def get_connections_client(self) -> ConnectionsClient:
+    def get_connections_client(self, token: str) -> ConnectionsClient:
         """Get ConnectionsClient.
 
         Returns:
@@ -42,10 +43,11 @@ class ClientFactory:
         if "connections" not in self._clients:
             self._clients["connections"] = ConnectionsClient(
                 base_url=current_app.config["API_URL"],
+                token=token,
             )
         return self._clients["connections"]
 
-    def get_users_client(self) -> UsersClient:
+    def get_users_client(self, token: str) -> UsersClient:
         """Get UsersClient.
 
         Returns:
@@ -54,10 +56,11 @@ class ClientFactory:
         if "users" not in self._clients:
             self._clients["users"] = UsersClient(
                 base_url=current_app.config["API_URL"],
+                token=token,
             )
         return self._clients["users"]
 
-    def get_desktop_configurations_client(self) -> DesktopConfigurationsClient:
+    def get_desktop_configurations_client(self, token: str) -> DesktopConfigurationsClient:
         """Get DesktopConfigurationsClient.
 
         Returns:
@@ -66,10 +69,11 @@ class ClientFactory:
         if "desktop_configurations" not in self._clients:
             self._clients["desktop_configurations"] = DesktopConfigurationsClient(
                 base_url=current_app.config["API_URL"],
+                token=token,
             )
         return self._clients["desktop_configurations"]
 
-    def get_storage_client(self) -> StorageClient:
+    def get_storage_client(self, token: str) -> StorageClient:
         """Get StorageClient.
 
         Returns:
@@ -78,10 +82,11 @@ class ClientFactory:
         if "storage" not in self._clients:
             self._clients["storage"] = StorageClient(
                 base_url=current_app.config["API_URL"],
+                token=token,
             )
         return self._clients["storage"]
 
-    def get_tokens_client(self) -> TokensClient:
+    def get_tokens_client(self, token: str) -> TokensClient:
         """Get TokensClient.
 
         Returns:
@@ -90,6 +95,7 @@ class ClientFactory:
         if "tokens" not in self._clients:
             self._clients["tokens"] = TokensClient(
                 base_url=current_app.config["API_URL"],
+                token=token,
             )
         return self._clients["tokens"]
 

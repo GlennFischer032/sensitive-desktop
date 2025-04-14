@@ -76,19 +76,7 @@ def is_authenticated() -> bool:
     return session.get("logged_in", False)
 
 
-def get_current_user() -> dict[str, Any] | None:
-    """
-    Get current authenticated user info.
-
-    Returns:
-        Optional[Dict[str, Any]]: User info if authenticated, None otherwise
-    """
-    if is_authenticated():
-        return {"username": session["username"], "is_admin": session["is_admin"]}
-    return None
-
-
-def refresh_token() -> None:
+def refresh_token(token: str) -> None:
     """
     Refresh authentication token.
 
@@ -97,10 +85,7 @@ def refresh_token() -> None:
         RateLimitError: If rate limited
     """
     try:
-        if not is_authenticated():
-            raise AuthError("Not authenticated")
-
-        auth_client = client_factory.get_auth_client()
+        auth_client = client_factory.get_auth_client(token=token)
         auth_data, status_code = auth_client.refresh_token()
 
         if status_code == HTTPStatus.OK:

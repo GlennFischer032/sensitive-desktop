@@ -118,3 +118,27 @@ def revoke_token(token_id: str) -> tuple[dict[str, Any], int]:
             jsonify({"error": "Failed to revoke API token", "details": str(e)}),
             HTTPStatus.INTERNAL_SERVER_ERROR,
         )
+
+
+@token_bp.route("/api/tokens/api-login", methods=["POST"])
+@with_db_session
+def api_login() -> tuple[dict[str, Any], int]:
+    """API login endpoint.
+
+    This endpoint allows API clients to authenticate and receive a token.
+    """
+    try:
+        data = request.get_json()
+        token = data.get("token")
+
+        if not token:
+            return jsonify({"error": "Token is required"}), HTTPStatus.BAD_REQUEST
+
+        token_service = TokenService()
+        response_data = token_service.api_login(token, request.db_session)
+
+        return jsonify(response_data), HTTPStatus.OK
+
+    except APIError as e:
+        logger.error("API error in api_login: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code

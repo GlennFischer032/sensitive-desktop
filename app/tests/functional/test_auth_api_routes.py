@@ -47,12 +47,10 @@ def test_api_refresh_token_unauthenticated(mock_get_auth_client, client):
 
     # Call API endpoint with JSON headers
     response = client.post("/api/auth/refresh", data=json.dumps({}), content_type="application/json")
-    data = json.loads(response.data)
 
     # Verify response
-    assert response.status_code == 401
-    assert "error" in data
-    assert "Not authenticated" in data.get("error")
+    assert response.status_code == 302
+    assert response.headers["Location"] == "/auth/login"
     mock_auth_client.refresh_token.assert_not_called()
 
 

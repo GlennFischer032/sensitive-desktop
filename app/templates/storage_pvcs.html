@@ -8,7 +8,11 @@
 <div class="page-header">
     <div class="header-title">
         <h2>Storage PVCs Management</h2>
+        {% if is_admin %}
         <span class="subtitle">Manage persistent storage volumes</span>
+        {% else %}
+        <span class="subtitle">View persistent storage volumes</span>
+        {% endif %}
     </div>
     <div class="header-actions">
         {% if is_admin %}
@@ -36,9 +40,9 @@
                 <th>Namespace</th>
                 <th>Size</th>
                 <th>Status</th>
+                {% if is_admin %}
                 <th>Created By</th>
                 <th>Access</th>
-                {% if is_admin %}
                 <th>Actions</th>
                 {% endif %}
             </tr>
@@ -54,6 +58,7 @@
                         {{ pvc.status }}
                     </span>
                 </td>
+                {% if is_admin %}
                 <td>{{ pvc.created_by }}</td>
                 <td>
                     {% if pvc.is_public %}
@@ -62,7 +67,6 @@
                     <span class="badge badge-info">Private</span>
                     {% endif %}
                 </td>
-                {% if is_admin %}
                 <td class="action-buttons">
                     <div class="button-group">
                         <button class="button small view-connections-btn" data-pvc-id="{{ pvc.id }}">View Connections</button>
@@ -77,7 +81,11 @@
     </table>
     {% else %}
     <div class="empty-state">
+        {% if is_admin %}
         <p>No storage PVCs found. Create a new one to get started.</p>
+        {% else %}
+        <p>No storage PVCs are available. Please contact an administrator.</p>
+        {% endif %}
     </div>
     {% endif %}
 </div>

@@ -8,10 +8,10 @@ from datetime import datetime
 from urllib.parse import unquote
 
 from dateutil import parser
-from flask import flash, render_template, request
+from flask import flash, render_template, request, session
 
 from app.clients.factory import client_factory
-from app.middleware.auth import admin_required, login_required
+from app.middleware.auth import admin_required, token_required
 from app.services.tokens import tokens_bp
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ def parse_date_safely(date_str):
 
 
 @tokens_bp.route("/", methods=["GET"])
-@login_required
+@token_required
 @admin_required
 def view_tokens():
     """View API tokens page.
@@ -69,7 +69,7 @@ def view_tokens():
 
 def _fetch_tokens():
     """Fetch tokens and convert timestamps to datetime objects."""
-    tokens_client = client_factory.get_tokens_client()
+    tokens_client = client_factory.get_tokens_client(token=session["token"])
     response = tokens_client.list_tokens()
 
     tokens = response.get("tokens", [])

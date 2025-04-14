@@ -32,7 +32,7 @@ from app.services.users import (
 )
 from app.utils.swagger import auto_document_blueprint
 from config.config import Config
-from middleware.auth import login_required
+from middleware.auth import token_required
 from middleware.security import init_security, rate_limiter
 
 
@@ -357,7 +357,7 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
 
     # Main routes
     @app.route("/")
-    @login_required
+    @token_required
     def index():
         if session.get("is_admin"):
             return redirect(url_for("users.dashboard"))

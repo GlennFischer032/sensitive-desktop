@@ -11,13 +11,13 @@ from flask import (
 
 from app.clients.base import APIError
 from app.clients.factory import client_factory
-from app.middleware.auth import admin_required, login_required
+from app.middleware.auth import admin_required, token_required
 
 from . import users_bp
 
 
 @users_bp.route("/")
-@login_required
+@token_required
 @admin_required
 def view_users():
     """Display users list (admin only).
@@ -39,7 +39,7 @@ def view_users():
 
     try:
         current_app.logger.info("Fetching users from API...")
-        users_client = client_factory.get_users_client()
+        users_client = client_factory.get_users_client(token=session["token"])
         users = users_client.list_users()
 
         current_app.logger.info(f"Found {len(users)} users")
@@ -55,7 +55,7 @@ def view_users():
 
 
 @users_bp.route("/dashboard")
-@login_required
+@token_required
 @admin_required
 def dashboard():
     """Admin dashboard page.
@@ -73,7 +73,7 @@ def dashboard():
         description: Error fetching dashboard data
     """
     try:
-        users_client = client_factory.get_users_client()
+        users_client = client_factory.get_users_client(token=session["token"])
         users = users_client.list_users()
 
         return render_template("dashboard.html", users=users)

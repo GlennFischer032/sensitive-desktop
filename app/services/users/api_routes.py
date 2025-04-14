@@ -9,19 +9,19 @@ from flask import current_app, jsonify, request, session
 
 from app.clients.base import APIError
 from app.clients.factory import client_factory
-from app.middleware.auth import admin_required, login_required
+from app.middleware.auth import admin_required, token_required
 
 from . import users_api_bp
 
 
 @users_api_bp.route("/", methods=["GET"])
-@login_required
+@token_required
 @admin_required
 def list_users():
     """Get a list of all users.
     ---
     tags:
-      - Users API
+      - Admin Required Routes
     responses:
       200:
         description: A list of users
@@ -44,12 +44,9 @@ def list_users():
       500:
         description: Server error
     """
-    if not session.get("is_admin", False):
-        return jsonify({"error": "Administrator privileges required"}), HTTPStatus.FORBIDDEN
-
     try:
         current_app.logger.info("API: Fetching users list")
-        users_client = client_factory.get_users_client()
+        users_client = client_factory.get_users_client(token=session["token"])
         users = users_client.list_users()
 
         return jsonify({"users": users}), HTTPStatus.OK
@@ -62,13 +59,13 @@ def list_users():
 
 
 @users_api_bp.route("/<username>", methods=["GET"])
-@login_required
+@token_required
 @admin_required
 def get_user(username):
     """Get details for a specific user.
     ---
     tags:
-      - Users API
+      - Admin Required Routes
     parameters:
       - name: username
         in: path
@@ -101,12 +98,12 @@ def get_user(username):
     """
     try:
         current_app.logger.info(f"API: Fetching details for user: {username}")
-        users_client = client_factory.get_users_client()
+        users_client = client_factory.get_users_client(token=session["token"])
         user = users_client.get_user(username)
 
         # Get user's connections if available
         try:
-            connections_client = client_factory.get_connections_client()
+            connections_client = client_factory.get_connections_client(token=session["token"])
             user_connections = connections_client.list_connections(username)
         except Exception as e:
             current_app.logger.warning(f"Could not fetch connections for user {username}: {str(e)}")
@@ -122,13 +119,13 @@ def get_user(username):
 
 
 @users_api_bp.route("/", methods=["POST"])
-@login_required
+@token_required
 @admin_required
 def create_user():
     """Create a new user.
     ---
     tags:
-      - Users API
+      - Admin Required Routes
     parameters:
       - name: body
         in: body
@@ -178,7 +175,7 @@ def create_user():
         user_data = {"username": username, "is_admin": is_admin, "sub": sub}
 
         current_app.logger.info(f"API: Adding new user: {username}")
-        users_client = client_factory.get_users_client()
+        users_client = client_factory.get_users_client(token=session["token"])
         users_client.add_user(**user_data)
 
         return jsonify(
@@ -196,13 +193,13 @@ def create_user():
 
 
 @users_api_bp.route("/<username>", methods=["DELETE"])
-@login_required
+@token_required
 @admin_required
 def delete_user(username):
     """Delete a user.
     ---
     tags:
-      - Users API
+      - Admin Required Routes
     parameters:
       - name: username
         in: path
@@ -231,7 +228,7 @@ def delete_user(username):
         if username == session.get("username"):
             return jsonify({"error": "Cannot delete your own account"}), HTTPStatus.BAD_REQUEST
 
-        users_client = client_factory.get_users_client()
+        users_client = client_factory.get_users_client(token=session["token"])
         users_client.delete_user(username)
 
         return jsonify({"message": "User deleted successfully"}), HTTPStatus.OK

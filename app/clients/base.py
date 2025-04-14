@@ -5,7 +5,7 @@ from http import HTTPStatus
 from typing import Any
 
 import requests
-from flask import current_app, session
+from flask import current_app
 from pydantic import BaseModel
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import RequestException, Timeout
@@ -43,15 +43,17 @@ class ClientRequest(BaseModel):
 class BaseClient:
     """Base client for API interactions."""
 
-    def __init__(self, base_url: str | None = None, timeout: int = 10):
+    def __init__(self, base_url: str | None = None, timeout: int = 10, token: str | None = None):
         """Initialize the base client.
 
         Args:
             base_url: Base URL for API requests. If None, uses API_URL from config.
             timeout: Default timeout for requests in seconds
+            token: Authentication token
         """
         self.base_url = base_url
         self.timeout = timeout
+        self.token = token
         self.logger = logger
 
     def _get_base_url(self) -> str:
@@ -121,7 +123,7 @@ class BaseClient:
         """
 
         url = f"{self._get_base_url()}{request.endpoint}"
-        request_headers = self._get_headers(session.get("token"))
+        request_headers = self._get_headers(self.token)
         if request.headers:
             request_headers.update(request.headers)
 

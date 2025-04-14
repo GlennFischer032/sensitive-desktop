@@ -8,11 +8,17 @@
 <div class="page-header">
     <div class="header-title">
         <h2>Desktop Configurations</h2>
+        {% if session.get('is_admin') %}
         <span class="subtitle">Manage container configurations for desktops</span>
+        {% else %}
+        <span class="subtitle">View container configurations for desktops</span>
+        {% endif %}
     </div>
+    {% if session.get('is_admin') %}
     <div class="header-actions">
         <button id="add-config-button" class="button">Add Configuration</button>
     </div>
+    {% endif %}
 </div>
 
 <div class="table-container">
@@ -23,7 +29,9 @@
                 <th>Name</th>
                 <th>Image</th>
                 <th>Access</th>
+                {% if session.get('is_admin') %}
                 <th>Actions</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody>
@@ -38,6 +46,7 @@
                     <span class="badge badge-info">Private</span>
                     {% endif %}
                 </td>
+                {% if session.get('is_admin') %}
                 <td class="action-buttons">
                     <div class="button-group">
                         <button class="button small view-details-btn edit-config-btn" data-config-id="{{ config.id }}">Edit</button>
@@ -46,13 +55,18 @@
                         </form>
                     </div>
                 </td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
     </table>
     {% else %}
     <div class="empty-state">
+        {% if session.get('is_admin') %}
         <p>No configurations found. Click "Add Configuration" to create one.</p>
+        {% else %}
+        <p>No configurations are available. Please contact an administrator.</p>
+        {% endif %}
     </div>
     {% endif %}
 </div>
