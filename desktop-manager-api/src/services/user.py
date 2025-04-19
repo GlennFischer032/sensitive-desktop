@@ -588,3 +588,53 @@ class UserService:
         except Exception as e:
             logging.error("Error verifying user by sub: %s", str(e))
             raise APIError(f"Failed to verify user: {e!s}") from e
+
+    def init_admin_user(self, session):
+        """Initialize the admin user.
+
+        Args:
+            session: Database session
+        """
+        settings = get_settings()
+        user_repo = UserRepository(session)
+        admin = user_repo.get_by_sub(settings.ADMIN_OIDC_SUB)
+        if not admin:
+            # Generate a username from the sub
+            admin_username = f"admin-{settings.ADMIN_OIDC_SUB.split('@')[0][:8]}"
+            admin = user_repo.create_user(
+                {
+                    "username": admin_username,
+                    "email": "admin@example.com",
+                    "sub": settings.ADMIN_OIDC_SUB,
+                    "is_admin": True,
+                    "created_at": datetime.utcnow(),
+                },
+            )
+
+            user_repo.create_social_auth(
+                {
+                    "user_id": admin.id,
+                    "provider": "oidc",
+                    "provider_user_id": settings.ADMIN_OIDC_SUB,
+                    "provider_name": "e-infra",
+                    "created_at": datetime.utcnow(),
+                },
+            )
+
+        # Initialize admin in Guacamole
+        guacamole_client = client_factory.get_guacamole_client()
+        token = guacamole_client.login()
+
+        # For JSON authentication, we'll create the user without password
+        # This is supported since the admin will use OIDC authentication
+        if admin.username:
+            # Create Guacamole user without password for JSON auth
+            guacamole_client.create_user_if_not_exists(
+                token=token,
+                username=admin.username,
+                password="",  # Empty password for JSON auth
+                attributes={"guac_full_name": "Admin User", "guac_organization": "e-INFRA"},
+            )
+            guacamole_client.ensure_group(token, "admins")
+            guacamole_client.ensure_group(token, "all_users")
+            guacamole_client.add_user_to_group(token, admin.username, "admins")

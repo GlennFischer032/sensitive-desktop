@@ -25,10 +25,10 @@ repos:
     hooks:
       - id: check-sass-compiled
         name: Check if SASS files have been compiled to CSS
-        entry: python app/scripts/check_sass_compiled.py
+        entry: python app/src/scripts/check_sass_compiled.py
         language: system
         pass_filenames: false
-        files: ^app/scss/.*\.scss$
+        files: ^app/src/scss/.*\.scss$
 
       - id: pytest-check
         name: pytest-check
@@ -36,10 +36,11 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+        stages: [pre-commit]
 
       - id: pytest-cov
         name: pytest-coverage
-        entry: python -m pytest app/tests/ --cov=app --cov-report=term-missing:skip-covered
+        entry: python -m pytest app/tests/ --cov=app/src --cov-report=term-missing:skip-covered
         language: system
         pass_filenames: false
         always_run: false

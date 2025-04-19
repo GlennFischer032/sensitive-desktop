@@ -130,7 +130,7 @@ class StoragePVCRepository(BaseRepository[StoragePVC]):
             self.session.query(StoragePVC)
             .filter(
                 or_(
-                    StoragePVC.is_public is True,
+                    StoragePVC.is_public == True,  # noqa
                     StoragePVC.id.in_(
                         self.session.query(StoragePVCAccess.pvc_id).filter(StoragePVCAccess.username == username)
                     ),

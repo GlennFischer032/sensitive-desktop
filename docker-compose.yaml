@@ -10,7 +10,6 @@ services:
     volumes:
       - ./desktop-manager-api/guacamole-init-postgres.sql:/docker-entrypoint-initdb.d/01-guacamole-init.sql
       - ./desktop-manager-api/guacamole-init-users-postgres.sql:/docker-entrypoint-initdb.d/02-guacamole-init-users.sql
-      - ./desktop-manager-api/init-postgres.sql:/docker-entrypoint-initdb.d/03-init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s

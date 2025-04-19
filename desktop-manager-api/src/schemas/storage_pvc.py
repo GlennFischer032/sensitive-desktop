@@ -42,7 +42,6 @@ class StoragePVC(StoragePVCBase):
 
     class Config:
         from_attributes = True
-        orm_mode = True
 
     @classmethod
     def list_from_rows(cls, rows: list[dict[str, Any]]) -> list["StoragePVC"]:

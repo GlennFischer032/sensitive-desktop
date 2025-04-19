@@ -43,7 +43,7 @@ spec:
             - ALL
         image: {{ .Values.postgres.initdbImage }}
         imagePullPolicy: Always
-        command: ["/bin/bash", "-c"]
+        command: ["/bin/sh", "-c"]
         args:
         - |
           set -e

@@ -54,8 +54,8 @@ class GuacamoleConnectionParameters(TypedDict):
     color_depth: NotRequired[str]
     force_lossless: NotRequired[str]
     clipboard_encoding: NotRequired[str]
-    disable_copy: NotRequired[str]
-    disable_paste: NotRequired[str]
+    disable_copy: NotRequired[str] = "true"
+    disable_paste: NotRequired[str] = "false"
     dest_port: NotRequired[str]
     recording_exclude_output: NotRequired[str]
     recording_exclude_mouse: NotRequired[str]

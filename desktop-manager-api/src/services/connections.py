@@ -110,7 +110,7 @@ class ConnectionsService:
             if not config:
                 raise NotFoundError("Desktop configuration not found")
 
-            allowed_users = config.user_access
+            allowed_users = [access.username for access in config.users]
 
             if not current_user.is_admin and current_user.username not in allowed_users:
                 raise ForbiddenError("You do not have permission to use this configuration")
@@ -717,7 +717,7 @@ class ConnectionsService:
     def attach_pvc_to_connection(self, connection_id, pvc_id, current_user, session):
         """Attach a PVC to a connection."""
         pvc_repo = StoragePVCRepository(session)
-        if not current_user.is_admin and pvc_id not in [
+        if not current_user.is_admin and int(pvc_id) not in [
             pvc.id for pvc in pvc_repo.get_pvcs_for_user(current_user.username)
         ]:
             raise ForbiddenError("You do not have permission to attach this PVC to this connection")

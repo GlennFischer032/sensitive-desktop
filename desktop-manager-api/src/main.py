@@ -1,11 +1,9 @@
-from datetime import datetime
 from http import HTTPStatus
 import logging
+import time
 
-from clients.factory import client_factory
 from config.settings import get_settings
 from database.core.session import get_db_session, initialize_db
-from database.repositories.user import UserRepository
 from flask import Flask, jsonify
 from flask_cors import CORS
 from routes import (
@@ -16,6 +14,7 @@ from routes import (
     token_bp,
     users_bp,
 )
+from services.user import UserService
 from sqlalchemy import text
 
 
@@ -92,56 +91,20 @@ def create_app() -> Flask:
 
     # Initialize admin user
     with app.app_context(), get_db_session() as session:
-        # First, check if admin exists via OIDC sub (new method)
-        user_repo = UserRepository(session)
-        admin = user_repo.get_by_sub(settings.ADMIN_OIDC_SUB)
-        if not admin:
-            # Generate a username from the sub
-            admin_username = f"admin-{settings.ADMIN_OIDC_SUB.split('@')[0][:8]}"
-            user_repo.create_user(
-                {
-                    "username": admin_username,
-                    "email": "admin@example.com",
-                    "sub": settings.ADMIN_OIDC_SUB,
-                    "is_admin": True,
-                    "created_at": datetime.utcnow(),
-                },
-            )
-
-            user_repo.create_social_auth(
-                {
-                    "user_id": admin.id,
-                    "provider": "oidc",
-                    "provider_user_id": settings.ADMIN_OIDC_SUB,
-                    "provider_name": "e-infra",
-                    "created_at": datetime.utcnow(),
-                },
-            )
-
-            logger.info("Admin user created with OIDC sub: %s", settings.ADMIN_OIDC_SUB)
-        else:
-            logger.info("Admin user already exists with OIDC sub: %s", settings.ADMIN_OIDC_SUB)
-
-        # Initialize admin in Guacamole
-        guacamole_client = client_factory.get_guacamole_client()
-        token = guacamole_client.login()
-
-        # For JSON authentication, we'll create the user without password
-        # This is supported since the admin will use OIDC authentication
-        if admin.username:
-            # Create Guacamole user without password for JSON auth
-            guacamole_client.create_user_if_not_exists(
-                token=token,
-                username=admin.username,
-                password="",  # Empty password for JSON auth
-                attributes={"guac_full_name": "Admin User", "guac_organization": "e-INFRA"},
-            )
-            guacamole_client.ensure_group(token, "admins")
-            guacamole_client.ensure_group(token, "all_users")
-            guacamole_client.add_user_to_group(token, admin.username, "admins")
-        else:
-            logger.warning("Could not initialize admin user in Guacamole: no username available")
-
+        for attempt in range(10):
+            try:
+                user_service = UserService()
+                user_service.init_admin_user(session)
+                logger.info("Admin user initialized successfully")
+                break
+            except Exception as e:
+                logger.error("Error initializing admin user: %s (attempt %d)", str(e), attempt + 1)
+                if attempt < 9:
+                    logger.info("Retrying in 5 seconds...")
+                    time.sleep(5)
+                else:
+                    logger.error("Failed to initialize admin user after 10 attempts")
+                    raise e
     logger.info("=== Starting API Application ===")
     return app
 

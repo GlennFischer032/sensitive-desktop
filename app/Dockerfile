@@ -44,9 +44,9 @@ RUN chown -R 1000:1000 /app
 USER 1000
 
 # Set environment variables
-ENV FLASK_APP=app.py
+ENV FLASK_APP=app:app
 ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 
 # Expose port
 EXPOSE 5000

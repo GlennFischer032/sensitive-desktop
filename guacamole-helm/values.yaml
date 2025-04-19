@@ -66,7 +66,7 @@ common:
     loginRedirectUrl: "" # Set your Social Auth login redirect URL
     loginErrorUrl: "" # Set your Social Auth login error URL
     oidcCallbackUrl: "" # Set your Social Auth OIDC callback URL
-
+    oidcFrontendRedirectUri: "" # Set your Social Auth OIDC frontend redirect URI
 # Component-specific configurations
 replicaCount: 1
 

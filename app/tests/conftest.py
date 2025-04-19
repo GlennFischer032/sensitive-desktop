@@ -1,103 +1,141 @@
-"""pytest configuration and fixtures."""
-
-from unittest.mock import patch
-
-import fakeredis
+import os
+import sys
 import pytest
+from flask import Flask, session
+import fakeredis
+import datetime
+import jwt
+from unittest.mock import patch, MagicMock
 
-from app import create_app
-from app.clients.redis_client import RedisClient
-from app.tests.config import TestConfig
+# Add the src directory to the path so we can import modules
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
+
+# Import the create_app function
+from __init__ import create_app
 
 
-@pytest.fixture()
+class TestConfig:
+    """Test configuration"""
+
+    SECRET_KEY = "test_secret_key"
+    DEBUG = True
+    TESTING = True
+    API_URL = "http://localhost:5000"
+    EXTERNAL_GUACAMOLE_URL = "http://guacamole:8080/guacamole"
+
+    # Use null session for testing
+    SESSION_TYPE = "null"
+
+    # Security configuration
+    JWT_ALGORITHM = "HS256"
+
+    # CORS configuration
+    CORS_ALLOWED_ORIGINS = ["http://localhost:5000"]
+    CORS_SUPPORTS_CREDENTIALS = True
+
+    # Rate limiting configuration
+    RATE_LIMIT_DEFAULT_SECOND = 1000
+    RATE_LIMIT_DEFAULT_MINUTE = 1000
+    RATE_LIMIT_DEFAULT_HOUR = 1000
+
+    # Content Security Policy
+    CSP_POLICY = {
+        "default-src": ["'self'"],
+        "script-src": ["'self'"],
+        "style-src": ["'self'"],
+        "img-src": ["'self'"],
+        "font-src": ["'self'"],
+        "connect-src": ["'self'"],
+        "frame-src": ["'self'"],
+    }
+
+
+@pytest.fixture(scope="module")
 def app():
-    """Create and configure a Flask application for testing."""
-    # Create the app with TestConfig
-    fake_redis = fakeredis.FakeRedis()
+    """Create and configure a Flask app for testing."""
+    # Create mocks
+    redis_client_mock = MagicMock()
+    redis_client_mock._get_connection.return_value = fakeredis.FakeStrictRedis()
+    redis_client_mock.zremrangebyscore.return_value = 0
+    redis_client_mock.zadd.return_value = 0
+    redis_client_mock.zcard.return_value = 0
+    redis_client_mock.zrange.return_value = []
+    redis_client_mock.pipeline.return_value = MagicMock()
 
-    # Use patch to replace redis.from_url with fake redis
-    with patch("redis.from_url", return_value=fake_redis):
-        # Create app with TestConfig
+    # Mock the rate limiter's is_rate_limited method to always return False (not limited)
+    with patch("middleware.security.rate_limiter.is_rate_limited", return_value=(False, None)), patch(
+        "clients.factory.client_factory.get_redis_client", return_value=redis_client_mock
+    ):
         app = create_app(TestConfig)
-
-        # Ensure the TestConfig settings are applied
         app.config.update(
             {
                 "TESTING": True,
-                "WTF_CSRF_ENABLED": False,
             }
         )
 
-        # Disable rate limiting during tests by removing the check_rate_limit from before_request
-        app.before_request_funcs[None] = [
-            f for f in app.before_request_funcs.get(None, []) if f.__name__ != "check_rate_limit"
-        ]
-
-        # Set up a dummy rate limiter that always returns not limited
-        with patch("app.middleware.security.rate_limiter.is_rate_limited", return_value=(False, None)):
-            # Yield the app for tests
-            with app.app_context():
-                yield app
+        # Create application context
+        with app.app_context():
+            yield app
 
 
-@pytest.fixture()
-def client(app, mock_redis):
-    """Create a test client for the Flask application."""
-    with app.test_client() as client:
-        yield client
+@pytest.fixture(scope="module")
+def client(app):
+    """A test client for the app."""
+    return app.test_client()
 
 
-@pytest.fixture()
-def mock_redis():
-    """Create a mock redis client using fakeredis."""
-    # Create a fake Redis server
-    fake_server = fakeredis.FakeServer()
-    fake_redis = fakeredis.FakeRedis(server=fake_server)
-
-    # Mock all redis connections with fake redis
-    with patch("redis.Redis.from_url", return_value=fake_redis), patch("redis.from_url", return_value=fake_redis):
-        yield fake_redis
+@pytest.fixture(scope="module")
+def runner(app):
+    """A test CLI runner for the app."""
+    return app.test_cli_runner()
 
 
-@pytest.fixture()
-def mock_redis_client(mock_redis):
-    """Create a mock RedisClient that uses fakeredis."""
-    # Create a real RedisClient instance
-    redis_client = RedisClient()
-
-    # Apply the patch
-    with patch.object(redis_client, "_get_connection", return_value=mock_redis):
-        yield redis_client
-
-
-@pytest.fixture()
-def auth_header():
-    """Create a mock authorization header."""
-    return {"Authorization": "Bearer test-token"}
+@pytest.fixture
+def auth_token(app):
+    """Generate a valid JWT token for testing."""
+    payload = {
+        "sub": "test_user",
+        "name": "Test User",
+        "email": "test@example.com",
+        "iat": datetime.datetime.utcnow(),
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        "roles": ["user"],
+    }
+    token = jwt.encode(payload, app.config["SECRET_KEY"], algorithm=app.config["JWT_ALGORITHM"])
+    return token
 
 
-@pytest.fixture()
-def logged_in_client(client, monkeypatch):
-    """Create a test client with an active session."""
-    with client.session_transaction() as session:
-        session["logged_in"] = True
-        session["user_id"] = "test-user-id"
-        session["username"] = "test-user"
-        session["is_admin"] = False
-        session["token"] = "test-token"
+@pytest.fixture
+def admin_token(app):
+    """Generate a valid JWT token with admin role for testing."""
+    payload = {
+        "sub": "admin_user",
+        "name": "Admin User",
+        "email": "admin@example.com",
+        "iat": datetime.datetime.utcnow(),
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1),
+        "roles": ["admin"],
+    }
+    token = jwt.encode(payload, app.config["SECRET_KEY"], algorithm=app.config["JWT_ALGORITHM"])
+    return token
 
+
+@pytest.fixture
+def logged_in_client(client, auth_token):
+    """A test client with an active user session."""
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+        sess["token"] = auth_token
+        sess["user"] = {"id": "test_user", "name": "Test User", "email": "test@example.com"}
     return client
 
 
-@pytest.fixture()
-def admin_client(client, monkeypatch):
-    """Create a test client with an active admin session."""
-    with client.session_transaction() as session:
-        session["logged_in"] = True
-        session["user_id"] = "admin-user-id"
-        session["username"] = "admin-user"
-        session["is_admin"] = True
-        session["token"] = "admin-token"
-
+@pytest.fixture
+def admin_client(client, admin_token):
+    """A test client with an active admin session."""
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+        sess["token"] = admin_token
+        sess["user"] = {"id": "admin_user", "name": "Admin User", "email": "admin@example.com"}
+        sess["is_admin"] = True
     return client

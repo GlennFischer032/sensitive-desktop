@@ -18,15 +18,7 @@ Database Information:
 PostgreSQL Host: postgres-guacamole
 Database: {{ .Values.common.database.database }}
 
-Next Steps:
-----------
-1. Access the Guacamole interface and change the default password
-2. Access the Desktop Manager to start creating and managing remote desktops
-3. Configure your Rancher API token if not already set:
-   kubectl create secret generic desktop-api-{{ .Release.Name }} \
-     --namespace {{ .Release.Namespace }} \
-     --from-literal=rancher-token=YOUR_TOKEN
 
 For more information and troubleshooting, please visit:
 https://github.com/apache/guacamole-client
-https://github.com/your-org/desktop-manager
+https://gitlab.fi.muni.cz/xfischer/sensitive-desktop

@@ -1,0 +1,711 @@
+{% extends "base.html" %}
+{% from "partials/modal.html" import modal, loading, error_message %}
+{% from "partials/modal_js.html" import modal_js %}
+
+{% block title %}Connections - Desktop Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-title">
+        <h2>Connections</h2>
+        <span class="subtitle">Manage your desktop connections</span>
+    </div>
+    <div class="header-actions">
+        <button id="add-connection-button" class="button">Add Connection</button>
+    </div>
+</div>
+
+<div class="table-container connections-table-container">
+    {% if connections %}
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Created At</th>
+                <th>Created By</th>
+                <th>Persistent Home</th>
+                <th>Desktop Configuration</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for conn in connections %}
+            <tr id="connection-{{ conn.name }}" class="{% if conn.is_stopped %}stopped-connection{% endif %}">
+                <td>{{ conn.name }}{% if conn.is_stopped %} (Stopped){% endif %}</td>
+                <td>{{ conn.created_at }}</td>
+                <td>{{ conn.created_by }}</td>
+                <td>{{ "Yes" if conn.persistent_home else "No" }}</td>
+                <td>{{ conn.desktop_configuration_name or "Default" }}</td>
+                <td class="action-buttons">
+                    {% if not conn.is_stopped %}
+                    <div class="button-group-actions">
+                        <a href="{{ url_for('connections.direct_connect', connection_id=conn.id) }}" target="_blank" class="button small connect-btn">Connect</a>
+                        <form action="{{ url_for('connections_api.stop_connection', connection_name=conn.name) }}" method="POST"
+                            onsubmit="handleStop(event, '{{ conn.name }}')">
+                            <button type="submit" class="button small danger delete-btn">Stop</button>
+                        </form>
+                        {% if storage_pvcs %}
+                        {% if conn.has_external_pvc %}
+                        <button type="button" class="button small info" onclick="handleDetachStorage({{ conn.id }})">Disconnect Storage</button>
+                        {% else %}
+                        <button type="button" class="button small info" onclick="handleAttachStorage({{ conn.id }})">Connect Storage</button>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="button-group-actions">
+                        <form action="{{ url_for('connections_api.resume_connection', connection_name=conn.name) }}" method="POST"
+                              onsubmit="handleResume(event, '{{ conn.name }}')">
+                            <button type="submit" class="button small success resume-btn">Resume</button>
+                        </form>
+                        <form action="{{ url_for('connections_api.delete_connection', connection_name=conn.name) }}" method="DELETE"
+                              onsubmit="handleDelete(event, '{{ conn.name }}')">
+                            <button type="submit" class="button small danger permanent-delete-btn">Delete</button>
+                        </form>
+                        {% if storage_pvcs %}
+                        {% if conn.has_external_pvc %}
+                        <button type="button" class="button small info" onclick="handleDetachStorage({{ conn.id }})">Disconnect Storage</button>
+                        {% else %}
+                        <button type="button" class="button small info" onclick="handleAttachStorage({{ conn.id }})">Connect Storage</button>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <p>No connections found. Click "Add Connection" to create one.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Connection Modal -->
+{% call modal(id="add-connection-modal", title="Add Connection", size="sm") %}
+    <div class="info-box">
+        <h4>Connection Requirements:</h4>
+        <ul>
+            <li>Name must start and end with an alphanumeric character</li>
+            <li>Only lowercase letters, numbers, and hyphens allowed</li>
+            <li>Maximum length is 12 characters</li>
+        </ul>
+    </div>
+
+    <form id="connection-form" method="post" action="{{ url_for('connections.add_connection') }}">
+        <div class="form-group">
+            <label for="name" class="required">Connection Name:</label>
+            <input type="text" id="name" name="connection_name" required
+                   pattern="^[a-z0-9][a-z0-9\-]*[a-z0-9]$"
+                   maxlength="12" oninput="validateConnectionName(this)">
+            <div id="name-feedback" class="invalid-feedback" style="display: none; color: red; margin-top: 5px;"></div>
+        </div>
+
+        <div class="form-group">
+            <div class="checkbox-wrapper">
+                <label class="checkbox-label" for="persistent_home">
+                    <input type="checkbox" id="persistent_home" name="persistent_home" checked>
+                    Persistent Home Directory
+                </label>
+            </div>
+            <small class="form-help">When enabled, your home directory contents will be preserved between sessions.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="desktop_configuration_id">Desktop Configuration:</label>
+            <select id="desktop_configuration_id" name="desktop_configuration_id">
+                <option value="">Default Configuration</option>
+                {% for config in desktop_configurations %}
+                <option value="{{ config.id }}">{{ config.name }}</option>
+                {% endfor %}
+            </select>
+            <small class="form-help">Select a desktop configuration to use for this connection.</small>
+        </div>
+
+        {% if storage_pvcs %}
+        <div class="form-group">
+            <label for="external_pvc">Storage PVC:</label>
+            <select id="external_pvc" name="external_pvc">
+                <option value="">No external storage</option>
+                {% for pvc in storage_pvcs %}
+                <option value="{{ pvc.name }}">{{ pvc.name }} ({{ pvc.size }})</option>
+                {% endfor %}
+            </select>
+            <small class="form-help">Select a persistent volume claim to attach to this desktop for additional storage.</small>
+        </div>
+        {% endif %}
+
+        <div class="form-actions">
+            <button type="submit" class="button primary" id="submit-button">Create Connection</button>
+            <button type="button" class="button secondary close-modal">Cancel</button>
+        </div>
+    </form>
+
+    {{ loading(id="create-loading", text="Creating connection...") }}
+    {{ error_message(id="create-error") }}
+{% endcall %}
+
+<!-- Attach Storage Modal -->
+{% call modal(id="attach-storage-modal", title="Attach Storage", size="sm") %}
+    <form id="attach-storage-form">
+        <input type="hidden" id="attach-connection-id" name="connection_id">
+        <input type="hidden" id="attach-connection-status" name="connection_status">
+
+        <div id="attach-warning" class="message warning hidden">
+            <strong>Warning:</strong> Connecting storage to a running desktop will cause it to restart. Any unsaved work will be lost.
+        </div>
+
+        <div class="form-group">
+            <label for="attach-pvc-id">Storage PVC:</label>
+            <select id="attach-pvc-id" name="pvc_id" required>
+                <option value="">Select a storage PVC</option>
+                {% for pvc in storage_pvcs %}
+                <option value="{{ pvc.id }}">{{ pvc.name }} ({{ pvc.size }})</option>
+                {% endfor %}
+            </select>
+            <small class="form-help">Select a persistent volume claim to attach to this desktop for additional storage.</small>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button primary">Attach Storage</button>
+            <button type="button" class="button secondary close-modal">Cancel</button>
+        </div>
+    </form>
+
+    {{ loading(id="attach-loading", text="Attaching storage...") }}
+    {{ error_message(id="attach-error") }}
+{% endcall %}
+
+{{ modal_js() }}
+
+<script>
+// UUID length is 8 characters plus 1 for the hyphen
+const UUID_LENGTH = 9;
+const MAX_TOTAL_LENGTH = 53;
+const MAX_INPUT_LENGTH = 12; // Limit user input to 12 characters
+
+function validateConnectionName(input) {
+    const nameInput = input.value.toLowerCase();
+    const feedback = document.getElementById('name-feedback');
+    const submitButton = document.getElementById('submit-button');
+
+    // Clear previous feedback
+    feedback.style.display = 'none';
+    submitButton.disabled = false;
+
+    // Convert to lowercase automatically
+    if (input.value !== nameInput) {
+        input.value = nameInput;
+    }
+
+    // Check if empty
+    if (!nameInput) {
+        feedback.textContent = 'Connection name is required.';
+        feedback.style.display = 'block';
+        submitButton.disabled = true;
+        return false;
+    }
+
+    // Check maximum length (hard limit to 12 characters)
+    if (nameInput.length > MAX_INPUT_LENGTH) {
+        feedback.textContent = `Name is too long. Maximum length is ${MAX_INPUT_LENGTH} characters.`;
+        feedback.style.display = 'block';
+        submitButton.disabled = true;
+        return false;
+    }
+
+    // Check regex pattern
+    const NAME_REGEX = /^[a-z0-9][a-z0-9\-]*[a-z0-9]$/;
+    if (!NAME_REGEX.test(nameInput)) {
+        feedback.textContent = 'Name must start and end with an alphanumeric character, and can contain only lowercase letters, numbers, and hyphens.';
+        feedback.style.display = 'block';
+        submitButton.disabled = true;
+        return false;
+    }
+
+    return true;
+}
+
+async function handleStop(event, connectionName) {
+    event.preventDefault();
+
+    if (!confirm('Are you sure you want to stop this connection?')) {
+        return;
+    }
+
+    const form = event.target;
+    const row = document.getElementById(`connection-${connectionName}`);
+    const actionButtons = row.querySelector('.action-buttons');
+
+    // Replace buttons with loading animation while preserving structure
+    actionButtons.innerHTML = `
+        <div class="button-group-actions">
+            <span class="deleting-text">Stopping</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
+        </div>
+    `;
+
+    row.classList.add('stopping-row');
+
+    try {
+        const response = await fetch(form.action, {
+            method: form.method,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            // Show success notification
+            const notificationContainer = document.createElement('div');
+            notificationContainer.className = 'notification-container';
+            notificationContainer.innerHTML = `
+                <div class="notification success">
+                    Connection stopped successfully
+                </div>
+            `;
+            document.body.appendChild(notificationContainer);
+
+            // Remove notification after delay
+            setTimeout(() => {
+                notificationContainer.querySelector('.notification').style.opacity = '0';
+                setTimeout(() => notificationContainer.remove(), 300);
+            }, 3000);
+
+            // Reload to show the stopped state properly
+            location.reload();
+        } else {
+            const error = await response.text();
+            throw new Error(error);
+        }
+    } catch (error) {
+        actionButtons.innerHTML = `
+            <div class="button-group-actions">
+                <span class="error-text">Error: ${error.message}</span>
+                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            </div>
+        `;
+    }
+}
+
+async function handleResume(event, connectionName) {
+    event.preventDefault();
+
+    if (!confirm('Are you sure you want to resume this connection?')) {
+        return;
+    }
+
+    const form = event.target;
+    const row = document.getElementById(`connection-${connectionName}`);
+    const actionButtons = row.querySelector('.action-buttons');
+
+    // Replace buttons with loading animation while preserving structure
+    actionButtons.innerHTML = `
+        <div class="button-group-actions">
+            <span class="resuming-text">Resuming</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
+        </div>
+    `;
+
+    row.classList.add('resuming-row');
+
+    try {
+        const response = await fetch(form.action, {
+            method: form.method,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name: connectionName }),
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            // Show success notification
+            const notificationContainer = document.createElement('div');
+            notificationContainer.className = 'notification-container';
+            notificationContainer.innerHTML = `
+                <div class="notification success">
+                    Connection resumed successfully
+                </div>
+            `;
+            document.body.appendChild(notificationContainer);
+
+            // Remove notification after delay
+            setTimeout(() => {
+                notificationContainer.querySelector('.notification').style.opacity = '0';
+                setTimeout(() => notificationContainer.remove(), 300);
+            }, 3000);
+
+            // Reload the page to show updated connection
+            location.reload();
+        } else {
+            let errorMessage = 'Failed to resume connection';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch (e) {
+                try {
+                    errorMessage = await response.text();
+                } catch (e2) {
+                    console.error('Could not parse error response', e2);
+                }
+            }
+            throw new Error(errorMessage);
+        }
+    } catch (error) {
+        console.error('Resume error:', error);
+        actionButtons.innerHTML = `
+            <div class="button-group-actions">
+                <span class="error-text">Error: ${error.message}</span>
+                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            </div>
+        `;
+    }
+}
+
+async function handleDelete(event, connectionName) {
+    event.preventDefault();
+
+    if (!confirm('Are you sure you want to permanently delete this connection? This will delete the connection and its persistent home directory. This action cannot be undone.')) {
+        return;
+    }
+
+    const form = event.target;
+    const row = document.getElementById(`connection-${connectionName}`);
+    const actionButtons = row.querySelector('.action-buttons');
+
+    // Replace buttons with loading animation while preserving structure
+    actionButtons.innerHTML = `
+        <div class="button-group-actions">
+            <span class="deleting-text">Permanently Deleting</span>
+            <div class="loading-dots">
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+                <div class="loading-dot"></div>
+            </div>
+        </div>
+    `;
+
+    row.classList.add('stopping-row');
+
+    try {
+        const response = await fetch(form.action, {
+            method: "DELETE",
+            credentials: 'same-origin'
+        });
+
+        if (response.ok) {
+            // Show success notification
+            const notificationContainer = document.createElement('div');
+            notificationContainer.className = 'notification-container';
+            notificationContainer.innerHTML = `
+                <div class="notification success">
+                    Connection permanently deleted
+                </div>
+            `;
+            document.body.appendChild(notificationContainer);
+
+            // Remove notification after delay
+            setTimeout(() => {
+                notificationContainer.querySelector('.notification').style.opacity = '0';
+                setTimeout(() => notificationContainer.remove(), 300);
+            }, 3000);
+
+            // Remove the row from the table
+            row.remove();
+        } else {
+            let errorMessage = 'Failed to permanently delete connection';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || errorData.message || errorMessage;
+            } catch (e) {
+                try {
+                    errorMessage = await response.text();
+                } catch (e2) {
+                    console.error('Could not parse error response', e2);
+                }
+            }
+            throw new Error(errorMessage);
+        }
+    } catch (error) {
+        console.error('Permanent delete error:', error);
+        actionButtons.innerHTML = `
+            <div class="button-group-actions">
+                <span class="error-text">Error: ${error.message}</span>
+                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
+            </div>
+        `;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Add Connection button
+    const addConnectionButton = document.getElementById('add-connection-button');
+    if (addConnectionButton) {
+        addConnectionButton.addEventListener('click', function() {
+            ModalManager.show('add-connection-modal');
+        });
+    }
+
+    // Connection form submission
+    document.getElementById('connection-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        if (!validateConnectionName(document.getElementById('name'))) {
+            return false;
+        }
+
+        const form = this;
+        const createLoading = document.getElementById('create-loading');
+        const createError = document.getElementById('create-error');
+
+        // Hide any previous error
+        createError.classList.add('hidden');
+        createError.textContent = '';
+
+        // Show loading
+        form.style.display = 'none';
+        createLoading.classList.remove('hidden');
+
+        // Ensure the checkbox value is properly set
+        const persistentHomeCheckbox = document.getElementById('persistent_home');
+        let formData = new FormData(form);
+
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create connection');
+                }
+
+                // Success - show notification
+                const notificationContainer = document.createElement('div');
+                notificationContainer.className = 'notification-container';
+                notificationContainer.innerHTML = `
+                    <div class="notification success">
+                        ${data.message || 'Connection created successfully'}
+                    </div>
+                `;
+                document.body.appendChild(notificationContainer);
+
+                // Remove notification after delay
+                setTimeout(() => {
+                    notificationContainer.querySelector('.notification').style.opacity = '0';
+                    setTimeout(() => notificationContainer.remove(), 300);
+                }, 3000);
+
+                // Reload the page after a short delay to show the new connection
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                // Handle non-JSON response (redirect)
+                window.location.reload();
+            }
+        } catch (error) {
+            // Show error
+            createLoading.classList.add('hidden');
+            form.style.display = 'block';
+            createError.textContent = error.message;
+            createError.classList.remove('hidden');
+        }
+    });
+
+    // Attach Storage form submission
+    document.getElementById('attach-storage-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const form = this;
+        const attachLoading = document.getElementById('attach-loading');
+        const attachError = document.getElementById('attach-error');
+
+        // Hide any previous error
+        attachError.classList.add('hidden');
+        attachError.textContent = '';
+
+        // Show loading
+        form.style.display = 'none';
+        attachLoading.classList.remove('hidden');
+
+        const connectionId = document.getElementById('attach-connection-id').value;
+        const pvcId = document.getElementById('attach-pvc-id').value;
+
+        try {
+            const response = await fetch('/api/connections/attach-pvc', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    connection_id: connectionId,
+                    pvc_id: pvcId
+                })
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || 'Failed to attach storage');
+            }
+
+            // Show success notification
+            const notificationContainer = document.createElement('div');
+            notificationContainer.className = 'notification-container';
+            notificationContainer.innerHTML = `
+                <div class="notification success">
+                    Storage attached successfully
+                </div>
+            `;
+            document.body.appendChild(notificationContainer);
+
+            // Remove notification after delay
+            setTimeout(() => {
+                notificationContainer.querySelector('.notification').style.opacity = '0';
+                setTimeout(() => notificationContainer.remove(), 300);
+            }, 3000);
+
+            // Reload the page to show updated connection
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        } catch (error) {
+            // Show error
+            attachLoading.classList.add('hidden');
+            form.style.display = 'block';
+            attachError.textContent = error.message;
+            attachError.classList.remove('hidden');
+        }
+    });
+});
+
+function handleAttachStorage(connectionId) {
+    document.getElementById('attach-connection-id').value = connectionId;
+
+    // Check if the connection is running or stopped
+    const row = document.querySelector(`[id^="connection-"][id$="${connectionId}"]`);
+    const isStopped = row.classList.contains('stopped-connection');
+
+    document.getElementById('attach-connection-status').value = isStopped ? 'stopped' : 'running';
+
+    // Show warning if the connection is running
+    const warningBox = document.getElementById('attach-warning');
+    warningBox.classList.toggle('hidden', isStopped);
+
+    ModalManager.show('attach-storage-modal');
+}
+
+async function handleDetachStorage(connectionId) {
+    // Find the connection row and check if it's stopped
+    const row = document.querySelector(`[id^="connection-"][id$="${connectionId}"]`);
+    const isStopped = row.classList.contains('stopped-connection');
+
+    let warningMessage = 'Are you sure you want to disconnect storage from this connection?';
+    if (!isStopped) {
+        warningMessage = 'Warning: Disconnecting storage from a running desktop will cause it to restart. Any unsaved work will be lost. Do you want to continue?';
+    }
+
+    if (!confirm(warningMessage)) {
+        return;
+    }
+
+    // Store the original button for later restoration
+    const button = row.querySelector('button[onclick^="handleDetachStorage"]');
+    const originalButtonHTML = button.outerHTML;
+
+    // Replace button with loading animation
+    button.innerHTML = `
+        <span class="disconnecting-text">Disconnecting</span>
+        <div class="loading-dots">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+        </div>
+    `;
+    button.disabled = true;
+
+    try {
+        const response = await fetch('/api/connections/detach-pvc', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                connection_id: connectionId
+            })
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to detach storage');
+        }
+
+        // Show success notification
+        const notificationContainer = document.createElement('div');
+        notificationContainer.className = 'notification-container';
+        notificationContainer.innerHTML = `
+            <div class="notification success">
+                Storage disconnected successfully
+            </div>
+        `;
+        document.body.appendChild(notificationContainer);
+
+        // Remove notification after delay
+        setTimeout(() => {
+            notificationContainer.querySelector('.notification').style.opacity = '0';
+            setTimeout(() => notificationContainer.remove(), 300);
+        }, 3000);
+
+        // Reload the page to show updated connection
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    } catch (error) {
+        console.error('Error detaching storage:', error);
+
+        // Restore the original button
+        button.outerHTML = originalButtonHTML;
+
+        // Show error notification
+        const notificationContainer = document.createElement('div');
+        notificationContainer.className = 'notification-container';
+        notificationContainer.innerHTML = `
+            <div class="notification error">
+                Error: ${error.message}
+            </div>
+        `;
+        document.body.appendChild(notificationContainer);
+
+        // Remove notification after delay
+        setTimeout(() => {
+            notificationContainer.querySelector('.notification').style.opacity = '0';
+            setTimeout(() => notificationContainer.remove(), 300);
+        }, 3000);
+    }
+}
+</script>
+
+{% endblock %}

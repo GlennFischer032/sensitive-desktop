@@ -226,4 +226,3 @@ Custom Docker images are maintained in the `docker/` directory:
 SQL scripts in `sql/` directory:
 1. `01-guacamole-init.sql`: Core Guacamole schema
 2. `02-guacamole-init-users.sql`: User initialization
-3. `03-init.sql`: Additional initialization

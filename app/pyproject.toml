@@ -54,19 +54,7 @@ sass-watch = "python app/scripts/sass_watch.py"
 sass-compressed = "pysassc -t compressed app/scss/main.scss app/static/style.css"
 build = "pysassc -t compressed app/scss/main.scss app/static/style.css"
 
-[tool.setuptools]
-packages = [
-    "clients",
-    "config",
-    "middleware",
-    "utils",
-    "services.auth",
-    "services.configurations",
-    "services.connections",
-    "services.storage",
-    "services.tokens",
-    "services.users",
-]
+
 
 [tool.black]
 line-length = 120

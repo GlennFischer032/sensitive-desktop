@@ -104,6 +104,8 @@ spec:
             value: {{ .Values.common.socialAuth.oidcCallbackUrl | quote }}
           - name: FRONTEND_URL
             value: {{ .Values.common.oidc.frontendUrl | quote }}
+          - name: SOCIAL_AUTH_OIDC_FRONTEND_REDIRECT_URI
+            value: {{ .Values.common.socialAuth.oidcFrontendRedirectUri | quote }}
           - name: RANCHER_API_TOKEN
             valueFrom:
               secretKeyRef:

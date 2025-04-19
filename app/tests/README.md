@@ -1,119 +1,74 @@
-# Flask App Testing Framework
+# Testing Framework for Desktop Frontend
 
-This directory contains the tests for the Flask application.
+This directory contains tests for the Desktop Frontend application using pytest.
 
-## Structure
+## Test Structure
 
-- `functional/`: Functional/integration tests that test entire views and endpoints
-- `unit/`: Unit tests for individual components and functions
-- `conftest.py`: Shared pytest fixtures
-- `data/`: Test data files (if needed)
+The tests are organized as follows:
 
-## Configuration
-
-The pytest configuration is stored in the `pyproject.toml` file under the `[tool.pytest.ini_options]` section. Testing dependencies are also defined in the same file under `[project.optional-dependencies.test]`.
+- **unit/**: Unit tests for individual components
+- **functional/**: Functional tests for application routes and features
+- **conftest.py**: Shared fixtures and test configuration
+- **data/**: Test data files
 
 ## Running Tests
 
-### Using the Command Line
-
-To run all tests:
-```bash
-python -m pytest app/tests/
-```
-
-To run unit tests only:
-```bash
-python -m pytest app/tests/unit/
-```
-
-To run functional tests only:
-```bash
-python -m pytest app/tests/functional/
-```
-
-To generate coverage report:
-```bash
-python -m pytest app/tests/ --cov=app --cov-report=term-missing:skip-covered
-```
-
-To generate HTML coverage report:
-```bash
-python -m pytest app/tests/ --cov=app --cov-report=html
-```
-
-### Using the Script
-
-We also provide a convenient script to run tests:
+### Run all tests
 
 ```bash
-python app/scripts/run_tests.py --type all --coverage
+python -m pytest
 ```
 
-Options:
-- `--type`: Test type to run (`unit`, `functional`, or `all`)
-- `--verbose` or `-v`: Increase verbosity
-- `--coverage` or `-c`: Generate coverage report
-- `--html`: Generate HTML coverage report
-
-### Pre-commit Hooks
-
-Tests are automatically run as part of the pre-commit hooks. To manually run:
+### Run with coverage report
 
 ```bash
-pre-commit run pytest-check
+python -m pytest --cov=app --cov-report=term-missing
 ```
 
-## Writing Tests
+### Run specific test types
 
-### Unit Tests
+```bash
+# Run only unit tests
+python -m pytest tests/unit/
 
-Unit tests should focus on testing individual functions and methods in isolation.
-They should be fast, independent, and not require external services.
+# Run only functional tests
+python -m pytest tests/functional/
 
-Follow this format:
-```python
-def test_something():
-    """
-    GIVEN a certain scenario
-    WHEN a specific action is performed
-    THEN a particular result is expected
-    """
-    # Arrange
-    ...
-    # Act
-    ...
-    # Assert
-    ...
+# Run a specific test file
+python -m pytest tests/unit/test_config.py
 ```
-
-### Functional Tests
-
-Functional tests should test entire views and endpoints, often using the Flask test client.
-They may require mocking external dependencies like API calls.
-
-## Mocking
-
-For mocking external dependencies, use `pytest-mock` or `unittest.mock`. For example:
-
-```python
-@patch('app.services.auth.auth_bp.requests.post')
-def test_login(mock_post, client):
-    # Setup mock
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"access_token": "test-token"}
-    mock_post.return_value = mock_response
-
-    # Test logic
-    response = client.post('/auth/login', data={'username': 'test', 'password': 'test'})
-    assert response.status_code == 302
-```
-
-## Redis Mocking
-
-The Redis client is mocked using fakeredis. Use the `mock_redis_client` fixture in your tests.
 
 ## Fixtures
 
-Common fixtures are defined in `conftest.py`. Use these fixtures in your tests to reduce duplication.
+The testing framework provides several fixtures in `conftest.py`:
+
+- `app`: A Flask application instance configured for testing
+- `client`: A test client for the app
+- `runner`: A test CLI runner for the app
+- `auth_token`: A valid JWT token for a regular user
+- `admin_token`: A valid JWT token for an admin user
+- `logged_in_client`: A test client with an active user session
+- `admin_client`: A test client with an active admin session
+
+## Test Categories
+
+Tests are categorized by markers:
+
+- `@pytest.mark.unit`: Unit tests
+- `@pytest.mark.functional`: Functional tests
+- `@pytest.mark.slow`: Slow tests
+- `@pytest.mark.integration`: Tests requiring integration with backend services
+
+You can run tests with a specific marker:
+
+```bash
+python -m pytest -m unit
+```
+
+## Pre-commit Integration
+
+Tests are automatically run as part of the pre-commit hooks. To skip tests during development, you can use:
+
+```bash
+pre-commit run --hook-stage manual pytest-check
+```

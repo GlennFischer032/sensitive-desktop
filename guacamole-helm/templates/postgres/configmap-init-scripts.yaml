@@ -9,5 +9,3 @@ data:
 {{ .Files.Get "sql/01-guacamole-init.sql" | indent 4 }}
   02-guacamole-init-users.sql: |-
 {{ .Files.Get "sql/02-guacamole-init-users.sql" | indent 4 }}
-  03-init.sql: |-
-{{ .Files.Get "sql/03-init.sql" | indent 4 }}
