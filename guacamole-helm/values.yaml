@@ -35,13 +35,11 @@ common:
   # Credentials and secrets
   credentials:
     secretKey: "" # Set a secure secret key for the application
-    guacamoleAdmin:
-      username: "" # Set the Guacamole admin username
-      password: "" # Set the Guacamole admin password
     desktopAdmin:
       username: "" # Set the Desktop Manager admin username
       password: "" # Set the Desktop Manager admin password
     guacamoleJsonSecretKey: "" # Set the Guacamole JSON secret key
+    encryptionKey: "" # Set the encryption key for VNC passwords
 
   # Rancher configuration
   rancher:

@@ -9,6 +9,7 @@ from schemas.base import Base
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from utils.encryption import decrypt_password, encrypt_password
 
 
 class Connection(Base):
@@ -23,10 +24,12 @@ class Connection(Base):
         name (str): Unique name of the connection
         created_at (datetime): Timestamp of when the connection was created
         created_by (str): Username of the user who created the connection
-        guacamole_connection_id (str): ID of the corresponding Guacamole connection
+        hostname (str): Hostname of the connection
+        port (str): Port of the connection
         is_stopped (bool): Whether the connection is currently stopped
         persistent_home (bool): Whether the home directory is persistent
         desktop_configuration_id (int): ID of the desktop configuration used
+        encrypted_password (str): Encrypted password for VNC connection
     """
 
     __tablename__ = "connections"
@@ -35,7 +38,9 @@ class Connection(Base):
     name: str = Column(String(255), unique=True, index=True, nullable=False)
     created_at: datetime = Column(DateTime, server_default=func.now(), nullable=False)
     created_by: str = Column(String(255), ForeignKey("users.username", ondelete="CASCADE"), nullable=False)
-    guacamole_connection_id: str = Column(String(255), nullable=False)
+    hostname: str = Column(String(255), nullable=False)
+    port: str = Column(String(255), nullable=False)
+    encrypted_password: str = Column(String(255), nullable=True)
     is_stopped: bool = Column(Boolean, default=False, nullable=False)
     persistent_home: bool = Column(Boolean, default=True, nullable=False)
     desktop_configuration_id: int = Column(Integer, ForeignKey("desktop_configurations.id"), nullable=True)
@@ -49,6 +54,22 @@ class Connection(Base):
 
     # Relationship to user who created the connection
     creator = relationship("User", foreign_keys=[created_by], back_populates="connections")
+
+    def set_password(self, password: str) -> None:
+        """Set the connection password, encrypting it for storage.
+
+        Args:
+            password: The plaintext password to encrypt and store
+        """
+        self.encrypted_password = encrypt_password(password)
+
+    def get_password(self) -> str:
+        """Get the decrypted connection password.
+
+        Returns:
+            The decrypted plaintext password, or None if no password is set
+        """
+        return decrypt_password(self.encrypted_password)
 
     def __repr__(self) -> str:
         """Return string representation of the Connection."""

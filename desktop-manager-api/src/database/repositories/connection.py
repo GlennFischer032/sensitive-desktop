@@ -10,6 +10,7 @@ from database.models.storage_pvc import ConnectionPVCMap, StoragePVC
 from database.repositories.base import BaseRepository
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
+from utils.encryption import encrypt_password
 
 
 class ConnectionRepository(BaseRepository[Connection]):
@@ -76,12 +77,14 @@ class ConnectionRepository(BaseRepository[Connection]):
         """
         connection = Connection(
             name=data["name"],
-            guacamole_connection_id=data["guacamole_connection_id"],
+            hostname=data["hostname"],
+            port=data["port"],
             created_by=data["created_by"],
             is_stopped=data.get("is_stopped", False),
             persistent_home=data.get("persistent_home", True),
             desktop_configuration_id=data.get("desktop_configuration_id"),
         )
+        connection.encrypted_password = encrypt_password(data["vnc_password"])
         return self.create(connection)
 
     def update_connection(self, connection_id: int, data: dict[str, Any]) -> Connection | None:
@@ -98,12 +101,16 @@ class ConnectionRepository(BaseRepository[Connection]):
         if connection:
             if "is_stopped" in data:
                 connection.is_stopped = data["is_stopped"]
-            if "guacamole_connection_id" in data:
-                connection.guacamole_connection_id = data["guacamole_connection_id"]
             if "persistent_home" in data:
                 connection.persistent_home = data["persistent_home"]
             if "desktop_configuration_id" in data:
                 connection.desktop_configuration_id = data["desktop_configuration_id"]
+            if "hostname" in data:
+                connection.hostname = data["hostname"]
+            if "port" in data:
+                connection.port = data["port"]
+            if "vnc_password" in data:
+                connection.encrypted_password = encrypt_password(data["vnc_password"])
             self.update(connection)
         return connection
 

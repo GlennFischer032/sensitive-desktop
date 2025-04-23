@@ -19,8 +19,6 @@ class Settings(BaseSettings):
 
     # Guacamole settings
     GUACAMOLE_URL: str = os.getenv("GUACAMOLE_URL", "http://guacamole:8080/guacamole")
-    GUACAMOLE_USERNAME: str = os.getenv("GUACAMOLE_USERNAME", "guacadmin")
-    GUACAMOLE_PASSWORD: str = os.getenv("GUACAMOLE_PASSWORD", "")
     GUACAMOLE_JSON_SECRET_KEY: str = os.getenv("GUACAMOLE_JSON_SECRET_KEY", "")
     GUACAMOLE_SECRET_KEY: str = os.getenv("GUACAMOLE_SECRET_KEY", "")
     EXTERNAL_GUACAMOLE_URL: str = os.getenv("EXTERNAL_GUACAMOLE_URL", "http://localhost:8080/guacamole")

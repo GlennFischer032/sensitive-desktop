@@ -295,6 +295,21 @@ def resume_connection() -> tuple[dict[str, Any], int]:
     logging.info("Request path: %s", request.path)
     logging.info("Request method: %s", request.method)
     logging.info("Request headers: %s", request.headers)
+    data = request.get_json()
+    if not data or "name" not in data:
+        return (
+            jsonify({"error": "Missing required field: name"}),
+            HTTPStatus.BAD_REQUEST,
+        )
+
+    connection_name = data["name"]
+    current_user = request.current_user
+
+    # Create service instance and call resume_connection
+    connection_service = ConnectionsService()
+    response_data = connection_service.resume_connection(connection_name, current_user, request.db_session)
+
+    return jsonify(response_data), HTTPStatus.OK
 
     try:
         # Extract connection name from request

@@ -3,11 +3,13 @@ import logging
 import uuid
 
 from clients.factory import client_factory
+from clients.guacamole import GuacamoleConnectionParameters
 from clients.rancher import DesktopValues
 from config.settings import get_settings
 from database.repositories.connection import ConnectionRepository
 from database.repositories.desktop_configuration import DesktopConfigurationRepository
 from database.repositories.storage_pvc import StoragePVCRepository
+from utils.encryption import decrypt_password
 from utils.guacamole_json_auth import GuacamoleJsonAuth
 from utils.utils import (
     generate_random_string,
@@ -174,47 +176,17 @@ class ConnectionsService:
             logging.error("Rancher provisioning failed: %s", str(e))
             raise APIError(f"Failed to provision desktop: {e!s}") from e
 
-    def setup_guacamole_connection(self, name, vnc_password, username):
-        """Set up Guacamole connection for the desktop."""
-        try:
-            # Get Guacamole client from factory
-            guacamole_client = client_factory.get_guacamole_client()
-
-            # Create Guacamole connection
-            # First get a Guacamole token
-            token = guacamole_client.login()
-
-            # Ensure admins group exists
-            guacamole_client.ensure_group(token, "admins")
-
-            # Get settings here to ensure it's in scope
-            settings = get_settings()
-
-            # Use correct hostname format
-            target_host = f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz"
-
-            guacamole_connection_id = guacamole_client.create_connection(
-                token,
-                name,
-                target_host,
-                vnc_password,
-            )
-            logging.info("Created Guacamole connection: %s", guacamole_connection_id)
-
-            # Grant permission to admins group
-            guacamole_client.grant_group_permission(token, "admins", guacamole_connection_id)
-
-            # Grant permission to user
-            guacamole_client.grant_permission(token, username, guacamole_connection_id)
-            logging.debug("Granted permission to %s", username)
-
-            return guacamole_connection_id
-        except Exception as e:
-            logging.error("Guacamole operation failed: %s", str(e))
-            raise APIError(f"Failed to set up Guacamole connection: {e!s}") from e
-
     def save_connection_to_database(
-        self, name, username, guacamole_connection_id, persistent_home, desktop_configuration_id, external_pvc, session
+        self,
+        name,
+        username,
+        vnc_password,
+        hostname,
+        port,
+        persistent_home,
+        desktop_configuration_id,
+        external_pvc,
+        session,
     ):
         """Save connection details to the database."""
         try:
@@ -223,7 +195,9 @@ class ConnectionsService:
                 {
                     "name": name,
                     "created_by": username,
-                    "guacamole_connection_id": guacamole_connection_id,
+                    "vnc_password": vnc_password,
+                    "hostname": hostname,
+                    "port": port,
                     "persistent_home": persistent_home,
                     "desktop_configuration_id": desktop_configuration_id,
                 }
@@ -252,7 +226,7 @@ class ConnectionsService:
     def scale_up(self, data, current_user, session):
         """Scale up a new desktop connection."""
         logging.info("=== Processing scale up request ===")
-
+        settings = get_settings()
         # Validate input data
         self.validate_scale_up_input(data)
 
@@ -281,14 +255,13 @@ class ConnectionsService:
         )
 
         try:
-            # Setup Guacamole connection
-            guacamole_connection_id = self.setup_guacamole_connection(name, vnc_password, current_user.username)
-
             # Save to database
             self.save_connection_to_database(
                 name,
                 current_user.username,
-                guacamole_connection_id,
+                vnc_password,
+                f"{settings.NAMESPACE}-{name}.dyn.cloud.e-infra.cz",
+                "5900",
                 persistent_home,
                 desktop_configuration_id,
                 external_pvc,
@@ -303,8 +276,6 @@ class ConnectionsService:
                 "persistent_home": persistent_home,
                 "desktop_configuration_id": desktop_configuration_id,
                 "status": status,
-                "vnc_password": vnc_password,
-                "guacamole_connection_id": guacamole_connection_id,
                 "external_pvc": external_pvc,  # Include PVC info in response
             }
 
@@ -332,38 +303,19 @@ class ConnectionsService:
             raise ForbiddenError("You do not have permission to delete this connection")
 
         # Get Guacamole connection ID
-        guacamole_connection_id = connection.guacamole_connection_id
         persistent_home = connection.persistent_home
 
-        # Uninstall the Rancher deployment
-        try:
-            # Create Rancher API client
-            rancher_client = client_factory.get_rancher_client()
-            logging.info("Created Rancher client for uninstallation")
+        rancher_client = client_factory.get_rancher_client()
+        logging.info("Created Rancher client for uninstallation")
 
-            # Uninstall the Helm chart
-            rancher_client.uninstall(connection.name)
-            release_uninstalled = rancher_client.check_release_uninstalled(connection.name)
-            if not release_uninstalled:
-                raise APIError(f"Failed to uninstall Rancher deployment for {connection.name}")
+        # Uninstall the Helm chart
+        rancher_client.uninstall(connection.name)
+        release_uninstalled = rancher_client.check_release_uninstalled(connection.name)
+        if not release_uninstalled:
+            logging.error("Failed to uninstall Rancher deployment")
+            raise APIError(f"Failed to uninstall Rancher deployment for {connection.name}")
 
-            logging.info("Uninstalled Helm chart for %s", connection.name)
-            rancher_uninstall_success = True
-        except Exception as e:
-            rancher_uninstall_success = False
-            logging.error("Failed to uninstall Rancher deployment: %s", str(e))
-            # Continue to delete Guacamole connection and update database entry
-
-        # Delete Guacamole connection
-        try:
-            guacamole_client = client_factory.get_guacamole_client()
-            token = guacamole_client.login()
-            guacamole_client.delete_connection(token, guacamole_connection_id)
-            logging.info("Deleted Guacamole connection: %s", guacamole_connection_id)
-            guacamole_delete_success = True
-        except Exception as e:
-            guacamole_delete_success = False
-            logging.error("Failed to delete Guacamole connection: %s", str(e))
+        logging.info("Uninstalled Helm chart for %s", connection.name)
 
         # Check if we should soft delete or hard delete
         if persistent_home:
@@ -372,28 +324,14 @@ class ConnectionsService:
             conn_repo.update_connection(connection.id, {"is_stopped": True})
             logging.info("Marked connection as stopped: %s", connection_name)
 
-            message = f"Connection {connection_name} scaled down and preserved for future resumption"
+            return {"message": f"Connection {connection_name} scaled down and preserved for future resumption"}
         else:
             # Hard delete - remove from database
             conn_repo = ConnectionRepository(session)
             conn_repo.delete_connection(connection.id)
             logging.info("Hard deleted connection: %s", connection_name)
 
-            message = f"Connection {connection_name} permanently deleted"
-
-        # Return appropriate status based on what succeeded and what failed
-        if not rancher_uninstall_success and not guacamole_delete_success:
-            raise APIError(
-                f"Failed to fully clean up {connection_name}. "
-                "Rancher deployment and Guacamole connection could not be removed.",
-                HTTPStatus.INTERNAL_SERVER_ERROR,
-            )
-        elif not rancher_uninstall_success:
-            return {"message": f"{message} with warnings: Rancher deployment could not be removed"}
-        elif not guacamole_delete_success:
-            return {"message": f"{message} with warnings: Guacamole connection could not be removed"}
-        else:
-            return {"message": message}
+            return {"message": f"Connection {connection_name} permanently deleted"}
 
     def list_connections(self, current_user, creator_filter=None, session=None):
         """List all connections for the current user."""
@@ -424,7 +362,6 @@ class ConnectionsService:
                     "name": connection.name,
                     "created_at": (connection.created_at.isoformat() if connection.created_at else None),
                     "created_by": connection.created_by,
-                    "guacamole_connection_id": connection.guacamole_connection_id,
                     "persistent_home": connection.persistent_home,
                     "is_stopped": connection.is_stopped,
                     "desktop_configuration_id": connection.desktop_configuration_id,
@@ -476,22 +413,6 @@ class ConnectionsService:
         if not current_user.is_admin and connection.created_by != current_user.username:
             raise ForbiddenError("You do not have permission to access this connection")
 
-        # Get the Guacamole connection ID
-        guacamole_connection_id = connection.guacamole_connection_id
-        if not guacamole_connection_id:
-            raise NotFoundError("No Guacamole connection ID found")
-
-        # Get Guacamole client
-        guacamole_client = client_factory.get_guacamole_client()
-
-        # Get auth token for direct connection
-        token = guacamole_client.login()
-
-        # Verify the connection exists in Guacamole
-        connection_exists = guacamole_client.check_connection_exists(token, guacamole_connection_id)
-        if not connection_exists:
-            raise NotFoundError("Guacamole connection does not exist")
-
         # Generate auth token directly for this specific connection
         settings = get_settings()
         guacamole_json_auth = GuacamoleJsonAuth()
@@ -499,7 +420,13 @@ class ConnectionsService:
         if not guacamole_external_url:
             guacamole_external_url = "http://localhost:8080/guacamole"
 
-        connection_params = guacamole_client.get_connection_params(token, guacamole_connection_id)
+        guacamole_client = client_factory.get_guacamole_client()
+
+        connection_params = GuacamoleConnectionParameters(
+            hostname=connection.hostname,
+            port=connection.port,
+            password=decrypt_password(connection.encrypted_password),
+        )
 
         token = guacamole_json_auth.generate_auth_data(
             username=current_user.username + "-tmp" + uuid.uuid4().hex,
@@ -521,34 +448,6 @@ class ConnectionsService:
             "auth_url": direct_url,
             "connection_id": connection_id,
             "connection_name": connection.name,
-            "guacamole_connection_id": guacamole_connection_id,
-        }
-
-    def guacamole_dashboard(self, current_user):
-        """Get the authentication URL for the Guacamole dashboard."""
-        # Initialize the JSON auth utility
-        guacamole_json_auth = GuacamoleJsonAuth()
-        guacamole_client = client_factory.get_guacamole_client()
-        # Generate auth token (with empty connections as we're just accessing the dashboard)
-        token = guacamole_json_auth.generate_auth_data(
-            username=current_user.username,
-            connections={},  # Empty connections as we're just accessing the dashboard
-            expires_in_ms=3600000,  # 1 hour
-        )
-        token = guacamole_client.json_auth_login(token)
-
-        # Construct the URL
-        settings = get_settings()
-        guacamole_external_url = settings.EXTERNAL_GUACAMOLE_URL.rstrip("/")
-        if not guacamole_external_url:
-            guacamole_external_url = "http://localhost:8080/guacamole"
-
-        auth_url = f"{guacamole_external_url}/#/?token={token}"
-
-        # Return the auth URL in the response
-        return {
-            "auth_url": auth_url,
-            "username": current_user.username,
         }
 
     def resume_connection(self, connection_name, current_user, session):
@@ -570,7 +469,7 @@ class ConnectionsService:
         logging.debug("Generated VNC password")
 
         # Create Rancher API client
-        settings = get_settings()
+        get_settings()
         rancher_client = client_factory.get_rancher_client()
         logging.debug("Created Rancher client")
 
@@ -603,51 +502,15 @@ class ConnectionsService:
         status = "ready" if vnc_ready else "provisioning"
         logging.info("VNC server ready status for %s: %s", connection_name, status)
 
-        # Get Guacamole client from factory
-        guacamole_client = client_factory.get_guacamole_client()
-
-        try:
-            # Create Guacamole connection
-            # First get a Guacamole token
-            token = guacamole_client.login()
-            # Ensure admins group exists
-            guacamole_client.ensure_group(token, "admins")
-
-            # Get settings here to ensure it's in scope
-            settings = get_settings()
-
-            # Use correct hostname format
-            target_host = f"{settings.NAMESPACE}-{connection_name}.dyn.cloud.e-infra.cz"
-
-            guacamole_connection_id = guacamole_client.create_connection(
-                token,
-                connection_name,
-                target_host,
-                vnc_password,
-            )
-            logging.info("Created Guacamole connection: %s", guacamole_connection_id)
-
-            # Grant permission to admins group
-            guacamole_client.grant_group_permission(token, "admins", guacamole_connection_id)
-            logging.info("Granted permission to admins group")
-
-            # Grant permission to user
-            guacamole_client.grant_permission(token, current_user.username, guacamole_connection_id)
-            logging.info("Granted permission to %s", current_user.username)
-        except Exception as guac_error:
-            # If Guacamole operations fail, clean up the Rancher deployment
-            logging.error("Guacamole operation failed: %s", str(guac_error))
-            try:
-                rancher_client.uninstall(connection_name)
-                logging.info("Cleaned up Rancher deployment after Guacamole error")
-            except Exception as cleanup_error:
-                logging.error("Failed to clean up Rancher deployment: %s", str(cleanup_error))
-            # Re-raise the original error
-            raise guac_error
-
         # Update database to mark as active and update the new Guacamole connection ID
         conn_repo.update_connection(
-            connection.id, {"is_stopped": False, "guacamole_connection_id": guacamole_connection_id}
+            connection.id,
+            {
+                "is_stopped": False,
+                "hostname": connection.hostname,
+                "port": connection.port,
+                "vnc_password": vnc_password,
+            },
         )
 
         updated_connection = conn_repo.get_by_name(connection_name)
@@ -660,7 +523,6 @@ class ConnectionsService:
                 "id": updated_connection.id,
                 "created_at": (updated_connection.created_at.isoformat() if updated_connection.created_at else None),
                 "created_by": updated_connection.created_by,
-                "guacamole_connection_id": updated_connection.guacamole_connection_id,
                 "status": status,
                 "persistent_home": updated_connection.persistent_home,
             },

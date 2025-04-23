@@ -7,7 +7,6 @@ import secrets
 from typing import Any
 from urllib.parse import urlencode
 
-from clients.factory import client_factory
 from config.settings import get_settings
 from database.repositories.user import UserRepository
 import jwt
@@ -251,26 +250,6 @@ class UserService:
                 },
             )
 
-            # Update user in Guacamole
-            guacamole_client = client_factory.get_guacamole_client()
-            guacamole_client.update_user(
-                token=guacamole_client.login(),
-                username=user.username,
-                attributes={
-                    "access-window-start": "",
-                    "access-window-end": "",
-                    "disabled": "",
-                    "expired": "",
-                    "timezone": None,
-                    "guac-email-address": email,
-                    "guac-full-name": name,
-                    "guac-organization": organization,
-                    "guac-organizational-role": None,
-                    "valid-from": "",
-                    "valid-until": "",
-                },
-            )
-
             association = user_repo.get_social_auth(provider="oidc", provider_user_id=sub)
 
             if not association:
@@ -347,15 +326,6 @@ class UserService:
             if not user:
                 raise NotFoundError("User not found")
 
-            try:
-                logging.info("Removing user from Guacamole: %s", username)
-                guacamole_client = client_factory.get_guacamole_client()
-                token = guacamole_client.login()
-                guacamole_client.delete_user(token, username)
-                logging.info("Successfully removed user from Guacamole: %s", username)
-            except Exception as e:
-                logging.error("Failed to remove user from Guacamole: %s", str(e))
-
             user_repo.delete_user(user.id)
             logging.info("Successfully removed user from database: %s", username)
 
@@ -411,35 +381,6 @@ class UserService:
             user = user_repo.create_user({"username": username, "sub": sub, "is_admin": is_admin})
 
             logging.info("Created user in database: %s with sub: %s", username, sub)
-
-            # Create in Guacamole
-            try:
-                guacamole_client = client_factory.get_guacamole_client()
-                token = guacamole_client.login()
-
-                # Create user in Guacamole with empty password for JSON auth
-                guacamole_client.create_user_if_not_exists(
-                    token=token,
-                    username=username,
-                    password="",  # Empty password for JSON auth
-                    attributes={
-                        "guac_full_name": f"{username} ({sub})",
-                        "guac_organization": "Default",
-                    },
-                )
-
-                # Add user to appropriate groups
-                if is_admin:
-                    guacamole_client.ensure_group(token, "admins")
-                    guacamole_client.add_user_to_group(token, username, "admins")
-                    logging.info("Added user to admins group: %s", username)
-
-                guacamole_client.ensure_group(token, "all_users")
-                guacamole_client.add_user_to_group(token, username, "all_users")
-                logging.info("Added user to all_users group: %s", username)
-            except Exception as e:
-                logging.error("Error creating user in Guacamole: %s", str(e))
-                # Continue even if Guacamole fails
 
             # Format response
             return {
@@ -620,21 +561,3 @@ class UserService:
                     "created_at": datetime.utcnow(),
                 },
             )
-
-        # Initialize admin in Guacamole
-        guacamole_client = client_factory.get_guacamole_client()
-        token = guacamole_client.login()
-
-        # For JSON authentication, we'll create the user without password
-        # This is supported since the admin will use OIDC authentication
-        if admin.username:
-            # Create Guacamole user without password for JSON auth
-            guacamole_client.create_user_if_not_exists(
-                token=token,
-                username=admin.username,
-                password="",  # Empty password for JSON auth
-                attributes={"guac_full_name": "Admin User", "guac_organization": "e-INFRA"},
-            )
-            guacamole_client.ensure_group(token, "admins")
-            guacamole_client.ensure_group(token, "all_users")
-            guacamole_client.add_user_to_group(token, admin.username, "admins")
