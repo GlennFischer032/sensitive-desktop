@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-scripts
+  namespace: fischer-ns
+data:
+  01-guacamole-init.sql: |
+    SELECT 'This is a test SQL file';
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-init-test
+  namespace: fischer-ns
+spec:
+  template:
+    metadata:
+      name: postgres-init-test
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: init-postgres
+        image: postgres:16-alpine
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          set -e
+          echo "Checking for initialization scripts..."
+          ls -la /docker-entrypoint-initdb.d/
+          cat /docker-entrypoint-initdb.d/*.sql
+          echo "Done checking scripts"
+        volumeMounts:
+        - name: init-scripts
+          mountPath: /docker-entrypoint-initdb.d/
+      volumes:
+      - name: init-scripts
+        configMap:
+          name: postgres-init-scripts

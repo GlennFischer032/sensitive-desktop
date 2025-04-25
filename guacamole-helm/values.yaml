@@ -28,18 +28,17 @@ common:
   database:
     host: postgres-guacamole
     port: "5432"
-    user: "" # Set the database user
-    password: "" # Set the database password
+    user: "guacamole_user" # Set the database user
+    password: "" # Will be auto-generated if empty
     database: desktop_manager # Main database name
 
   # Credentials and secrets
   credentials:
-    secretKey: "" # Set a secure secret key for the application
+    secretKey: "" # Set a secure secret key for the application (will be auto-generated if empty)
     desktopAdmin:
-      username: "" # Set the Desktop Manager admin username
-      password: "" # Set the Desktop Manager admin password
-    guacamoleJsonSecretKey: "" # Set the Guacamole JSON secret key
-    encryptionKey: "" # Set the encryption key for VNC passwords
+      oidcSub: "" # Set the Desktop Manager admin OIDC subject
+    guacamoleJsonSecretKey: "" # Will be auto-generated if empty (for Guacamole JSON auth)
+    encryptionKey: "" # Will be auto-generated if empty (valid Fernet key for encryption)
 
   # Rancher configuration
   rancher:

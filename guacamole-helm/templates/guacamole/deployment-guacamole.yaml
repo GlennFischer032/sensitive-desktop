@@ -29,7 +29,10 @@ spec:
           - name: POSTGRES_USER
             value: {{ .Values.common.database.user | quote }}
           - name: POSTGRES_PASSWORD
-            value: {{ .Values.common.database.password | quote }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "guacamole.fullname" . }}-credentials
+                key: dbPassword
           - name: POSTGRES_DB
             value: {{ .Values.common.database.database | quote }}
       - name: wait-for-guacd
@@ -56,7 +59,10 @@ spec:
         - name: POSTGRESQL_USER
           value: {{ .Values.common.database.user | quote }}
         - name: POSTGRESQL_PASSWORD
-          value: {{ .Values.common.database.password | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "guacamole.fullname" . }}-credentials
+              key: dbPassword
         - name: GUACD_HOSTNAME
           value: {{ printf "guacd-%s" .Release.Name | quote }}
         - name: GUACD_PORT
@@ -65,10 +71,16 @@ spec:
         - name: GUACAMOLE_EXTENSION_PRIORITY
           value: {{ .Values.guacamole.extensionPriority | quote }}
         - name: GUACAMOLE_JSON_SECRET_KEY
-          value: {{ .Values.common.credentials.guacamoleJsonSecretKey | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "guacamole.fullname" . }}-credentials
+              key: guacamoleJsonSecretKey
         # Direct property mapping for Docker container
         - name: JSON_SECRET_KEY
-          value: {{ .Values.common.credentials.guacamoleJsonSecretKey | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "guacamole.fullname" . }}-credentials
+              key: guacamoleJsonSecretKey
         - name: EXTENSION_PRIORITY
           value: {{ .Values.guacamole.extensionPriority | quote }}
         ports:

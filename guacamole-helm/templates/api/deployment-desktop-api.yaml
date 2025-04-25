@@ -28,7 +28,10 @@ spec:
           - name: POSTGRES_USER
             value: {{ .Values.common.database.user | quote }}
           - name: POSTGRES_PASSWORD
-            value: {{ .Values.common.database.password | quote }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "guacamole.fullname" . }}-credentials
+                key: dbPassword
           - name: POSTGRES_DB
             value: {{ .Values.common.database.database | quote }}
       - name: wait-for-guacamole
@@ -55,24 +58,29 @@ spec:
           - name: POSTGRES_USER
             value: {{ .Values.common.database.user | quote }}
           - name: POSTGRES_PASSWORD
-            value: {{ .Values.common.database.password | quote }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "guacamole.fullname" . }}-credentials
+                key: dbPassword
           - name: GUACAMOLE_URL
             value: "http://guacamole-{{ .Release.Name }}:{{ .Values.common.ports.guacamole }}/guacamole"
-          - name: GUACAMOLE_USERNAME
-            value: {{ .Values.common.credentials.guacamoleAdmin.username | quote }}
-          - name: GUACAMOLE_PASSWORD
-            value: {{ .Values.common.credentials.guacamoleAdmin.password | quote }}
           - name: GUACAMOLE_JSON_SECRET_KEY
-            value: {{ .Values.common.credentials.guacamoleJsonSecretKey | quote }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "guacamole.fullname" . }}-credentials
+                key: guacamoleJsonSecretKey
           - name: EXTERNAL_GUACAMOLE_URL
             value: {{ printf "https://%s/guacamole" (include "guacamole.hostname" .) | quote }}
           - name: SECRET_KEY
-            value: {{ .Values.common.credentials.secretKey | quote }}
-          # Admin authentication now uses OIDC sub instead of username/password
-          # - name: ADMIN_USERNAME
-          #   value: {{ .Values.common.credentials.desktopAdmin.username | quote }}
-          # - name: ADMIN_PASSWORD
-          #   value: {{ .Values.common.credentials.desktopAdmin.password | quote }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "guacamole.fullname" . }}-credentials
+                key: secretKey
+          - name: ENCRYPTION_KEY
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "guacamole.fullname" . }}-credentials
+                key: encryptionKey
           - name: ADMIN_OIDC_SUB
             value: {{ .Values.common.credentials.desktopAdmin.oidcSub | quote }}
           - name: RANCHER_API_URL
@@ -95,7 +103,10 @@ spec:
           - name: SOCIAL_AUTH_OIDC_CLIENT_ID
             value: {{ .Values.common.oidc.clientId | quote }}
           - name: SOCIAL_AUTH_OIDC_CLIENT_SECRET
-            value: {{ .Values.common.oidc.clientSecret | quote }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "guacamole.fullname" . }}-credentials
+                key: oidcClientSecret
           - name: SOCIAL_AUTH_LOGIN_REDIRECT_URL
             value: {{ .Values.common.socialAuth.loginRedirectUrl | quote }}
           - name: SOCIAL_AUTH_LOGIN_ERROR_URL
@@ -109,8 +120,8 @@ spec:
           - name: RANCHER_API_TOKEN
             valueFrom:
               secretKeyRef:
-                name: desktop-api-{{ $.Release.Name }}
-                key: rancher-token
+                name: {{ include "guacamole.fullname" . }}-credentials
+                key: rancherToken
         ports:
         - containerPort: {{ .Values.desktopApi.containerPort }}
           name: http

@@ -37,7 +37,10 @@ spec:
         - name: POSTGRES_USER
           value: {{ .Values.common.database.user }}
         - name: POSTGRES_PASSWORD
-          value: {{ .Values.common.database.password }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "guacamole.fullname" . }}-credentials
+              key: dbPassword
         - name: POSTGRES_DB
           value: {{ .Values.common.database.database }}
         - name: PGDATA

@@ -225,4 +225,39 @@ Custom Docker images are maintained in the `docker/` directory:
 ### Database Initialization
 SQL scripts in `sql/` directory:
 1. `01-guacamole-init.sql`: Core Guacamole schema
-2. `02-guacamole-init-users.sql`: User initialization
+
+## Secure Credential Management
+
+This Helm chart includes automatic secure credential generation for production deployments. The following credentials are auto-generated during deployment if not explicitly provided:
+
+- **Encryption Key**: A valid Fernet key for encrypting sensitive data
+- **Guacamole JSON Secret Key**: Used for Guacamole JSON authentication
+- **Database Password**: For PostgreSQL access
+
+### How It Works
+
+1. During pre-install or pre-upgrade, a Kubernetes job called `key-generator` runs
+2. This job creates cryptographically secure random keys appropriate for each service
+3. The generated keys are stored in a Kubernetes Secret
+4. Application pods reference these secrets via environment variables
+
+### Using Your Own Credentials
+
+If you prefer to provide your own credentials, you can set them in your `values.yaml` file:
+
+```yaml
+common:
+  credentials:
+    encryptionKey: "your-fernet-key"  # Must be a valid base64-encoded 32-byte key
+    guacamoleJsonSecretKey: "your-guacamole-key"  # Used for JSON authentication
+  database:
+    password: "your-database-password"  # PostgreSQL password
+```
+
+### Generating a Valid Fernet Key
+
+If you need to generate a valid Fernet key outside of the deployment process:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```

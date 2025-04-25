@@ -1,12 +1,5 @@
 FROM postgres:16-alpine
 
-# Copy SQL initialization scripts
-COPY sql/01-guacamole-init.sql /docker-entrypoint-initdb.d/01-guacamole-init.sql
-COPY sql/02-guacamole-init-users.sql /docker-entrypoint-initdb.d/02-guacamole-init-users.sql
-
-# Set permissions
-RUN chmod 644 /docker-entrypoint-initdb.d/*.sql
-
 # Label the image
 LABEL maintainer="guacamole-helm"
 LABEL description="PostgreSQL initialization scripts for Guacamole and Desktop Manager"

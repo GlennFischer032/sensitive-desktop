@@ -55,5 +55,5 @@ EXPOSE 5000
 CMD if [ "$FLASK_DEBUG" = "1" ]; then \
         python -m debugpy --listen 0.0.0.0:5678 -m flask run --host=0.0.0.0 --port=5000; \
     else \
-        gunicorn --bind 0.0.0.0:5000 --workers 4 app:app; \
+        gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 180 app:app; \
     fi

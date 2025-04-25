@@ -31,7 +31,10 @@ spec:
             - ALL
         env:
         - name: PGPASSWORD
-          value: {{ .Values.common.database.password }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "guacamole.fullname" . }}-credentials
+              key: dbPassword
       containers:
       - name: init-postgres
         securityContext:
@@ -57,6 +60,9 @@ spec:
 
           echo "PostgreSQL is up - executing initialization scripts"
 
+          # List the SQL files
+          ls -la /docker-entrypoint-initdb.d/
+
           # Execute initialization scripts
           for f in /docker-entrypoint-initdb.d/*.sql; do
             echo "Running $f"
@@ -68,6 +74,16 @@ spec:
         - name: POSTGRES_USER
           value: {{ .Values.common.database.user }}
         - name: POSTGRES_PASSWORD
-          value: {{ .Values.common.database.password }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "guacamole.fullname" . }}-credentials
+              key: dbPassword
         - name: POSTGRES_DB
           value: {{ .Values.common.database.database }}
+        volumeMounts:
+        - name: init-scripts
+          mountPath: /docker-entrypoint-initdb.d/
+      volumes:
+      - name: init-scripts
+        configMap:
+          name: postgres-init-scripts
