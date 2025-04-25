@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 from flask.testing import FlaskClient
 from flask import Flask, request, g
+import jwt
 
 # Add src to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
@@ -75,7 +76,38 @@ class FakeUser:
 
 
 @pytest.fixture
-def app_with_token_routes(test_app):
+def mock_user_repository():
+    """Mock the UserRepository."""
+    with patch("database.repositories.user.UserRepository") as mock:
+        mock_instance = MagicMock()
+        # Mock get_by_sub to return a user
+        mock_user = MagicMock()
+        mock_user.username = "admin_user"
+        mock_user.is_admin = True
+        mock_user.email = "admin@example.com"
+        mock_instance.get_by_sub.return_value = mock_user
+        mock.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def mock_token_repository():
+    """Mock the TokenRepository."""
+    with patch("database.repositories.token.TokenRepository") as mock:
+        mock_instance = MagicMock()
+        # Mock get_by_token_id
+        mock_token = MagicMock()
+        mock_token.token_id = "test-token-id"
+        mock_token.revoked = False
+        mock_token.expires_at = datetime.utcnow() + timedelta(days=30)
+        mock_token.created_by = "admin_user"
+        mock_instance.get_by_token_id.return_value = mock_token
+        mock.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def app_with_token_routes(test_app, mock_user_repository, mock_token_repository):
     """
     Register token blueprint with test app.
     """
@@ -92,14 +124,40 @@ def app_with_token_routes(test_app):
             request.current_user = FakeUser()
         if not hasattr(request, "db_session"):
             request.db_session = MagicMock()
+        # Set token in the request
+        request.token = "test-token"
 
-    # Mock all required decorators
-    with patch("routes.token_routes.token_required", lambda f: f), patch(
-        "routes.token_routes.admin_required", lambda f: f
-    ), patch("routes.token_routes.with_db_session", lambda f: f), patch("core.auth.token_required", lambda f: f), patch(
-        "core.auth.admin_required", lambda f: f
-    ):
-        yield test_app
+    # Mock JWT decode to return valid payload
+    with patch("jwt.decode") as mock_jwt_decode:
+        # Configure mock to return a valid payload
+        mock_jwt_decode.return_value = {
+            "sub": "admin_user",
+            "name": "admin_user",
+            "is_admin": True,
+            "exp": 1861872000,  # Far future timestamp
+        }
+
+        # Mock the get_db_session function
+        with patch("core.auth.get_db_session") as mock_get_db_session:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_get_db_session.return_value = mock_session
+
+            # Mock the UserRepository
+            with patch("core.auth.UserRepository") as mock_user_repo_class:
+                mock_user_repo_class.return_value = mock_user_repository
+
+                # Mock the TokenRepository
+                with patch("core.auth.TokenRepository") as mock_token_repo_class:
+                    mock_token_repo_class.return_value = mock_token_repository
+
+                    # Mock all required decorators
+                    with patch("routes.token_routes.token_required", lambda f: f), patch(
+                        "routes.token_routes.admin_required", lambda f: f
+                    ), patch("routes.token_routes.with_db_session", lambda f: f), patch(
+                        "core.auth.token_required", lambda f: f
+                    ), patch("core.auth.admin_required", lambda f: f):
+                        yield test_app
 
 
 @pytest.fixture

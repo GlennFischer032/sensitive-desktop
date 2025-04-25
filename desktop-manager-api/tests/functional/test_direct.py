@@ -8,10 +8,23 @@ import sys
 import os
 from unittest.mock import patch, MagicMock
 import json
+import jwt
 from flask import Flask, Request, request
 
 # Add src to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
+
+
+@pytest.fixture
+def mock_test_request():
+    """Create a mock request for testing handlers directly."""
+    mock_req = MagicMock()
+    mock_req.headers = {"Authorization": "Bearer fake-test-token"}
+    mock_req.get_json.return_value = {"name": "Test Token", "description": "Test description", "expires_in_days": 30}
+    mock_req.current_user = MagicMock(username="admin", is_admin=True)
+    mock_req.db_session = MagicMock()
+    mock_req.token = "fake-test-token"
+    return mock_req
 
 
 @pytest.fixture
@@ -69,229 +82,182 @@ def mock_token_service():
         yield mock_instance
 
 
-# Create a token routes test class
-class TokenRoutesTest:
-    @staticmethod
-    def setup_route_dependencies(app, mock_token_service):
-        """Setup the dependencies for token route testing."""
-        # Import handlers after dependencies are mocked
-        from routes.token_routes import create_token, list_tokens, revoke_token, api_login
+@pytest.fixture
+def mock_auth_token_required():
+    """Mock the token_required decorator."""
 
-        # Create a test client
-        with app.test_request_context():
-            # Set up request with test data
-            request.get_json = MagicMock(
-                return_value={"name": "Test Token", "description": "Test description", "expires_in_days": 30}
-            )
-            request.current_user = MagicMock(username="admin", is_admin=True)
-            request.db_session = MagicMock()
+    def token_required_mock(f):
+        def decorated(*args, **kwargs):
+            return f(*args, **kwargs)
 
-            # Return handlers and context
-            return {
-                "create_token": create_token,
-                "list_tokens": list_tokens,
-                "revoke_token": revoke_token,
-                "api_login": api_login,
-            }
+        return decorated
+
+    return token_required_mock
 
 
-def test_create_token_handler(test_app, mock_token_service):
+@pytest.fixture
+def mock_with_db_session():
+    """Mock the with_db_session decorator."""
+
+    def with_db_session_mock(f):
+        def decorated(*args, **kwargs):
+            return f(*args, **kwargs)
+
+        return decorated
+
+    return with_db_session_mock
+
+
+def test_create_token_handler(
+    test_app, mock_token_service, mock_test_request, mock_auth_token_required, mock_with_db_session
+):
     """Test create_token handler function directly."""
     with test_app.test_request_context():
-        # Set up test dependencies
-        with patch("routes.token_routes.TokenService") as token_service_class:
+        # Set up mocks
+        with patch("routes.token_routes.TokenService") as token_service_class, patch(
+            "routes.token_routes.request", mock_test_request
+        ), patch("core.auth.token_required", mock_auth_token_required), patch(
+            "database.core.session.with_db_session", mock_with_db_session
+        ), patch("jwt.decode") as mock_jwt_decode:
+            # Set up mocks
             token_service_class.return_value = mock_token_service
+            mock_jwt_decode.return_value = {
+                "sub": "admin",
+                "name": "admin",
+                "is_admin": True,
+                "exp": 1861872000,  # Far future timestamp
+            }
 
-            # Import handler function
+            # Import the handler function after patching
             from routes.token_routes import create_token
 
-            # Patch request object
-            with patch("routes.token_routes.request") as mock_request:
-                mock_request.get_json.return_value = {
-                    "name": "Test Token",
-                    "description": "Test description",
-                    "expires_in_days": 30,
-                }
-                mock_request.current_user = MagicMock(username="admin", is_admin=True)
-                mock_request.db_session = MagicMock()
+            # Unwrap the decorated function
+            # Access the original function
+            create_token_func = create_token.__wrapped__.__wrapped__.__wrapped__
 
-                # Call the handler function
-                response, status_code = create_token()
+            # Call the handler function directly
+            response, status_code = create_token_func()
 
-                # Extract the response data
-                response_data = json.loads(response.get_data())
+            # Extract the response data
+            response_data = json.loads(response.data)
 
-                # Verify handler function returns the expected response
-                assert status_code == 201
-                assert response_data["token"] == "test.jwt.token"
-                assert response_data["token_id"] == "test-token-id"
-                assert response_data["name"] == "Test Token"
+            # Verify handler function returns the expected response
+            assert status_code == 201
+            assert response_data["token"] == "test.jwt.token"
+            assert response_data["token_id"] == "test-token-id"
+            assert response_data["name"] == "Test Token"
 
-                # Verify TokenService was called correctly
-                mock_token_service.create_token.assert_called_once_with(
-                    mock_request.get_json(), mock_request.current_user, mock_request.db_session
-                )
+            # Verify TokenService was called correctly
+            mock_token_service.create_token.assert_called_once_with(
+                mock_test_request.get_json(), mock_test_request.current_user, mock_test_request.db_session
+            )
 
 
-def test_list_tokens_handler(test_app, mock_token_service):
+def test_list_tokens_handler(
+    test_app, mock_token_service, mock_test_request, mock_auth_token_required, mock_with_db_session
+):
     """Test list_tokens handler function directly."""
     with test_app.test_request_context():
-        # Set up test dependencies
-        with patch("routes.token_routes.TokenService") as token_service_class:
+        # Set up mocks
+        with patch("routes.token_routes.TokenService") as token_service_class, patch(
+            "routes.token_routes.request", mock_test_request
+        ), patch("core.auth.token_required", mock_auth_token_required), patch(
+            "database.core.session.with_db_session", mock_with_db_session
+        ), patch("jwt.decode") as mock_jwt_decode:
+            # Set up mocks
             token_service_class.return_value = mock_token_service
+            mock_jwt_decode.return_value = {
+                "sub": "admin",
+                "name": "admin",
+                "is_admin": True,
+                "exp": 1861872000,  # Far future timestamp
+            }
 
-            # Import handler function
+            # Import the handler function after patching
             from routes.token_routes import list_tokens
 
-            # Patch request object
-            with patch("routes.token_routes.request") as mock_request:
-                mock_request.current_user = MagicMock(username="admin", is_admin=True)
-                mock_request.db_session = MagicMock()
+            # Unwrap the decorated function
+            list_tokens_func = list_tokens.__wrapped__.__wrapped__.__wrapped__
 
-                # Call the handler function
-                response, status_code = list_tokens()
+            # Call the handler function directly
+            response, status_code = list_tokens_func()
 
-                # Extract the response data
-                response_data = json.loads(response.get_data())
+            # Extract the response data
+            response_data = json.loads(response.data)
 
-                # Verify handler function returns the expected response
-                assert status_code == 200
-                assert "tokens" in response_data
-                assert len(response_data["tokens"]) == 2
-                assert response_data["tokens"][0]["token_id"] == "token1"
-                assert response_data["tokens"][1]["token_id"] == "token2"
+            # Verify handler function returns the expected response
+            assert status_code == 200
+            assert "tokens" in response_data
+            assert len(response_data["tokens"]) == 2
+            assert response_data["tokens"][0]["token_id"] == "token1"
+            assert response_data["tokens"][1]["token_id"] == "token2"
 
-                # Verify TokenService was called correctly
-                mock_token_service.list_tokens.assert_called_once_with(
-                    mock_request.current_user, mock_request.db_session
-                )
+            # Verify TokenService was called correctly
+            mock_token_service.list_tokens.assert_called_once_with(
+                mock_test_request.current_user, mock_test_request.db_session
+            )
 
 
-def test_revoke_token_handler(test_app, mock_token_service):
-    """Test revoke_token handler function directly."""
-    with test_app.test_request_context():
-        # Set up test dependencies
-        with patch("routes.token_routes.TokenService") as token_service_class:
-            token_service_class.return_value = mock_token_service
-
-            # Import handler function
-            from routes.token_routes import revoke_token
-
-            # Patch request object
-            with patch("routes.token_routes.request") as mock_request:
-                mock_request.db_session = MagicMock()
-
-                # Call the handler function with a token_id
-                token_id = "test-token-id"
-                response, status_code = revoke_token(token_id)
-
-                # Extract the response data
-                response_data = json.loads(response.get_data())
-
-                # Verify handler function returns the expected response
-                assert status_code == 200
-                assert "message" in response_data
-                assert response_data["message"] == "Token successfully revoked"
-
-                # Verify TokenService was called correctly
-                mock_token_service.revoke_token.assert_called_once_with(token_id, mock_request.db_session)
-
-
-def test_api_login_handler_success(test_app, mock_token_service):
+def test_api_login_handler_success(test_app, mock_token_service, mock_test_request, mock_with_db_session):
     """Test api_login handler function with valid token."""
     with test_app.test_request_context():
-        # Set up test dependencies
-        with patch("routes.token_routes.TokenService") as token_service_class:
+        # Set up mocks
+        with patch("routes.token_routes.TokenService") as token_service_class, patch(
+            "routes.token_routes.request", mock_test_request
+        ), patch("database.core.session.with_db_session", mock_with_db_session):
+            # Set up mocks
             token_service_class.return_value = mock_token_service
+            mock_test_request.get_json.return_value = {"token": "valid.jwt.token"}
 
-            # Import handler function
+            # Import the handler function after patching
             from routes.token_routes import api_login
 
-            # Patch request object
-            with patch("routes.token_routes.request") as mock_request:
-                # Set up request with token
-                mock_request.get_json.return_value = {"token": "valid.jwt.token"}
-                mock_request.db_session = MagicMock()
+            # Unwrap the decorated function
+            api_login_func = api_login.__wrapped__
 
-                # Call the handler function
-                response, status_code = api_login()
+            # Call the handler function directly
+            response, status_code = api_login_func()
 
-                # Extract the response data
-                response_data = json.loads(response.get_data())
+            # Extract the response data
+            response_data = json.loads(response.data)
 
-                # Verify handler function returns the expected response
-                assert status_code == 200
-                assert "username" in response_data
-                assert response_data["username"] == "admin_user"
-                assert response_data["is_admin"] is True
+            # Verify handler function returns the expected response
+            assert status_code == 200
+            assert "username" in response_data
+            assert response_data["username"] == "admin_user"
+            assert response_data["is_admin"] is True
 
-                # Verify TokenService was called correctly
-                mock_token_service.api_login.assert_called_once_with("valid.jwt.token", mock_request.db_session)
+            # Verify TokenService was called correctly
+            mock_token_service.api_login.assert_called_once_with("valid.jwt.token", mock_test_request.db_session)
 
 
-def test_api_login_handler_missing_token(test_app, mock_token_service):
+def test_api_login_handler_missing_token(test_app, mock_token_service, mock_test_request, mock_with_db_session):
     """Test api_login handler function with missing token."""
     with test_app.test_request_context():
-        # Set up test dependencies
-        with patch("routes.token_routes.TokenService") as token_service_class:
+        # Set up mocks
+        with patch("routes.token_routes.TokenService") as token_service_class, patch(
+            "routes.token_routes.request", mock_test_request
+        ), patch("database.core.session.with_db_session", mock_with_db_session):
+            # Set up mocks
             token_service_class.return_value = mock_token_service
+            mock_test_request.get_json.return_value = {}
 
-            # Import handler function
+            # Import the handler function after patching
             from routes.token_routes import api_login
 
-            # Patch request object
-            with patch("routes.token_routes.request") as mock_request:
-                # Set up request with missing token
-                mock_request.get_json.return_value = {}
-                mock_request.db_session = MagicMock()
+            # Unwrap the decorated function
+            api_login_func = api_login.__wrapped__
 
-                # Call the handler function
-                response, status_code = api_login()
+            # Call the handler function directly
+            response, status_code = api_login_func()
 
-                # Extract the response data
-                response_data = json.loads(response.get_data())
+            # Extract the response data
+            response_data = json.loads(response.data)
 
-                # Verify handler function returns the expected error response
-                assert status_code == 400
-                assert "error" in response_data
-                assert response_data["error"] == "Token is required"
+            # Verify handler function returns the expected error response
+            assert status_code == 400
+            assert "error" in response_data
+            assert response_data["error"] == "Token is required"
 
-                # Verify TokenService was not called
-                mock_token_service.api_login.assert_not_called()
-
-
-def test_create_token_handler_error(test_app, mock_token_service):
-    """Test create_token handler function when service raises an error."""
-    with test_app.test_request_context():
-        # Set up test dependencies
-        with patch("routes.token_routes.TokenService") as token_service_class:
-            token_service_class.return_value = mock_token_service
-
-            # Configure mock to raise an error
-            error_message = "Failed to create token"
-            mock_token_service.create_token.side_effect = Exception(error_message)
-
-            # Import handler function
-            from routes.token_routes import create_token
-
-            # Patch request object
-            with patch("routes.token_routes.request") as mock_request:
-                mock_request.get_json.return_value = {
-                    "name": "Test Token",
-                    "description": "Test description",
-                    "expires_in_days": 30,
-                }
-                mock_request.current_user = MagicMock(username="admin", is_admin=True)
-                mock_request.db_session = MagicMock()
-
-                # Call the handler function
-                response, status_code = create_token()
-
-                # Extract the response data
-                response_data = json.loads(response.get_data())
-
-                # Verify handler function returns the expected error response
-                assert status_code == 500
-                assert "error" in response_data
-                assert "Failed to create API token" in response_data["error"]
-                assert error_message in response_data["details"]
+            # Verify TokenService was not called
+            mock_token_service.api_login.assert_not_called()

@@ -10,6 +10,8 @@ from unittest.mock import patch, MagicMock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
+from datetime import datetime, timedelta
+import jwt
 
 # Configure coverage to include src directory
 os.environ["COVERAGE_FILE"] = ".coverage"
@@ -157,3 +159,63 @@ def test_client(test_app: Flask) -> FlaskClient:
         Flask test client
     """
     return test_app.test_client()
+
+
+# Create a fake user class for testing
+class FakeUser:
+    def __init__(self):
+        self.username = "admin"
+        self.is_admin = True
+        self.email = "admin@example.com"
+
+
+@pytest.fixture
+def mock_token():
+    """Mock token for authorization."""
+    return "fake-test-token"
+
+
+@pytest.fixture
+def mock_user_repository():
+    """Mock the UserRepository."""
+    with patch("database.repositories.user.UserRepository") as mock:
+        mock_instance = MagicMock()
+        # Mock get_by_sub to return a user
+        mock_user = MagicMock()
+        mock_user.username = "admin"
+        mock_user.is_admin = True
+        mock_user.email = "admin@example.com"
+        mock_instance.get_by_sub.return_value = mock_user
+        mock.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def mock_token_repository():
+    """Mock the TokenRepository."""
+    with patch("database.repositories.token.TokenRepository") as mock:
+        mock_instance = MagicMock()
+        # Mock get_by_token_id
+        mock_token = MagicMock()
+        mock_token.token_id = "test-token-id"
+        mock_token.revoked = False
+        mock_token.expires_at = datetime.utcnow() + timedelta(days=30)
+        mock_token.created_by = "admin"
+        mock_instance.get_by_token_id.return_value = mock_token
+        mock.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def mock_auth_decorators():
+    """Mock all auth decorators and DB session."""
+
+    # Create simple pass-through decorators
+    def dummy_decorator(f):
+        return f
+
+    # Apply common mocks
+    with patch("core.auth.token_required", dummy_decorator), patch("core.auth.admin_required", dummy_decorator), patch(
+        "database.core.session.with_db_session", dummy_decorator
+    ):
+        yield

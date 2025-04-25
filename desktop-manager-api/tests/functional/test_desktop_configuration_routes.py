@@ -2,10 +2,11 @@ import pytest
 import sys
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 from flask.testing import FlaskClient
 from flask import request, Flask
+import jwt
 
 # Add src to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
@@ -108,11 +109,49 @@ class FakeUser:
 
 
 @pytest.fixture
-def app_with_desktop_config_routes(test_app):
+def mock_user_repository():
+    """Mock the UserRepository."""
+    with patch("database.repositories.user.UserRepository") as mock:
+        mock_instance = MagicMock()
+        # Mock get_by_sub to return a user
+        mock_user = MagicMock()
+        mock_user.username = "admin"
+        mock_user.is_admin = True
+        mock_user.email = "admin@example.com"
+        mock_instance.get_by_sub.return_value = mock_user
+        mock.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def mock_token_repository():
+    """Mock the TokenRepository."""
+    with patch("database.repositories.token.TokenRepository") as mock:
+        mock_instance = MagicMock()
+        # Mock get_by_token_id
+        mock_token = MagicMock()
+        mock_token.token_id = "test-token-id"
+        mock_token.revoked = False
+        mock_token.expires_at = datetime.utcnow() + timedelta(days=30)
+        mock_token.created_by = "admin"
+        mock_instance.get_by_token_id.return_value = mock_token
+        mock.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def mock_token():
+    """Mock token for authorization."""
+    return "fake-test-token"
+
+
+@pytest.fixture
+def app_with_desktop_config_routes(test_app, mock_user_repository, mock_token_repository):
     """
     Register desktop_configuration blueprint with test app.
     """
     from routes.desktop_configuration_routes import desktop_config_bp
+    import jwt
 
     # Register the blueprint with a unique name to avoid conflicts
     test_app.register_blueprint(desktop_config_bp, name="desktop_config_bp_test")
@@ -125,14 +164,40 @@ def app_with_desktop_config_routes(test_app):
             request.current_user = FakeUser()
         if not hasattr(request, "db_session"):
             request.db_session = MagicMock()
+        # Set token in the request
+        request.token = "fake-test-token"
 
-    # Mock the token_required decorator to skip authentication
-    with patch("routes.desktop_configuration_routes.token_required", lambda f: f):
-        # Mock the admin_required decorator to skip permission check
-        with patch("routes.desktop_configuration_routes.admin_required", lambda f: f):
-            # Mock the with_db_session decorator
-            with patch("routes.desktop_configuration_routes.with_db_session", lambda f: f):
-                yield test_app
+    # Mock JWT decode to return valid payload
+    with patch("jwt.decode") as mock_jwt_decode:
+        # Configure mock to return a valid payload
+        mock_jwt_decode.return_value = {
+            "sub": "admin",
+            "name": "admin",
+            "is_admin": True,
+            "exp": 1861872000,  # Far future timestamp
+        }
+
+        # Mock the get_db_session function
+        with patch("core.auth.get_db_session") as mock_get_db_session:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_get_db_session.return_value = mock_session
+
+            # Mock the UserRepository
+            with patch("core.auth.UserRepository") as mock_user_repo_class:
+                mock_user_repo_class.return_value = mock_user_repository
+
+                # Mock the TokenRepository
+                with patch("core.auth.TokenRepository") as mock_token_repo_class:
+                    mock_token_repo_class.return_value = mock_token_repository
+
+                    # Mock the token_required decorator to pass through
+                    with patch("routes.desktop_configuration_routes.token_required", lambda f: f):
+                        # Mock the admin_required decorator to skip permission check
+                        with patch("routes.desktop_configuration_routes.admin_required", lambda f: f):
+                            # Mock the with_db_session decorator
+                            with patch("routes.desktop_configuration_routes.with_db_session", lambda f: f):
+                                yield test_app
 
 
 @pytest.fixture
@@ -142,7 +207,7 @@ def client_with_desktop_config_routes(app_with_desktop_config_routes):
 
 
 def test_create_desktop_configuration(
-    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service
+    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service, mock_token
 ):
     """
     GIVEN a Flask application configured for testing
@@ -152,8 +217,9 @@ def test_create_desktop_configuration(
     # Test data
     config_data = {"name": "test-desktop-config", "cpu": "2", "memory": "4Gi", "description": "Test configuration"}
 
-    # Make request
-    response = client_with_desktop_config_routes.post("/create", json=config_data)
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_desktop_config_routes.post("/create", json=config_data, headers=headers)
 
     # Check response
     assert response.status_code == 201
@@ -168,15 +234,16 @@ def test_create_desktop_configuration(
 
 
 def test_list_desktop_configurations(
-    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service
+    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service, mock_token
 ):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/list' endpoint is requested (GET)
     THEN check that the response contains a list of desktop configurations
     """
-    # Make request
-    response = client_with_desktop_config_routes.get("/list")
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_desktop_config_routes.get("/list", headers=headers)
 
     # Check response
     assert response.status_code == 200
@@ -191,15 +258,16 @@ def test_list_desktop_configurations(
 
 
 def test_get_desktop_configuration(
-    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service
+    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service, mock_token
 ):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/get/{id}' endpoint is requested (GET)
     THEN check that the configuration details are returned
     """
-    # Make request
-    response = client_with_desktop_config_routes.get("/get/1")
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_desktop_config_routes.get("/get/1", headers=headers)
 
     # Check response
     assert response.status_code == 200
@@ -214,7 +282,7 @@ def test_get_desktop_configuration(
 
 
 def test_update_desktop_configuration(
-    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service
+    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service, mock_token
 ):
     """
     GIVEN a Flask application configured for testing
@@ -224,8 +292,9 @@ def test_update_desktop_configuration(
     # Test data
     config_data = {"name": "updated-config", "cpu": "4", "memory": "8Gi"}
 
-    # Make request
-    response = client_with_desktop_config_routes.put("/update/1", json=config_data)
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_desktop_config_routes.put("/update/1", json=config_data, headers=headers)
 
     # Check response
     assert response.status_code == 200
@@ -240,15 +309,16 @@ def test_update_desktop_configuration(
 
 
 def test_delete_desktop_configuration(
-    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service
+    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service, mock_token
 ):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/delete/{id}' endpoint is requested (DELETE)
     THEN check that the configuration is deleted successfully
     """
-    # Make request
-    response = client_with_desktop_config_routes.delete("/delete/1")
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_desktop_config_routes.delete("/delete/1", headers=headers)
 
     # Check response
     assert response.status_code == 200
@@ -261,15 +331,16 @@ def test_delete_desktop_configuration(
 
 
 def test_get_desktop_configuration_access(
-    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service
+    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service, mock_token
 ):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/access/{id}' endpoint is requested (GET)
     THEN check that the access information is returned
     """
-    # Make request
-    response = client_with_desktop_config_routes.get("/access/1")
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_desktop_config_routes.get("/access/1", headers=headers)
 
     # Check response
     assert response.status_code == 200
@@ -284,7 +355,7 @@ def test_get_desktop_configuration_access(
 
 
 def test_create_desktop_configuration_api_error(
-    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service
+    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service, mock_token
 ):
     """
     GIVEN a Flask application configured for testing
@@ -300,8 +371,9 @@ def test_create_desktop_configuration_api_error(
     # Test data
     config_data = {"name": "test-desktop-config", "cpu": "2", "memory": "4Gi"}
 
-    # Make request
-    response = client_with_desktop_config_routes.post("/create", json=config_data)
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_desktop_config_routes.post("/create", json=config_data, headers=headers)
 
     # Check response
     assert response.status_code == 400
@@ -311,7 +383,7 @@ def test_create_desktop_configuration_api_error(
 
 
 def test_create_desktop_configuration_generic_error(
-    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service
+    mock_auth_decorators, client_with_desktop_config_routes, mock_desktop_config_service, mock_token
 ):
     """
     GIVEN a Flask application configured for testing
@@ -325,8 +397,9 @@ def test_create_desktop_configuration_generic_error(
     # Test data
     config_data = {"name": "test-desktop-config", "cpu": "2", "memory": "4Gi"}
 
-    # Make request
-    response = client_with_desktop_config_routes.post("/create", json=config_data)
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_desktop_config_routes.post("/create", json=config_data, headers=headers)
 
     # Check response
     assert response.status_code == 500

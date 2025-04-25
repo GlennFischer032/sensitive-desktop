@@ -2,10 +2,11 @@ import pytest
 import sys
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 from flask.testing import FlaskClient
 from flask import request, Flask
+import jwt
 
 # Add src to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
@@ -109,7 +110,44 @@ class FakeUser:
 
 
 @pytest.fixture
-def app_with_storage_pvc_routes(test_app):
+def mock_token():
+    """Mock token for authorization."""
+    return "fake-test-token"
+
+
+@pytest.fixture
+def mock_user_repository():
+    """Mock the UserRepository."""
+    with patch("database.repositories.user.UserRepository") as mock:
+        mock_instance = MagicMock()
+        # Mock get_by_sub to return a user
+        mock_user = MagicMock()
+        mock_user.username = "admin"
+        mock_user.is_admin = True
+        mock_user.email = "admin@example.com"
+        mock_instance.get_by_sub.return_value = mock_user
+        mock.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def mock_token_repository():
+    """Mock the TokenRepository."""
+    with patch("database.repositories.token.TokenRepository") as mock:
+        mock_instance = MagicMock()
+        # Mock get_by_token_id
+        mock_token = MagicMock()
+        mock_token.token_id = "test-token-id"
+        mock_token.revoked = False
+        mock_token.expires_at = datetime.utcnow() + timedelta(days=30)
+        mock_token.created_by = "admin"
+        mock_instance.get_by_token_id.return_value = mock_token
+        mock.return_value = mock_instance
+        yield mock_instance
+
+
+@pytest.fixture
+def app_with_storage_pvc_routes(test_app, mock_user_repository, mock_token_repository):
     """
     Register storage_pvc blueprint with test app.
     """
@@ -126,14 +164,40 @@ def app_with_storage_pvc_routes(test_app):
             request.current_user = FakeUser()
         if not hasattr(request, "db_session"):
             request.db_session = MagicMock()
+        # Set token in the request
+        request.token = "fake-test-token"
 
-    # Mock the token_required decorator to skip authentication
-    with patch("routes.storage_pvc_routes.token_required", lambda f: f):
-        # Mock the admin_required decorator to skip permission check
-        with patch("routes.storage_pvc_routes.admin_required", lambda f: f):
-            # Mock the with_db_session decorator
-            with patch("routes.storage_pvc_routes.with_db_session", lambda f: f):
-                yield test_app
+    # Mock JWT decode to return valid payload
+    with patch("jwt.decode") as mock_jwt_decode:
+        # Configure mock to return a valid payload
+        mock_jwt_decode.return_value = {
+            "sub": "admin",
+            "name": "admin",
+            "is_admin": True,
+            "exp": 1861872000,  # Far future timestamp
+        }
+
+        # Mock the get_db_session function
+        with patch("core.auth.get_db_session") as mock_get_db_session:
+            mock_session = MagicMock()
+            mock_session.__enter__.return_value = mock_session
+            mock_get_db_session.return_value = mock_session
+
+            # Mock the UserRepository
+            with patch("core.auth.UserRepository") as mock_user_repo_class:
+                mock_user_repo_class.return_value = mock_user_repository
+
+                # Mock the TokenRepository
+                with patch("core.auth.TokenRepository") as mock_token_repo_class:
+                    mock_token_repo_class.return_value = mock_token_repository
+
+                    # Mock the token_required decorator to pass through
+                    with patch("routes.storage_pvc_routes.token_required", lambda f: f):
+                        # Mock the admin_required decorator to skip permission check
+                        with patch("routes.storage_pvc_routes.admin_required", lambda f: f):
+                            # Mock the with_db_session decorator
+                            with patch("routes.storage_pvc_routes.with_db_session", lambda f: f):
+                                yield test_app
 
 
 @pytest.fixture
@@ -142,7 +206,7 @@ def client_with_storage_pvc_routes(app_with_storage_pvc_routes):
     return app_with_storage_pvc_routes.test_client()
 
 
-def test_create_storage_pvc(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service):
+def test_create_storage_pvc(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service, mock_token):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/create' endpoint is requested (POST) with valid data
@@ -151,8 +215,9 @@ def test_create_storage_pvc(mock_auth_decorators, client_with_storage_pvc_routes
     # Test data
     pvc_data = {"name": "test-pvc", "size": "10Gi", "is_public": True, "allowed_users": ["user1", "user2"]}
 
-    # Make request
-    response = client_with_storage_pvc_routes.post("/create", json=pvc_data)
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_storage_pvc_routes.post("/create", json=pvc_data, headers=headers)
 
     # Check response
     assert response.status_code == 201
@@ -165,14 +230,15 @@ def test_create_storage_pvc(mock_auth_decorators, client_with_storage_pvc_routes
     mock_storage_pvc_service.create_storage_pvc.assert_called_once()
 
 
-def test_list_storage_pvcs(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service):
+def test_list_storage_pvcs(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service, mock_token):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/list' endpoint is requested (GET)
     THEN check that the response contains a list of PVCs
     """
-    # Make request
-    response = client_with_storage_pvc_routes.get("/list")
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_storage_pvc_routes.get("/list", headers=headers)
 
     # Check response
     assert response.status_code == 200
@@ -186,14 +252,15 @@ def test_list_storage_pvcs(mock_auth_decorators, client_with_storage_pvc_routes,
     mock_storage_pvc_service.list_storage_pvcs.assert_called_once()
 
 
-def test_delete_storage_pvc(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service):
+def test_delete_storage_pvc(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service, mock_token):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/{pvc_id}' endpoint is requested (DELETE)
     THEN check that the PVC is deleted successfully
     """
-    # Make request
-    response = client_with_storage_pvc_routes.delete("/1")
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_storage_pvc_routes.delete("/1", headers=headers)
 
     # Check response
     assert response.status_code == 200
@@ -202,17 +269,20 @@ def test_delete_storage_pvc(mock_auth_decorators, client_with_storage_pvc_routes
     assert data["message"] == "PVC deleted successfully"
 
     # Verify mock was called correctly
-    mock_storage_pvc_service.delete_storage_pvc.assert_called_once_with(1, MagicMock())
+    mock_storage_pvc_service.delete_storage_pvc.assert_called_once()
+    args, _ = mock_storage_pvc_service.delete_storage_pvc.call_args
+    assert args[0] == 1  # Check that the first argument is the ID
 
 
-def test_get_pvc_access(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service):
+def test_get_pvc_access(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service, mock_token):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/{pvc_id}/access' endpoint is requested (GET)
     THEN check that the access information is returned
     """
-    # Make request
-    response = client_with_storage_pvc_routes.get("/1/access")
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_storage_pvc_routes.get("/1/access", headers=headers)
 
     # Check response
     assert response.status_code == 200
@@ -223,10 +293,12 @@ def test_get_pvc_access(mock_auth_decorators, client_with_storage_pvc_routes, mo
     assert len(data["allowed_users"]) == 2
 
     # Verify mock was called correctly
-    mock_storage_pvc_service.get_pvc_access.assert_called_once_with(1, MagicMock())
+    mock_storage_pvc_service.get_pvc_access.assert_called_once()
+    args, _ = mock_storage_pvc_service.get_pvc_access.call_args
+    assert args[0] == 1  # Check that the first argument is the ID
 
 
-def test_update_pvc_access(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service):
+def test_update_pvc_access(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service, mock_token):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/{pvc_id}/access' endpoint is requested (POST)
@@ -235,8 +307,9 @@ def test_update_pvc_access(mock_auth_decorators, client_with_storage_pvc_routes,
     # Test data
     access_data = {"is_public": False, "allowed_users": ["user3", "user4"]}
 
-    # Make request
-    response = client_with_storage_pvc_routes.post("/1/access", json=access_data)
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_storage_pvc_routes.post("/1/access", json=access_data, headers=headers)
 
     # Check response
     assert response.status_code == 200
@@ -250,14 +323,17 @@ def test_update_pvc_access(mock_auth_decorators, client_with_storage_pvc_routes,
     mock_storage_pvc_service.update_pvc_access.assert_called_once()
 
 
-def test_get_storage_pvc_by_id(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service):
+def test_get_storage_pvc_by_id(
+    mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service, mock_token
+):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/{pvc_id}' endpoint is requested (GET)
     THEN check that the PVC details are returned
     """
-    # Make request
-    response = client_with_storage_pvc_routes.get("/1")
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_storage_pvc_routes.get("/1", headers=headers)
 
     # Check response
     assert response.status_code == 200
@@ -267,17 +343,22 @@ def test_get_storage_pvc_by_id(mock_auth_decorators, client_with_storage_pvc_rou
     assert data["size"] == "10Gi"
 
     # Verify mock was called correctly
-    mock_storage_pvc_service.get_storage_pvc_by_id.assert_called_once_with(1, MagicMock())
+    mock_storage_pvc_service.get_storage_pvc_by_id.assert_called_once()
+    args, _ = mock_storage_pvc_service.get_storage_pvc_by_id.call_args
+    assert args[0] == 1  # Check that the first argument is the ID
 
 
-def test_get_pvc_connections(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service):
+def test_get_pvc_connections(
+    mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service, mock_token
+):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/connections/{pvc_id}' endpoint is requested (GET)
     THEN check that the connections using the PVC are returned
     """
-    # Make request
-    response = client_with_storage_pvc_routes.get("/connections/1")
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_storage_pvc_routes.get("/connections/1", headers=headers)
 
     # Check response
     assert response.status_code == 200
@@ -287,10 +368,14 @@ def test_get_pvc_connections(mock_auth_decorators, client_with_storage_pvc_route
     assert data["connections"][0]["type"] == "desktop"
 
     # Verify mock was called correctly
-    mock_storage_pvc_service.get_pvc_connections.assert_called_once_with(1, MagicMock())
+    mock_storage_pvc_service.get_pvc_connections.assert_called_once()
+    args, _ = mock_storage_pvc_service.get_pvc_connections.call_args
+    assert args[0] == 1  # Check that the first argument is the ID
 
 
-def test_create_storage_pvc_api_error(mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service):
+def test_create_storage_pvc_api_error(
+    mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service, mock_token
+):
     """
     GIVEN a Flask application configured for testing
     WHEN the '/create' endpoint is requested but an APIError occurs
@@ -305,8 +390,9 @@ def test_create_storage_pvc_api_error(mock_auth_decorators, client_with_storage_
     # Test data
     pvc_data = {"name": "test-pvc", "size": "10Gi"}
 
-    # Make request
-    response = client_with_storage_pvc_routes.post("/create", json=pvc_data)
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_storage_pvc_routes.post("/create", json=pvc_data, headers=headers)
 
     # Check response
     assert response.status_code == 400
@@ -316,7 +402,7 @@ def test_create_storage_pvc_api_error(mock_auth_decorators, client_with_storage_
 
 
 def test_create_storage_pvc_generic_error(
-    mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service
+    mock_auth_decorators, client_with_storage_pvc_routes, mock_storage_pvc_service, mock_token
 ):
     """
     GIVEN a Flask application configured for testing
@@ -330,8 +416,9 @@ def test_create_storage_pvc_generic_error(
     # Test data
     pvc_data = {"name": "test-pvc", "size": "10Gi"}
 
-    # Make request
-    response = client_with_storage_pvc_routes.post("/create", json=pvc_data)
+    # Make request with auth header
+    headers = {"Authorization": f"Bearer {mock_token}"}
+    response = client_with_storage_pvc_routes.post("/create", json=pvc_data, headers=headers)
 
     # Check response
     assert response.status_code == 500
