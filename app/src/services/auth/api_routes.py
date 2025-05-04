@@ -14,7 +14,6 @@ from services.auth.auth import AuthError, is_authenticated, logout
 from . import auth_api_bp
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 @auth_api_bp.route("/status", methods=["GET"])

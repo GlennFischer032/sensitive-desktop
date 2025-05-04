@@ -78,7 +78,7 @@ class ConnectionsService:
 
     def validate_external_pvc(self, external_pvc: str, current_user, session):
         """Validate that the external PVC exists and the user has access to it."""
-        logging.info("External PVC specified: %s", external_pvc)
+        logging.debug("External PVC specified: %s", external_pvc)
         try:
             pvc_repo = StoragePVCRepository(session)
             pvc = pvc_repo.get_by_name(external_pvc)
@@ -88,9 +88,9 @@ class ConnectionsService:
             allowed_users = [access.username for access in pvc.access_permissions]
 
             if current_user.is_admin:
-                logging.info("Admin user - access granted to PVC")
+                logging.debug("Admin user - access granted to PVC")
             elif pvc.is_public:
-                logging.info("Public PVC - access granted to all users")
+                logging.debug("Public PVC - access granted to all users")
             elif current_user.username not in allowed_users:
                 raise ForbiddenError("You do not have permission to use this PVC")
 
@@ -161,15 +161,15 @@ class ConnectionsService:
 
         try:
             # Install Helm chart
-            logging.info("Installing Helm chart for %s", name)
+            logging.debug("Installing Helm chart for %s", name)
             rancher_client.install(name, desktop_values)
-            logging.info("Helm chart installation completed")
+            logging.debug("Helm chart installation completed")
 
             # Check if VNC server is ready
-            logging.info("Checking if VNC server is ready for %s", name)
+            logging.debug("Checking if VNC server is ready for %s", name)
             vnc_ready = rancher_client.check_vnc_ready(name)
             status = "ready" if vnc_ready else "provisioning"
-            logging.info("VNC server ready status for %s: %s", name, status)
+            logging.debug("VNC server ready status for %s: %s", name, status)
 
             return status, rancher_client
         except Exception as e:
@@ -225,7 +225,7 @@ class ConnectionsService:
 
     def scale_up(self, data, current_user, session):
         """Scale up a new desktop connection."""
-        logging.info("=== Processing scale up request ===")
+        logging.debug("=== Processing scale up request ===")
         settings = get_settings()
         # Validate input data
         self.validate_scale_up_input(data)
@@ -245,9 +245,9 @@ class ConnectionsService:
 
         # Generate unique connection name and credentials
         name = generate_unique_connection_name(data["name"])
-        logging.info("Generated unique name: %s", name)
+        logging.debug("Generated unique name: %s", name)
         vnc_password = generate_random_string(32)
-        logging.info("Generated VNC password")
+        logging.debug("Generated VNC password")
 
         # Provision resources
         status, rancher_client = self.provision_desktop_resources(
@@ -283,14 +283,14 @@ class ConnectionsService:
             # Clean up Rancher deployment if an error occurred after it was created
             try:
                 rancher_client.uninstall(name)
-                logging.info("Cleaned up Rancher deployment after error")
+                logging.debug("Cleaned up Rancher deployment after error")
             except Exception as cleanup_error:
                 logging.error("Failed to clean up Rancher deployment: %s", str(cleanup_error))
             raise e
 
     def scale_down(self, connection_name, current_user, session):
         """Scale down a desktop connection."""
-        logging.info("Processing scale down for connection: %s", connection_name)
+        logging.debug("Processing scale down for connection: %s", connection_name)
 
         conn_repo = ConnectionRepository(session)
         connection = conn_repo.get_by_name(connection_name)
@@ -306,7 +306,7 @@ class ConnectionsService:
         persistent_home = connection.persistent_home
 
         rancher_client = client_factory.get_rancher_client()
-        logging.info("Created Rancher client for uninstallation")
+        logging.debug("Created Rancher client for uninstallation")
 
         # Uninstall the Helm chart
         rancher_client.uninstall(connection.name)
@@ -315,21 +315,21 @@ class ConnectionsService:
             logging.error("Failed to uninstall Rancher deployment")
             raise APIError(f"Failed to uninstall Rancher deployment for {connection.name}")
 
-        logging.info("Uninstalled Helm chart for %s", connection.name)
+        logging.debug("Uninstalled Helm chart for %s", connection.name)
 
         # Check if we should soft delete or hard delete
         if persistent_home:
             # Soft delete - mark as stopped in the database
             conn_repo = ConnectionRepository(session)
             conn_repo.update_connection(connection.id, {"is_stopped": True})
-            logging.info("Marked connection as stopped: %s", connection_name)
+            logging.debug("Marked connection as stopped: %s", connection_name)
 
             return {"message": f"Connection {connection_name} scaled down and preserved for future resumption"}
         else:
             # Hard delete - remove from database
             conn_repo = ConnectionRepository(session)
             conn_repo.delete_connection(connection.id)
-            logging.info("Hard deleted connection: %s", connection_name)
+            logging.debug("Hard deleted connection: %s", connection_name)
 
             return {"message": f"Connection {connection_name} permanently deleted"}
 
@@ -452,7 +452,7 @@ class ConnectionsService:
 
     def resume_connection(self, connection_name, current_user, session):
         """Resume a previously stopped connection."""
-        logging.info("Resuming connection: %s", connection_name)
+        logging.debug("Resuming connection: %s", connection_name)
 
         # Get connection from database
         conn_repo = ConnectionRepository(session)
@@ -492,15 +492,15 @@ class ConnectionsService:
         desktop_values.storage.persistenthome = connection.persistent_home
 
         # Install Helm chart
-        logging.info("Installing Helm chart for %s", connection_name)
+        logging.debug("Installing Helm chart for %s", connection_name)
         rancher_client.install(connection_name, desktop_values)
-        logging.info("Helm chart installation completed")
+        logging.debug("Helm chart installation completed")
 
         # Check if VNC server is ready
-        logging.info("Checking if VNC server is ready for %s", connection_name)
+        logging.debug("Checking if VNC server is ready for %s", connection_name)
         vnc_ready = rancher_client.check_vnc_ready(connection_name)
         status = "ready" if vnc_ready else "provisioning"
-        logging.info("VNC server ready status for %s: %s", connection_name, status)
+        logging.debug("VNC server ready status for %s: %s", connection_name, status)
 
         # Update database to mark as active and update the new Guacamole connection ID
         conn_repo.update_connection(
@@ -514,7 +514,7 @@ class ConnectionsService:
         )
 
         updated_connection = conn_repo.get_by_name(connection_name)
-        logging.info("Resumed connection in database: %s", connection_name)
+        logging.debug("Resumed connection in database: %s", connection_name)
 
         return {
             "message": f"Connection {connection_name} resumed successfully",
@@ -530,7 +530,7 @@ class ConnectionsService:
 
     def permanent_delete(self, connection_name, current_user, session):
         """Permanently delete a connection and its associated PVC."""
-        logging.info("Permanently deleting connection: %s", connection_name)
+        logging.debug("Permanently deleting connection: %s", connection_name)
 
         # Get connection from database
         conn_repo = ConnectionRepository(session)
@@ -558,14 +558,14 @@ class ConnectionsService:
 
             # If no exception was raised, the PVC exists, so delete it
             rancher_client.delete_pvc(name=pvc_name)
-            logging.info("Deleted PVC: %s", pvc_name)
+            logging.debug("Deleted PVC: %s", pvc_name)
             pvc_deleted = True
         except Exception as e:
             logging.warning("Failed to delete PVC %s: %s", pvc_name, str(e))
 
         # Delete connection from database
         conn_repo.delete_connection(connection.id)
-        logging.info("Permanently deleted connection: %s", connection_name)
+        logging.debug("Permanently deleted connection: %s", connection_name)
 
         # Return result
         message = f"Connection {connection_name} permanently deleted"

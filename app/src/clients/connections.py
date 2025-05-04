@@ -44,9 +44,8 @@ class ConnectionsClient(BaseClient):
             if connections:
                 # Check for external_pvc field
                 has_external_pvc = any("external_pvc" in conn for conn in connections)
-                self.logger.info(f"Connections data includes external_pvc field: {has_external_pvc}")
+                self.logger.debug(f"Connections data includes external_pvc field: {has_external_pvc}")
 
-                # Example of first connection data structure if available
                 if len(connections) > 0:
                     self.logger.debug(f"Example connection data keys: {connections[0].keys()}")
 

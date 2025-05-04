@@ -43,7 +43,7 @@ def list_configurations():
         description: Server error
     """
     try:
-        current_app.logger.info("API: Fetching desktop configurations")
+        current_app.logger.debug("API: Fetching desktop configurations")
         desktop_configs_client = client_factory.get_desktop_configurations_client()
         configs = desktop_configs_client.list_configurations(token=session["token"])
 
@@ -83,7 +83,7 @@ def get_configuration(config_id):
         description: Server error
     """
     try:
-        current_app.logger.info(f"API: Fetching configuration with ID: {config_id}")
+        current_app.logger.debug(f"API: Fetching configuration with ID: {config_id}")
         desktop_configs_client = client_factory.get_desktop_configurations_client()
         config_response = desktop_configs_client.get_configuration(config_id=config_id, token=session["token"])
 
@@ -159,7 +159,7 @@ def create_configuration():
         if not data:
             return jsonify({"error": "No JSON data provided"}), HTTPStatus.BAD_REQUEST
 
-        current_app.logger.info(f"API: Creating new configuration: {data.get('name')}")
+        current_app.logger.debug(f"API: Creating new configuration: {data.get('name')}")
         desktop_configs_client = client_factory.get_desktop_configurations_client()
         desktop_configs_client.create_configuration(config_data=data, token=session["token"])
 
@@ -240,7 +240,7 @@ def update_configuration(config_id):
         if not data:
             return jsonify({"error": "No JSON data provided"}), HTTPStatus.BAD_REQUEST
 
-        current_app.logger.info(f"API: Updating configuration with ID: {config_id}")
+        current_app.logger.debug(f"API: Updating configuration with ID: {config_id}")
         desktop_configs_client = client_factory.get_desktop_configurations_client()
         desktop_configs_client.update_configuration(config_id=config_id, config_data=data, token=session["token"])
 
@@ -283,7 +283,7 @@ def delete_configuration(config_id):
         description: Server error
     """
     try:
-        current_app.logger.info(f"API: Deleting configuration with ID: {config_id}")
+        current_app.logger.debug(f"API: Deleting configuration with ID: {config_id}")
         desktop_configs_client = client_factory.get_desktop_configurations_client()
         desktop_configs_client.delete_configuration(config_id=config_id, token=session["token"])
 

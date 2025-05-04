@@ -43,9 +43,9 @@ def initialize_db() -> None:
     if they don't already exist.
     """
     engine = get_engine()
-    logger.info("Creating database tables if they don't exist")
+    logger.debug("Creating database tables if they don't exist")
     Base.metadata.create_all(bind=engine)
-    logger.info("Database initialization completed")
+    logger.debug("Database initialization completed")
 
 
 def get_session_maker() -> sessionmaker:

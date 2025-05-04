@@ -214,7 +214,7 @@ class RancherClient(BaseClient):
                 }
             }
 
-            self.logger.info(
+            self.logger.debug(
                 "Installing Helm chart via Rancher API: %s (repo: %s, namespace: %s)",
                 connection_name,
                 self.repo_name,
@@ -227,7 +227,7 @@ class RancherClient(BaseClient):
                 self.logger.error(error_message)
                 raise APIError(error_message, status_code=response.status_code)
 
-            self.logger.info("Helm chart installation response: %s", response.status_code)
+            self.logger.debug("Helm chart installation response: %s", response.status_code)
             return response.json() if response.text else {}
         except requests.RequestException as e:
             error_message = f"Failed to install Helm chart: {e!s}"
@@ -257,7 +257,7 @@ class RancherClient(BaseClient):
                 f"{self.namespace}/{connection_name}?action=uninstall"
             )
 
-            self.logger.info(
+            self.logger.debug(
                 "Uninstalling Helm chart via Rancher API: %s (namespace: %s)",
                 connection_name,
                 self.namespace,
@@ -269,7 +269,7 @@ class RancherClient(BaseClient):
                 self.logger.error(error_message)
                 raise APIError(error_message, status_code=response.status_code)
 
-            self.logger.info("Helm chart uninstallation response: %s", response.status_code)
+            self.logger.debug("Helm chart uninstallation response: %s", response.status_code)
             return response.json() if response.text else {}
         except requests.RequestException as e:
             error_message = f"Failed to uninstall Helm chart: {e!s}"
@@ -280,12 +280,12 @@ class RancherClient(BaseClient):
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
 
-    def check_vnc_ready(self, connection_name: str, max_retries: int = 30, retry_interval: int = 2) -> bool:
+    def check_vnc_ready(self, connection_name: str, max_retries: int = 60, retry_interval: int = 2) -> bool:
         """Check if VNC server pod is ready and VNC port is accessible.
 
         Args:
             connection_name: Connection name
-            max_retries: Maximum number of retry attempts (default: 30)
+            max_retries: Maximum number of retry attempts (default: 60)
             retry_interval: Time to wait between retries in seconds (default: 2)
 
         Returns:
@@ -301,7 +301,7 @@ class RancherClient(BaseClient):
 
                     # Log all pod names for debugging
                     pod_names = [pod["metadata"]["name"] for pod in pods]
-                    self.logger.info("Found pods in namespace: %s", pod_names)
+                    self.logger.debug("Found pods in namespace: %s", pod_names)
 
                     # Check if the desktop pod exists and is ready
                     desktop_pod = None
@@ -310,7 +310,7 @@ class RancherClient(BaseClient):
                         # The pod name format is {connection_name}-0
                         if pod_name == f"{connection_name}-0":
                             desktop_pod = pod
-                            self.logger.info("Found desktop pod: %s", pod_name)
+                            self.logger.debug("Found desktop pod: %s", pod_name)
                             break
 
                     if not desktop_pod:
@@ -351,7 +351,7 @@ class RancherClient(BaseClient):
                         time.sleep(retry_interval)
                         continue
 
-                    self.logger.info("Desktop pod for %s is ready", connection_name)
+                    self.logger.debug("Desktop pod for %s is ready", connection_name)
                     return True
 
                 except Exception as e:
@@ -369,12 +369,12 @@ class RancherClient(BaseClient):
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
 
-    def check_release_uninstalled(self, connection_name: str, max_retries: int = 30, retry_interval: int = 2) -> bool:
+    def check_release_uninstalled(self, connection_name: str, max_retries: int = 60, retry_interval: int = 2) -> bool:
         """Check if a Helm release is uninstalled.
 
         Args:
             connection_name: Connection name
-            max_retries: Maximum number of retry attempts (default: 30)
+            max_retries: Maximum number of retry attempts (default: 60)
             retry_interval: Time to wait between retries in seconds (default: 2)
 
         Returns:
@@ -432,7 +432,7 @@ class RancherClient(BaseClient):
                 f"&labelSelector=app.kubernetes.io%2Finstance%3D{connection_name}"
             )
 
-            self.logger.info("Getting pod IP for connection: %s", connection_name)
+            self.logger.debug("Getting pod IP for connection: %s", connection_name)
             response = requests.get(url, headers=self.headers, timeout=10)
 
             if response.status_code >= 400:
@@ -446,7 +446,7 @@ class RancherClient(BaseClient):
                 phase = status.get("phase")
                 if phase == "Running":
                     pod_ip = status.get("podIP")
-                    self.logger.info("Found pod IP: %s", pod_ip)
+                    self.logger.debug("Found pod IP: %s", pod_ip)
                     return pod_ip
 
             self.logger.warning("No running pod found for connection: %s", connection_name)
@@ -475,7 +475,7 @@ class RancherClient(BaseClient):
                 f"?namespaceId={self.namespace}"
             )
 
-            self.logger.info("Listing Helm releases via Rancher API")
+            self.logger.debug("Listing Helm releases via Rancher API")
             response = requests.get(url, headers=self.headers, timeout=10)
 
             if response.status_code >= 400:
@@ -484,7 +484,7 @@ class RancherClient(BaseClient):
                 raise APIError(error_message, status_code=response.status_code)
 
             releases = response.json().get("data", [])
-            self.logger.info("Found %s releases", len(releases))
+            self.logger.debug("Found %s releases", len(releases))
             return releases
         except requests.RequestException as e:
             error_message = f"Failed to list releases: {e!s}"
@@ -513,7 +513,7 @@ class RancherClient(BaseClient):
                 f"/{self.namespace}/{connection_name}"
             )
 
-            self.logger.info("Getting Helm release via Rancher API: %s", connection_name)
+            self.logger.debug("Getting Helm release via Rancher API: %s", connection_name)
             response = requests.get(url, headers=self.headers, timeout=10)
 
             if response.status_code >= 400:
@@ -521,7 +521,7 @@ class RancherClient(BaseClient):
                 self.logger.error(error_message)
                 raise APIError(error_message, status_code=response.status_code)
 
-            self.logger.info("Got release: %s", connection_name)
+            self.logger.debug("Got release: %s", connection_name)
             return response.json()
         except requests.RequestException as e:
             error_message = f"Failed to get release: {e!s}"
@@ -572,7 +572,7 @@ class RancherClient(BaseClient):
                 "accessModes": access_modes,  # This is required for the Rancher UI
             }
 
-            self.logger.info(
+            self.logger.debug(
                 "Creating PVC via Rancher API: %s (namespace: %s, size: %s)",
                 name,
                 namespace_to_use,
@@ -585,7 +585,7 @@ class RancherClient(BaseClient):
                 self.logger.error(error_message)
                 raise APIError(error_message, status_code=response.status_code)
 
-            self.logger.info("PVC creation response: %s", response.status_code)
+            self.logger.debug("PVC creation response: %s", response.status_code)
             return response.json() if response.text else {}
         except requests.RequestException as e:
             error_message = f"Failed to create PVC: {e!s}"
@@ -617,7 +617,7 @@ class RancherClient(BaseClient):
                 f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/persistentvolumeclaims/" f"{namespace_to_use}/{name}"
             )
 
-            self.logger.info(
+            self.logger.debug(
                 "Getting PVC via Rancher API: %s (namespace: %s)",
                 name,
                 namespace_to_use,
@@ -629,7 +629,7 @@ class RancherClient(BaseClient):
                 self.logger.error(error_message)
                 raise APIError(error_message, status_code=response.status_code)
 
-            self.logger.info("Got PVC: %s", name)
+            self.logger.debug("Got PVC: %s", name)
             return response.json()
         except requests.RequestException as e:
             error_message = f"Failed to get PVC: {e!s}"
@@ -661,7 +661,7 @@ class RancherClient(BaseClient):
                 f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/persistentvolumeclaims/" f"{namespace_to_use}/{name}"
             )
 
-            self.logger.info(
+            self.logger.debug(
                 "Deleting PVC via Rancher API: %s (namespace: %s)",
                 name,
                 namespace_to_use,
@@ -673,7 +673,7 @@ class RancherClient(BaseClient):
                 self.logger.error(error_message)
                 raise APIError(error_message, status_code=response.status_code)
 
-            self.logger.info("PVC deletion response: %s", response.status_code)
+            self.logger.debug("PVC deletion response: %s", response.status_code)
             return response.json() if response.text else {}
         except requests.RequestException as e:
             error_message = f"Failed to delete PVC: {e!s}"

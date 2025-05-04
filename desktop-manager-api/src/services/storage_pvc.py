@@ -52,13 +52,13 @@ class StoragePVCService:
 
             # Create PVC in Kubernetes
             rancher_client = client_factory.get_rancher_client()
-            logging.info("Creating PVC '%s' in namespace '%s' with size '%s'", name, namespace, size)
+            logging.debug("Creating PVC '%s' in namespace '%s' with size '%s'", name, namespace, size)
             pvc_data = rancher_client.create_pvc(
                 name=name,
                 namespace=namespace,
                 size=size,
             )
-            logging.info("PVC created successfully: %s", pvc_data)
+            logging.debug("PVC created successfully: %s", pvc_data)
 
             # Store PVC in database using repository
             pvc_db_data = {

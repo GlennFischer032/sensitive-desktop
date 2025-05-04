@@ -48,7 +48,7 @@ def list_pvcs():
         description: Server error
     """
     try:
-        current_app.logger.info("API: Fetching storage PVCs")
+        current_app.logger.debug("API: Fetching storage PVCs")
         storage_client = client_factory.get_storage_client()
         pvcs = storage_client.list_storage(token=session["token"])
 
@@ -147,7 +147,7 @@ def create_pvc():
         if "name" not in data or "size" not in data:
             return jsonify({"error": "Name and size are required"}), HTTPStatus.BAD_REQUEST
 
-        current_app.logger.info(f"API: Creating new PVC with name: {data['name']}")
+        current_app.logger.debug(f"API: Creating new PVC with name: {data['name']}")
         storage_client = client_factory.get_storage_client()
         pvc = storage_client.create_storage(**data, token=session["token"])
 
@@ -325,7 +325,7 @@ def delete_pvc(pvc_name):
         description: Server error
     """
     try:
-        current_app.logger.info(f"API: Deleting PVC: {pvc_name}")
+        current_app.logger.debug(f"API: Deleting PVC: {pvc_name}")
         storage_client = client_factory.get_storage_client()
         result = storage_client.delete_storage(pvc_name, token=session["token"])
         return jsonify(result), HTTPStatus.OK

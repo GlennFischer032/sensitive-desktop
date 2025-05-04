@@ -35,7 +35,7 @@ def view_pvcs():
             users_client = client_factory.get_users_client()
             users = users_client.list_users(token=session["token"])
 
-        current_app.logger.info(f"Retrieved {len(pvcs)} storage PVCs")
+        current_app.logger.debug(f"Retrieved {len(pvcs)} storage PVCs")
         return render_template("storage_pvcs.html", pvcs=pvcs, users=users, is_admin=session.get("is_admin", False))
     except Exception as e:
         current_app.logger.error(f"Error fetching storage PVCs: {str(e)}")

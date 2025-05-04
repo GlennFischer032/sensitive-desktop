@@ -102,7 +102,6 @@ desktopFrontend:
 #####################################################
 postgres:
   image: "postgres:16-alpine"
-  initdbImage: "glennfischer032/guacamole-init-db:latest"
   persistence:
     enabled: true
     storageClass: "nfs-csi"

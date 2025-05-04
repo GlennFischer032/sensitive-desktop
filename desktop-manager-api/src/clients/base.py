@@ -147,6 +147,7 @@ class BaseClient:
         Raises:
             APIError: If request fails
         """
+        self.logger.debug("Requesting %s %s", method, endpoint)
         if timeout is None:
             timeout = self.timeout
 

@@ -44,7 +44,7 @@ def list_users():
         description: Server error
     """
     try:
-        current_app.logger.info("API: Fetching users list")
+        current_app.logger.debug("API: Fetching users list")
         users_client = client_factory.get_users_client()
         users = users_client.list_users(token=session["token"])
 
@@ -96,7 +96,7 @@ def get_user(username):
         description: Server error
     """
     try:
-        current_app.logger.info(f"API: Fetching details for user: {username}")
+        current_app.logger.debug(f"API: Fetching details for user: {username}")
         users_client = client_factory.get_users_client()
         user = users_client.get_user(username, token=session["token"])
 
@@ -173,7 +173,7 @@ def create_user():
 
         user_data = {"username": username, "is_admin": is_admin, "sub": sub}
 
-        current_app.logger.info(f"API: Adding new user: {username}")
+        current_app.logger.debug(f"API: Adding new user: {username}")
         users_client = client_factory.get_users_client()
         users_client.add_user(**user_data, token=session["token"])
 
@@ -221,7 +221,7 @@ def delete_user(username):
         description: Server error
     """
     try:
-        current_app.logger.info(f"API: Attempting to delete user: {username}")
+        current_app.logger.debug(f"API: Attempting to delete user: {username}")
 
         # Check if user is trying to delete their own account
         if username == session.get("username"):

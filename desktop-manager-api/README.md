@@ -63,8 +63,6 @@ desktop-manager-api/
 ├── Dockerfile            # Docker configuration for building the API image
 ├── pyproject.toml        # Project metadata, dependencies, tool configurations
 ├── uv.lock               # Pinned Python dependencies
-├── guacamole-init-postgres.sql # SQL script for initializing Guacamole schema
-├── guacamole-init-users-postgres.sql # SQL script for initializing Guacamole users
 ├── healthcheck.sh        # Script used for Docker healthcheck
 └── ... (other config/cache files)
 ```

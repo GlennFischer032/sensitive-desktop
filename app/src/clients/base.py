@@ -121,6 +121,8 @@ class BaseClient:
         Raises:
             APIError: If request fails
         """
+        self.logger.debug(f"Making {method} request to {request.endpoint}")
+        self.logger.debug(f"Request data: {request.data}")
 
         url = f"{self._get_base_url()}{request.endpoint}"
         request_headers = self._get_headers(request.token)

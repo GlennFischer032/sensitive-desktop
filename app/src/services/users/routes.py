@@ -37,11 +37,11 @@ def view_users():
         return redirect(url_for("connections.view_connections"))
 
     try:
-        current_app.logger.info("Fetching users from API...")
+        current_app.logger.debug("Fetching users from API...")
         users_client = client_factory.get_users_client()
         users = users_client.list_users(token=session["token"])
 
-        current_app.logger.info(f"Found {len(users)} users")
+        current_app.logger.debug(f"Found {len(users)} users")
         return render_template("users.html", users=users)
     except APIError as e:
         current_app.logger.error(f"Error fetching users: {e.message}")

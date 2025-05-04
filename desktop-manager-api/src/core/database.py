@@ -10,8 +10,6 @@ from sqlalchemy.pool import QueuePool, StaticPool
 
 
 __all__ = ["get_session_factory"]
-
-logging.basicConfig(level=logging.INFO)
 logger: logging.Logger = logging.getLogger(__name__)
 
 # Global variables to store engine and session factory
@@ -30,11 +28,11 @@ def create_db_engine(db_url: str | None = None, retries: int = 5, delay: int = 2
     if db_url is None:
         db_url = get_database_url()
 
-    logger.info("Database URL: %s", db_url)
+    logger.debug("Database URL: %s", db_url)
 
     for attempt in range(retries):
         try:
-            logger.info(
+            logger.debug(
                 "Attempting to connect to database (attempt %s/%s)",
                 attempt + 1,
                 retries,
@@ -50,12 +48,12 @@ def create_db_engine(db_url: str | None = None, retries: int = 5, delay: int = 2
             # Test the connection
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            logger.info("Successfully connected to database")
+            logger.debug("Successfully connected to database")
             return engine
         except OperationalError as e:
             if attempt < retries - 1:
                 logger.warning("Failed to connect to database: %s", str(e))
-                logger.info("Retrying in %s seconds...", delay)
+                logger.debug("Retrying in %s seconds...", delay)
                 time.sleep(delay)
             else:
                 logger.error("Failed to connect to database after all retries")

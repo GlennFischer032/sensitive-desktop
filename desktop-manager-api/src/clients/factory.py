@@ -33,7 +33,7 @@ class ClientFactory:
             GuacamoleClient: GuacamoleClient instance
         """
         if not self._guacamole_client:
-            self.logger.info("Creating new GuacamoleClient instance")
+            self.logger.debug("Creating new GuacamoleClient instance")
             self._guacamole_client = GuacamoleClient(
                 guacamole_url=self.settings.GUACAMOLE_URL,
             )
@@ -46,7 +46,7 @@ class ClientFactory:
             RancherClient: RancherClient instance
         """
         if not self._rancher_client:
-            self.logger.info("Creating new RancherClient instance")
+            self.logger.debug("Creating new RancherClient instance")
             self._rancher_client = RancherClient()
         return self._rancher_client
 

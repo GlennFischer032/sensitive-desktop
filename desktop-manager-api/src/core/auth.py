@@ -33,7 +33,7 @@ def token_required(f):
             # Check if this is an API token
             token_id = data.get("token_id")
             if token_id:
-                current_app.logger.info("Token identified as API token with ID: %s", token_id)
+                current_app.logger.debug("Token identified as API token with ID: %s", token_id)
                 # This is an API token, check if it's valid
                 with get_db_session() as session:
                     token_repo = TokenRepository(session)
@@ -47,7 +47,7 @@ def token_required(f):
 
                     token_repo = TokenRepository(session)
                     token_repo.update_last_used(token_id)
-                    current_app.logger.info("API token validated for user: %s", token.created_by)
+                    current_app.logger.debug("API token validated for user: %s", token.created_by)
 
                     user_repo = UserRepository(session)
                     user = user_repo.get_by_username(token.created_by)

@@ -93,7 +93,7 @@ class UserService:
 
             authorization_url = f"{settings.OIDC_PROVIDER_URL}/authorize?{urlencode(auth_params)}"
 
-            logging.info("OIDC authorization URL with scopes: %s", auth_params["scope"])
+            logging.debug("OIDC authorization URL with scopes: %s", auth_params["scope"])
 
             return {"authorization_url": authorization_url}
         except Exception as e:
@@ -149,8 +149,8 @@ class UserService:
                 raise BadRequestError(f"Token exchange failed: {token_response.text}")
 
             tokens = token_response.json()
-            logging.info("Token response received (excluding sensitive information)")
-            logging.info("Token response keys: %s", list(tokens.keys()))
+            logging.debug("Token response received (excluding sensitive information)")
+            logging.debug("Token response keys: %s", list(tokens.keys()))
             access_token = tokens.get("access_token")
             id_token = tokens.get("id_token")
 
@@ -173,8 +173,8 @@ class UserService:
                 )
                 if userinfo_response.status_code == 200:
                     additional_user_info = userinfo_response.json()
-                    logging.info("Retrieved additional user info from userinfo endpoint")
-                    logging.info("UserInfo response keys: %s", list(additional_user_info.keys()))
+                    logging.debug("Retrieved additional user info from userinfo endpoint")
+                    logging.debug("UserInfo response keys: %s", list(additional_user_info.keys()))
 
                     # Merge additional user info with ID token info, but don't overwrite existing values
                     for key, value in additional_user_info.items():
@@ -195,7 +195,7 @@ class UserService:
                 "nickname": user_info.get("nickname"),
                 "preferred_username": user_info.get("preferred_username"),
             }
-            logging.info(
+            logging.debug(
                 "Name-related fields found: %s",
                 json.dumps({k: v for k, v in name_fields.items() if v}, indent=2),
             )
@@ -217,13 +217,13 @@ class UserService:
             organization = user_info.get("organization")
 
             # Log the full user info for debugging
-            logging.info(
+            logging.debug(
                 "OIDC token decoded with user info: %s",
                 json.dumps({k: v for k, v in user_info.items() if k not in ["at_hash", "auth_time"]}, indent=2),
             )
 
             # Log the extracted user details
-            logging.info(
+            logging.debug(
                 "Extracted user details from OIDC token: sub=%s, email=%s, organization=%s",
                 sub,
                 email,
@@ -316,7 +316,7 @@ class UserService:
             if not username:
                 raise BadRequestError("Missing username in request data")
 
-            logging.info("Request to remove user: %s", username)
+            logging.debug("Request to remove user: %s", username)
 
             if current_user.username == username:
                 raise ForbiddenError("You cannot remove your own account")
@@ -327,7 +327,7 @@ class UserService:
                 raise NotFoundError("User not found")
 
             user_repo.delete_user(user.id)
-            logging.info("Successfully removed user from database: %s", username)
+            logging.debug("Successfully removed user from database: %s", username)
 
             return {"message": "User removed successfully"}
         except APIError:
@@ -380,7 +380,7 @@ class UserService:
             # Other fields will be populated during the first OIDC login
             user = user_repo.create_user({"username": username, "sub": sub, "is_admin": is_admin})
 
-            logging.info("Created user in database: %s with sub: %s", username, sub)
+            logging.debug("Created user in database: %s with sub: %s", username, sub)
 
             # Format response
             return {

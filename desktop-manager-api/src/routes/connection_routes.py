@@ -28,10 +28,10 @@ def scale_up() -> tuple[dict[str, Any], int]:
             - Dict with connection details or error message
             - HTTP status code
     """
-    logging.info("=== Received request to /scaleup ===")
-    logging.info("Request path: %s", request.path)
-    logging.info("Request method: %s", request.method)
-    logging.info("Request headers: %s", request.headers)
+    logging.debug("=== Received request to /scaleup ===")
+    logging.debug("Request path: %s", request.path)
+    logging.debug("Request method: %s", request.method)
+    logging.debug("Request headers: %s", request.headers)
 
     try:
         # Get input data
@@ -84,11 +84,11 @@ def scale_down() -> tuple[dict[str, Any], int]:
             )
 
         connection_name = data.get("name")
-        logging.info("Processing scale down for connection: %s", connection_name)
+        logging.debug("Processing scale down for connection: %s", connection_name)
 
         # Get the current user
         current_user = request.current_user
-        logging.info("Current user: %s", current_user.username)
+        logging.debug("Current user: %s", current_user.username)
 
         # Create service instance and call scale_down
         connection_service = ConnectionsService()
@@ -160,14 +160,7 @@ def get_connection(connection_name):
       200:
         description: Connection information
         content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                connection:
-                  type: object
-                  properties:
-                    name:
+          application/json:activate BackEnd
                       type: string
                     created_at:
                       type: string
@@ -180,10 +173,10 @@ def get_connection(connection_name):
       500:
         description: Internal server error.
     """
-    logging.info("=== Received request to /%s ===", connection_name)
-    logging.info("Request path: %s", request.path)
-    logging.info("Request method: %s", request.method)
-    logging.info("Request headers: %s", request.headers)
+    logging.debug("=== Received request to /%s ===", connection_name)
+    logging.debug("Request path: %s", request.path)
+    logging.debug("Request method: %s", request.method)
+    logging.debug("Request headers: %s", request.headers)
 
     try:
         # Get authenticated user
@@ -291,28 +284,11 @@ def resume_connection() -> tuple[dict[str, Any], int]:
             - Dict with connection details or error message
             - HTTP status code
     """
-    logging.info("=== Received request to /resume ===")
-    logging.info("Request path: %s", request.path)
-    logging.info("Request method: %s", request.method)
-    logging.info("Request headers: %s", request.headers)
-    data = request.get_json()
-    if not data or "name" not in data:
-        return (
-            jsonify({"error": "Missing required field: name"}),
-            HTTPStatus.BAD_REQUEST,
-        )
-
-    connection_name = data["name"]
-    current_user = request.current_user
-
-    # Create service instance and call resume_connection
-    connection_service = ConnectionsService()
-    response_data = connection_service.resume_connection(connection_name, current_user, request.db_session)
-
-    return jsonify(response_data), HTTPStatus.OK
-
     try:
-        # Extract connection name from request
+        logging.debug("=== Received request to /resume ===")
+        logging.debug("Request path: %s", request.path)
+        logging.debug("Request method: %s", request.method)
+        logging.debug("Request headers: %s", request.headers)
         data = request.get_json()
         if not data or "name" not in data:
             return (
@@ -367,7 +343,7 @@ def permanent_delete() -> tuple[dict[str, Any], int]:
             )
 
         connection_name = data["name"]
-        logging.info("Permanently deleting connection: %s", connection_name)
+        logging.debug("Permanently deleting connection: %s", connection_name)
 
         # Create service instance and call permanent_delete
         connection_service = ConnectionsService()
@@ -458,7 +434,7 @@ def detach_pvc() -> tuple[dict[str, Any], int]:
             )
 
         connection_id = data["connection_id"]
-        logging.info("Detaching PVC from connection: %s", connection_id)
+        logging.debug("Detaching PVC from connection: %s", connection_id)
 
         # Create service instance and call detach_pvc
         connection_service = ConnectionsService()

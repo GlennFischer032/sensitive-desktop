@@ -14,6 +14,7 @@ class Settings(BaseSettings):
 
     # Application settings
     SECRET_KEY: str = os.getenv("SECRET_KEY", "dev_secret_key_123")
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     # New OIDC-based admin identification
     ADMIN_OIDC_SUB: str = os.getenv("ADMIN_OIDC_SUB", "")
 

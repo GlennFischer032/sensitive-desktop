@@ -18,8 +18,10 @@ from services.user import UserService
 from sqlalchemy import text
 
 
+settings = get_settings()
+
 # Add logging configuration
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +30,6 @@ def create_app() -> Flask:
     app = Flask(__name__)
 
     # Load configuration
-    settings = get_settings()
 
     app.config.update(
         {
@@ -95,17 +96,16 @@ def create_app() -> Flask:
             try:
                 user_service = UserService()
                 user_service.init_admin_user(session)
-                logger.info("Admin user initialized successfully")
+                logger.debug("Admin user initialized successfully")
                 break
             except Exception as e:
                 logger.error("Error initializing admin user: %s (attempt %d)", str(e), attempt + 1)
                 if attempt < 9:
-                    logger.info("Retrying in 5 seconds...")
+                    logger.debug("Retrying in 5 seconds...")
                     time.sleep(5)
                 else:
                     logger.error("Failed to initialize admin user after 10 attempts")
                     raise e
-    logger.info("=== Starting API Application ===")
     return app
 
 

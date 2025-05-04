@@ -32,7 +32,7 @@ def create_storage_pvc() -> tuple[dict[str, Any], int]:
     Returns:
         Tuple[Dict[str, Any], int]: Response data and status code
     """
-    logging.info("=== Received request to create a storage PVC ===")
+    logging.debug("=== Received request to create a storage PVC ===")
 
     try:
         current_user = request.current_user

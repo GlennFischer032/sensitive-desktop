@@ -11,6 +11,7 @@ from flask import Flask, flash, jsonify, redirect, render_template, request, ses
 from flask_cors import CORS
 from flask_session import Session
 from middleware.auth import token_required
+from middleware.logging import init_request_logging
 from middleware.security import init_security, rate_limiter
 from services.auth import auth_api_bp, auth_bp  # Import the auth API blueprint
 from services.configurations import (
@@ -79,11 +80,11 @@ def init_cors(app: Flask):
 def create_app(config_class=Config):  # noqa: C901, PLR0915
     """Create and configure the Flask application."""
     # Configure logging
-    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
     app = Flask(__name__)
     app.config.from_object(config_class)
+    logging.basicConfig(level=app.config.get("LOG_LEVEL", logging.INFO))
 
     # Initialize security features
     init_security(app)
@@ -91,6 +92,9 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
     init_session(app)
 
     init_cors(app)
+
+    # Initialize request logging
+    init_request_logging(app)
 
     # Initialize Swagger documentation
     swagger_config = {
@@ -397,9 +401,9 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
                   example: http://desktop-api:5000
         """
         try:
-            logger.info(f"Testing connection to API at {app.config['API_URL']}")
+            logger.debug(f"Testing connection to API at {app.config['API_URL']}")
             response = requests.get(f"{app.config['API_URL']}/api/health", timeout=10)
-            logger.info(f"API Response: Status={response.status_code}, Content={response.text}")
+            logger.debug(f"API Response: Status={response.status_code}, Content={response.text}")
             return jsonify(
                 {
                     "api_url": app.config["API_URL"],
@@ -457,5 +461,5 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
 
         return value
 
-    logger.info("=== Starting Frontend Application ===")
+    logger.debug("=== Starting Frontend Application ===")
     return app

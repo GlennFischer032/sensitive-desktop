@@ -21,7 +21,6 @@ from middleware.security import rate_limit
 from . import auth_bp
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 @auth_bp.route("/login", methods=["GET"])
@@ -50,7 +49,7 @@ def logout():
       302:
         description: User logged out successfully and redirected to login page
     """
-    current_app.logger.info(f"Logging out user: {session.get('username')}")
+    current_app.logger.debug(f"Logging out user: {session.get('username')}")
     auth_client = client_factory.get_auth_client()
     auth_client.logout()
     return redirect(url_for("auth.login"))
@@ -99,7 +98,7 @@ def oidc_callback():
 
     try:
         callback_url = os.environ.get("OIDC_REDIRECT_URI", request.base_url)
-        logger.info(f"Using callback URL: {callback_url}")
+        logger.debug(f"Using callback URL: {callback_url}")
 
         auth_client = client_factory.get_auth_client()
         response_data, status_code = auth_client.oidc_callback(
@@ -125,8 +124,8 @@ def oidc_callback():
         session["logged_in"] = True
         session.permanent = True
 
-        logger.info(f"User {data['user']['username']} successfully authenticated via OIDC")
-        logger.info(f"Admin status: {data['user']['is_admin']}")
+        logger.debug(f"User {data['user']['username']} successfully authenticated via OIDC")
+        logger.debug(f"Admin status: {data['user']['is_admin']}")
         flash("Successfully logged in", "success")
 
         if session["is_admin"]:
@@ -171,7 +170,7 @@ def oidc_login():
         if not auth_url:
             raise ValueError("No authorization URL in response")
 
-        logger.info("Redirecting to OIDC provider for authentication")
+        logger.debug("Redirecting to OIDC provider for authentication")
         return redirect(auth_url)
     except Exception as e:
         logger.error(f"OIDC login initiation failed: {str(e)}")

@@ -36,7 +36,7 @@ def view_connections():
         description: Error fetching connections
     """
     try:
-        current_app.logger.info("Fetching connections from API...")
+        current_app.logger.debug("Fetching connections from API...")
         connections_client = client_factory.get_connections_client()
         connections = connections_client.list_connections(token=session["token"])
 
@@ -61,7 +61,7 @@ def view_connections():
             # The connection will have an 'external_pvc' field if a PVC is attached
             conn["has_external_pvc"] = bool(conn.get("external_pvc", False))
 
-        current_app.logger.info(f"Found {len(connections)} connections")
+        current_app.logger.debug(f"Found {len(connections)} connections")
         return render_template(
             "connections.html",
             connections=connections,
@@ -241,7 +241,7 @@ def direct_connect(connection_id):
         guacamole_url = data.get("auth_url")
 
         if guacamole_url:
-            current_app.logger.info(f"Redirecting to Guacamole URL: {guacamole_url}")
+            current_app.logger.debug(f"Redirecting to Guacamole URL: {guacamole_url}")
             return redirect(guacamole_url)
         else:
             flash("Invalid response from API: missing auth_url")
@@ -274,7 +274,7 @@ def guacamole_dashboard():
         guacamole_url = data.get("auth_url")
 
         if guacamole_url:
-            current_app.logger.info(f"Redirecting to Guacamole URL: {guacamole_url}")
+            current_app.logger.debug(f"Redirecting to Guacamole URL: {guacamole_url}")
             return redirect(guacamole_url)
         else:
             flash("Invalid response from API: missing auth_url")

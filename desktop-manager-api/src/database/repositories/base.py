@@ -67,7 +67,7 @@ class BaseRepository(Generic[T]):
         try:
             self.session.add(entity)
             self.session.commit()
-            self.logger.info("Created %s with ID %d", self.model_class.__name__, entity.id)
+            self.logger.debug("Created %s with ID %d", self.model_class.__name__, entity.id)
             return entity
         except SQLAlchemyError as e:
             self.session.rollback()
@@ -86,7 +86,7 @@ class BaseRepository(Generic[T]):
         """
         try:
             self.session.commit()
-            self.logger.info("Updated %s with ID %d", self.model_class.__name__, entity.id)
+            self.logger.debug("Updated %s with ID %d", self.model_class.__name__, entity.id)
             return entity
         except SQLAlchemyError as e:
             self.session.rollback()

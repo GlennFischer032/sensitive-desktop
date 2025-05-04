@@ -80,7 +80,7 @@ def list_tokens():
         description: Server error
     """
     try:
-        current_app.logger.info("API: Fetching tokens list")
+        current_app.logger.debug("API: Fetching tokens list")
         tokens_client = client_factory.get_tokens_client()
         response = tokens_client.list_tokens(token=session["token"])
 
@@ -164,7 +164,7 @@ def create_token():
         if not name:
             return jsonify({"error": "Token name is required"}), HTTPStatus.BAD_REQUEST
 
-        current_app.logger.info(f"API: Creating new token with name: {name}")
+        current_app.logger.debug(f"API: Creating new token with name: {name}")
         tokens_client = client_factory.get_tokens_client()
         response = tokens_client.create_token(
             name=name,
@@ -214,7 +214,7 @@ def revoke_token(token_id):
         description: Server error
     """
     try:
-        current_app.logger.info(f"API: Revoking token with ID: {token_id}")
+        current_app.logger.debug(f"API: Revoking token with ID: {token_id}")
         tokens_client = client_factory.get_tokens_client()
         tokens_client.revoke_token(token_id, token=session["token"])
 

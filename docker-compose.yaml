@@ -7,9 +7,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"  # Using standard PostgreSQL port
-    volumes:
-      - ./desktop-manager-api/guacamole-init-postgres.sql:/docker-entrypoint-initdb.d/01-guacamole-init.sql
-      - ./desktop-manager-api/guacamole-init-users-postgres.sql:/docker-entrypoint-initdb.d/02-guacamole-init-users.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -27,17 +24,13 @@ services:
   guacamole:
     image: guacamole/guacamole
     environment:
-      POSTGRESQL_HOSTNAME: postgres
-      POSTGRESQL_DATABASE: ${POSTGRES_DB}
-      POSTGRESQL_USER: ${POSTGRES_USER}
-      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD}
       GUACD_HOSTNAME: guacd
       # JSON Authentication configuration via environment variables
-      GUACAMOLE_EXTENSION_PRIORITY: postgresql,json
+      GUACAMOLE_EXTENSION_PRIORITY: json
       GUACAMOLE_JSON_SECRET_KEY: ${GUACAMOLE_JSON_SECRET_KEY}
       # Direct property mapping for Docker container
       JSON_SECRET_KEY: ${GUACAMOLE_JSON_SECRET_KEY}
-      EXTENSION_PRIORITY: postgresql,json
+      EXTENSION_PRIORITY: json
     depends_on:
       postgres:
         condition: service_healthy

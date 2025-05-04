@@ -48,9 +48,9 @@ def list_connections():
         username = None
         if request.args.get("username"):
             username = request.args.get("username")
-            current_app.logger.info(f"API: Fetching connections for user: {username}")
+            current_app.logger.debug(f"API: Fetching connections for user: {username}")
         else:
-            current_app.logger.info("API: Fetching connections for current user")
+            current_app.logger.debug("API: Fetching connections for current user")
 
         connections_client = client_factory.get_connections_client()
         connections = connections_client.list_connections(username, token=session["token"])
@@ -133,7 +133,7 @@ def create_connection():  # noqa: PLR0911
         )
 
         # Create connection
-        current_app.logger.info(f"API: Creating new connection: {connection_name}")
+        current_app.logger.debug(f"API: Creating new connection: {connection_name}")
         connections_client = client_factory.get_connections_client()
         try:
             connections_client.add_connection(**connection_data, token=session["token"])
@@ -183,7 +183,7 @@ def stop_connection(connection_name):
         description: Server error
     """
     try:
-        current_app.logger.info(f"API: Stopping connection: {connection_name}")
+        current_app.logger.debug(f"API: Stopping connection: {connection_name}")
         connections_client = client_factory.get_connections_client()
         connections_client.stop_connection(connection_name, token=session["token"])
 
@@ -227,7 +227,7 @@ def resume_connection(connection_name):
         description: Server error
     """
     try:
-        current_app.logger.info(f"API: Resuming connection: {connection_name}")
+        current_app.logger.debug(f"API: Resuming connection: {connection_name}")
         connections_client = client_factory.get_connections_client()
         connections_client.resume_connection(connection_name, token=session["token"])
 
@@ -271,7 +271,7 @@ def delete_connection(connection_name):
         description: Server error
     """
     try:
-        current_app.logger.info(f"API: Deleting connection: {connection_name}")
+        current_app.logger.debug(f"API: Deleting connection: {connection_name}")
         connections_client = client_factory.get_connections_client()
         connections_client.delete_connection(connection_name, token=session["token"])
 
@@ -304,7 +304,7 @@ def get_dashboard_auth_url():
         description: Server error
     """
     try:
-        current_app.logger.info("API: Getting Guacamole dashboard auth URL")
+        current_app.logger.debug("API: Getting Guacamole dashboard auth URL")
         connections_client = client_factory.get_connections_client()
         data = connections_client.guacamole_dashboard(token=session["token"])
 
@@ -350,7 +350,7 @@ def attach_pvc():
         description: Server error
     """
     try:
-        current_app.logger.info("API: Attaching PVC to connection")
+        current_app.logger.debug("API: Attaching PVC to connection")
         data = request.get_json()
         connection_id = data.get("connection_id")
         pvc_id = data.get("pvc_id")
@@ -395,7 +395,7 @@ def detach_pvc():
         description: Server error
     """
     try:
-        current_app.logger.info("API: Detaching PVC from connection")
+        current_app.logger.debug("API: Detaching PVC from connection")
         data = request.get_json()
         connection_id = data.get("connection_id")
 
