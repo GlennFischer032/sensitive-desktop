@@ -115,7 +115,6 @@ These steps are primarily for setting up the local environment for development *
 4.  **Environment Variables:**
     The API relies heavily on environment variables for configuration. When running via the root `docker-compose.yaml`, these are set within the compose file itself, often referencing a `.env` file in the project root.
 
-
     Key variables for *this API service* include:
     ```dotenv
     # --- Database Settings --- #

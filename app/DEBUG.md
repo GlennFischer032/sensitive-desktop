@@ -21,6 +21,7 @@ The debugging configuration has been set up to allow you to attach a debugger to
 docker-compose up
 ```
 
+
 The application will start and wait for the debugger to attach before proceeding (due to the `--wait-for-client` flag).
 
 ### Step 2: Attach the Debugger

@@ -14,6 +14,8 @@ variables:
   DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
   CI_REGISTRY: gitlab.fi.muni.cz:5050
   CI_REGISTRY_IMAGE: gitlab.fi.muni.cz:5050/xfischer/sensitive-desktop
+  # Add timestamp variable for tags
+  TIMESTAMP: $(date +%Y%m%d-%H%M%S)
 
 # Cache pip dependencies
 cache:
@@ -47,6 +49,7 @@ pre-commit:
   before_script:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n $CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD | base64)\"}}}" > /kaniko/.docker/config.json
+    - export IMAGE_TAG="$(date +%Y%m%d-%H%M%S)-${CI_PIPELINE_ID}"
 
 build-guac-no-root:
   extends: .kaniko
@@ -58,29 +61,13 @@ build-guac-no-root:
       --context "${CI_PROJECT_DIR}/guacamole-helm/docker/guac-no-root"
       --dockerfile "${CI_PROJECT_DIR}/guacamole-helm/docker/guac-no-root/Dockerfile"
       --destination "${CI_REGISTRY_IMAGE}/guac-no-root:latest"
+      --destination "${CI_REGISTRY_IMAGE}/guac-no-root:${IMAGE_TAG}"
   only:
     changes:
       - guacamole-helm/docker/guac-no-root/**/*
     refs:
       - master
-      - tags
 
-build-desktop-browsers:
-  extends: .kaniko
-  stage: build
-  tags:
-    - shared-fi
-  script:
-    - /kaniko/executor
-      --context "${CI_PROJECT_DIR}/guacamole-helm/docker/desktops/ubuntu22.04-browsers"
-      --dockerfile "${CI_PROJECT_DIR}/guacamole-helm/docker/desktops/ubuntu22.04-browsers/Dockerfile"
-      --destination "${CI_REGISTRY_IMAGE}/desktop:browsers"
-  only:
-    changes:
-      - guacamole-helm/docker/desktops/ubuntu22.04-browsers/**/*
-    refs:
-      - master
-      - tags
 
 build-desktop-manager-api:
   extends: .kaniko
@@ -91,7 +78,8 @@ build-desktop-manager-api:
     - /kaniko/executor
       --context "${CI_PROJECT_DIR}/desktop-manager-api"
       --dockerfile "${CI_PROJECT_DIR}/desktop-manager-api/Dockerfile"
-      --destination "${CI_REGISTRY_IMAGE}/desktop-manager:latest"
+      --destination "${CI_REGISTRY_IMAGE}/desktop-manager-api:latest"
+      --destination "${CI_REGISTRY_IMAGE}/desktop-manager-api:${IMAGE_TAG}"
   only:
     changes:
       - desktop-manager-api/**/*
@@ -108,6 +96,7 @@ build-desktop-manager-frontend:
       --context "${CI_PROJECT_DIR}/app"
       --dockerfile "${CI_PROJECT_DIR}/app/Dockerfile"
       --destination "${CI_REGISTRY_IMAGE}/desktop-manager-frontend:latest"
+      --destination "${CI_REGISTRY_IMAGE}/desktop-manager-frontend:${IMAGE_TAG}"
   only:
     changes:
       - app/**/*
