@@ -209,29 +209,6 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
         if not hasattr(request, "csp_nonce"):
             request.csp_nonce = secrets.token_hex(16)
 
-    # Security headers middleware
-    @app.after_request
-    def add_security_headers(response):
-        # Add CSP nonce if exists
-        if hasattr(request, "csp_nonce"):
-            csp = response.headers.get("Content-Security-Policy", "")
-            if csp:
-                csp = csp.replace(
-                    "script-src 'self'",
-                    f"script-src 'self' 'nonce-{request.csp_nonce}'",
-                )
-                response.headers["Content-Security-Policy"] = csp
-
-        # Add security headers
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-
-        return response
-
     # Apply global rate limiting
     @app.before_request
     def check_rate_limit():

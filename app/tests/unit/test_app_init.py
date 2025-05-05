@@ -107,10 +107,11 @@ def test_security_headers_middleware(app):
     client = app.test_client()
     response = client.get("/health")
 
-    # Check security headers
+    # Check security headers - now provided by Flask-Talisman
     assert response.headers.get("X-Content-Type-Options") == "nosniff"
     assert response.headers.get("X-Frame-Options") == "DENY"
-    assert response.headers.get("X-XSS-Protection") == "1; mode=block"
-    assert "max-age=31536000" in response.headers.get("Strict-Transport-Security")
+    # Check for Content Security Policy header
+    assert "default-src 'self'" in response.headers.get("Content-Security-Policy", "")
     assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
-    assert "geolocation=()" in response.headers.get("Permissions-Policy")
+
+    # In test environment, HSTS is not enabled due to force_https=False

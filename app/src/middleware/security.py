@@ -7,6 +7,7 @@ from clients.factory import client_factory
 from flask import Flask, current_app
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_talisman import Talisman
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +128,40 @@ def init_security(app):
     """Initialize security settings for the application."""
     # Initialize the limiter
     LimiterManager.initialize(app)
+
+    # Configure Talisman for security headers and CSP
+    csp = {
+        "default-src": "'self'",
+        "img-src": ["'self'", "data:"],
+        "script-src": ["'self'", "'unsafe-inline'"],  # Allow inline scripts without nonce
+        "style-src": ["'self'", "'unsafe-inline'"],  # Allow inline styles without nonce
+        "font-src": ["'self'", "data:"],
+        "frame-ancestors": "'none'",
+        "form-action": "'self'",
+        "base-uri": "'self'",
+        "object-src": "'none'",
+    }
+
+    # Initialize Talisman with specific configuration
+    Talisman(
+        app,
+        content_security_policy=csp,
+        content_security_policy_nonce_in=None,  # Don't use nonces for now
+        force_https=not app.config.get("TESTING", False),  # Don't force HTTPS in testing
+        strict_transport_security=True,
+        strict_transport_security_preload=True,
+        session_cookie_secure=True,
+        session_cookie_http_only=True,
+        feature_policy={
+            "geolocation": "'none'",
+            "microphone": "'none'",
+            "camera": "'none'",
+            "payment": "'none'",
+            "usb": "'none'",
+        },
+        referrer_policy="strict-origin-when-cross-origin",
+        frame_options="DENY",
+    )
 
     # Session security
     app.config.update(
