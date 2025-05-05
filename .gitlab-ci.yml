@@ -22,6 +22,8 @@ cache:
 
 pre-commit:
   stage: lint
+  tags:
+    - shared-fi
   image: python:3.11-slim
   before_script:
     - apt-get update && apt-get install -y git
@@ -35,6 +37,8 @@ pre-commit:
 
 build-guac-no-root:
   stage: build
+  tags:
+    - shared-fi
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - cd guacamole-helm/docker/guac-no-root
@@ -50,6 +54,8 @@ build-guac-no-root:
 
 build-desktop-manager-api:
   stage: build
+  tags:
+    - shared-fi
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - cd desktop-manager-api
@@ -64,6 +70,8 @@ build-desktop-manager-api:
 
 build-desktop-manager-frontend:
   stage: build
+  tags:
+    - shared-fi
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - cd app
