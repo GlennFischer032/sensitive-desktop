@@ -39,7 +39,6 @@ dependencies = [
     "flask-limiter",
     "flask-talisman",
     "flask-seasurf",
-    "email-validator"
 ]
 
 [project.optional-dependencies]

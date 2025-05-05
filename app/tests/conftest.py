@@ -62,16 +62,21 @@ def app():
     redis_client_mock.zrange.return_value = []
     redis_client_mock.pipeline.return_value = MagicMock()
 
-    # Mock the rate limiter's is_rate_limited method to always return False (not limited)
-    with patch("middleware.security.rate_limiter.is_rate_limited", return_value=(False, None)), patch(
-        "clients.factory.client_factory.get_redis_client", return_value=redis_client_mock
-    ):
+    # Mock the rate limiter for testing
+    with patch("middleware.security.LimiterManager") as mock_limiter_manager:
+        # Create a mock limiter
+        mock_limiter = MagicMock()
+
+        # Set up the mock limiter's methods to pass through the decorated functions
+        mock_limiter.limit.return_value = lambda f: f
+        mock_limiter.exempt.return_value = lambda f: f
+
+        # Configure the manager to return our mock limiter
+        mock_limiter_manager.get_limiter.return_value = mock_limiter
+
+        # Create app with test config
         app = create_app(TestConfig)
-        app.config.update(
-            {
-                "TESTING": True,
-            }
-        )
+        app.config.update({"TESTING": True})
 
         # Create application context
         with app.app_context():

@@ -11,7 +11,7 @@ from flask import Flask, flash, jsonify, redirect, render_template, request, ses
 from flask_cors import CORS
 from middleware.auth import token_required
 from middleware.logging import init_request_logging
-from middleware.security import init_security, rate_limiter
+from middleware.security import init_security
 from services.auth import auth_api_bp, auth_bp  # Import the auth API blueprint
 from services.configurations import (
     configurations_api_bp,
@@ -239,36 +239,7 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
         if request.endpoint in ["static", "health_check", "test_api_connection"]:
             return None
 
-        # Get client IP
-        client_ip = request.remote_addr
-
-        # Use default limits from config
-        default_limits = {
-            "1s": (app.config["RATE_LIMIT_DEFAULT_SECOND"], 1),
-            "1m": (app.config["RATE_LIMIT_DEFAULT_MINUTE"], 60),
-            "1h": (app.config["RATE_LIMIT_DEFAULT_HOUR"], 3600),
-        }
-
-        # Check rate limit
-        is_limited, retry_after = rate_limiter.is_rate_limited(client_ip, default_limits)
-
-        if is_limited:
-            logger.warning(f"Rate limit exceeded for IP: {client_ip}")
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return {
-                    "error": "Too many requests",
-                    "message": f"Please try again in {retry_after} seconds",
-                }, HTTPStatus.TOO_MANY_REQUESTS
-            return (
-                render_template(
-                    "errors/429.html",
-                    error={
-                        "message": "Too many requests. Please try again later.",
-                        "retry_after": retry_after,
-                    },
-                ),
-                HTTPStatus.TOO_MANY_REQUESTS,
-            )
+        # The actual rate limiting is now handled by Flask-Limiter
 
     # Register blueprints
     app.register_blueprint(auth_bp)
