@@ -19,22 +19,6 @@ spec:
       securityContext:
         {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
       initContainers:
-      - name: wait-for-postgres
-        image: postgres:16-alpine
-        command: ['sh', '-c', 'until PGPASSWORD=$POSTGRES_PASSWORD pg_isready -h {{ .Values.common.database.host }} -U $POSTGRES_USER -d $POSTGRES_DB; do echo waiting for postgres; sleep 2; done;']
-        securityContext:
-          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
-          runAsUser: 1000
-        env:
-          - name: POSTGRES_USER
-            value: {{ .Values.common.database.user | quote }}
-          - name: POSTGRES_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: {{ include "guacamole.fullname" . }}-credentials
-                key: dbPassword
-          - name: POSTGRES_DB
-            value: {{ .Values.common.database.database | quote }}
       - name: wait-for-guacd
         image: busybox:1.36
         command: ['sh', '-c', 'until nc -z -w2 guacd-{{ .Release.Name }} {{ .Values.common.ports.guacd }}; do echo waiting for guacd; sleep 2; done;']
@@ -50,19 +34,6 @@ spec:
           runAsUser: 1000
           runAsGroup: 1000
         env:
-        - name: POSTGRESQL_HOSTNAME
-          value: {{ .Values.common.database.host | quote }}
-        - name: POSTGRESQL_PORT
-          value: {{ .Values.common.ports.postgres | quote }}
-        - name: POSTGRESQL_DATABASE
-          value: {{ .Values.common.database.database | quote }}
-        - name: POSTGRESQL_USER
-          value: {{ .Values.common.database.user | quote }}
-        - name: POSTGRESQL_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ include "guacamole.fullname" . }}-credentials
-              key: dbPassword
         - name: GUACD_HOSTNAME
           value: {{ printf "guacd-%s" .Release.Name | quote }}
         - name: GUACD_PORT
