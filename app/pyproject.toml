@@ -23,7 +23,6 @@ dependencies = [
     # Security dependencies
     "flask-limiter",
     "flask-talisman",
-    "flask-seasurf",
     # API Documentation
     "flasgger"
 ]

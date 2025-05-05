@@ -33,12 +33,8 @@ dependencies = [
     "Flask-SQLAlchemy",
     "social-auth-core[openidconnect]",
     # Security dependencies
-    "argon2-cffi",
     "bleach",
     "pydantic[email]",
-    "flask-limiter",
-    "flask-talisman",
-    "flask-seasurf",
 ]
 
 [project.optional-dependencies]

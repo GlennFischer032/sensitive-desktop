@@ -180,7 +180,7 @@
 
 {{ modal_js() }}
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 // UUID length is 8 characters plus 1 for the hyphen
 const UUID_LENGTH = 9;
 const MAX_TOTAL_LENGTH = 53;

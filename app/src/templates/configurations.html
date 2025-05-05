@@ -181,7 +181,7 @@
 
 {{ modal_js() }}
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 // Modal handling
 document.addEventListener('DOMContentLoaded', function() {
     const configForm = document.getElementById('config-form');
@@ -408,7 +408,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+</script>
 
+<script nonce="{{ csp_nonce() }}">
 async function handleDelete(event, configId) {
     event.preventDefault();
 

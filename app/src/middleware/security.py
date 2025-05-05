@@ -4,7 +4,7 @@ from datetime import timedelta
 from functools import wraps
 
 from clients.factory import client_factory
-from flask import Flask, current_app
+from flask import Flask, current_app, request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_talisman import Talisman
@@ -129,24 +129,28 @@ def init_security(app):
     # Initialize the limiter
     LimiterManager.initialize(app)
 
-    # Configure Talisman for security headers and CSP
+    # Define CSP for the application
     csp = {
         "default-src": "'self'",
         "img-src": ["'self'", "data:"],
-        "script-src": ["'self'", "'unsafe-inline'"],  # Allow inline scripts without nonce
+        "script-src": ["'self'"],  # Talisman will add the nonce automatically
         "style-src": ["'self'", "'unsafe-inline'"],  # Allow inline styles without nonce
-        "font-src": ["'self'", "data:"],
+        "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],  # Allow fonts from Google and data URLs
         "frame-ancestors": "'none'",
         "form-action": "'self'",
         "base-uri": "'self'",
         "object-src": "'none'",
     }
 
+    # Create a list of routes that should be exempt from CSP
+    # Swagger/API docs endpoints will be completely exempt from CSP
+    swagger_paths = ["/api/docs/", "/apispec.json", "/flasgger_static/"]
+
     # Initialize Talisman with specific configuration
-    Talisman(
+    talisman = Talisman(
         app,
         content_security_policy=csp,
-        content_security_policy_nonce_in=None,  # Don't use nonces for now
+        content_security_policy_nonce_in=["script-src"],  # Apply nonce only to script-src
         force_https=not app.config.get("TESTING", False),  # Don't force HTTPS in testing
         strict_transport_security=True,
         strict_transport_security_preload=True,
@@ -161,7 +165,14 @@ def init_security(app):
         },
         referrer_policy="strict-origin-when-cross-origin",
         frame_options="DENY",
+        content_security_policy_report_only=False,
     )
+
+    # Define CSP exemption for swagger documentation routes
+    @app.before_request
+    def exempt_swagger_from_csp():
+        if any(request.path.startswith(path) for path in swagger_paths):
+            talisman.content_security_policy = False
 
     # Session security
     app.config.update(

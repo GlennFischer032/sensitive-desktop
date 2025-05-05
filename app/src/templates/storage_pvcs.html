@@ -209,7 +209,7 @@
 
 {{ modal_js() }}
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, setting up event handlers');
 

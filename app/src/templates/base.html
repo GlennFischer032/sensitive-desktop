@@ -5,7 +5,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <!-- Security Headers -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
+    <!-- X-Frame-Options is now provided by Flask-Talisman as an HTTP header -->
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,7 +30,7 @@
         {% endif %}
     {% endwith %}
 
-    <script>
+    <script nonce="{{ csp_nonce() }}">
     // Utility function for handling notifications consistently throughout the app
     window.NotificationManager = {
         // Initialize notification container or use existing one

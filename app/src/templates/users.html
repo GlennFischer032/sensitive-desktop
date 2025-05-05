@@ -178,7 +178,7 @@
 
 {{ modal_js() }}
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 async function handleDelete(event, username) {
     event.preventDefault();
 
