@@ -14,7 +14,6 @@ dependencies = [
     "flask-session",
     "redis",
     "requests",
-    "gunicorn",
     "pydantic",
     "pydantic-settings",
     "python-jose[cryptography]",
@@ -22,12 +21,9 @@ dependencies = [
     "PyJWT",
     "python-dateutil",
     # Security dependencies
-    "argon2-cffi",
-    "bleach",
     "flask-limiter",
     "flask-talisman",
     "flask-seasurf",
-    "email-validator",
     # API Documentation
     "flasgger"
 ]

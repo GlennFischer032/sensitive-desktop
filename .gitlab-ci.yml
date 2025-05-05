@@ -1,0 +1,118 @@
+image: docker:latest
+
+services:
+  - docker:dind
+
+stages:
+  - lint
+  - build
+
+variables:
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_HOST: tcp://docker:2376
+  DOCKER_TLS_VERIFY: 1
+  DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
+  CI_REGISTRY: gitlab.fi.muni.cz:5050
+  CI_REGISTRY_IMAGE: gitlab.fi.muni.cz:5050/xfischer/sensitive-desktop
+
+# Cache pip dependencies
+cache:
+  paths:
+    - .cache/pip
+
+pre-commit:
+  stage: lint
+  image: python:3.11-slim
+  before_script:
+    - apt-get update && apt-get install -y git
+    - pip install pre-commit
+  script:
+    - pre-commit run --all-files
+  only:
+    - merge_requests
+    - main
+    - tags
+
+build-guac-no-root:
+  stage: build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - cd guacamole-helm/docker/guac-no-root
+    - docker build --network=host -t $CI_REGISTRY_IMAGE/guac-no-root:latest .
+    - docker push $CI_REGISTRY_IMAGE/guac-no-root:latest
+  only:
+    changes:
+      - guacamole-helm/docker/guac-no-root/**/*
+    refs:
+      - main
+      - tags
+
+build-desktop-browsers:
+  stage: build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - cd guacamole-helm/docker/desktops/ubuntu22.04-browsers
+    - docker build --network=host -t $CI_REGISTRY_IMAGE/desktop:browsers .
+    - docker push $CI_REGISTRY_IMAGE/desktop:browsers
+  only:
+    changes:
+      - guacamole-helm/docker/desktops/ubuntu22.04-browsers/**/*
+    refs:
+      - main
+      - tags
+
+build-desktop-manager-api:
+  stage: build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - cd desktop-manager-api
+    - docker build -t $CI_REGISTRY_IMAGE/desktop-manager:$CI_COMMIT_TAG .
+    - docker push $CI_REGISTRY_IMAGE/desktop-manager:$CI_COMMIT_TAG
+    - docker tag $CI_REGISTRY_IMAGE/desktop-manager:$CI_COMMIT_TAG $CI_REGISTRY_IMAGE/desktop-manager:latest
+    - docker push $CI_REGISTRY_IMAGE/desktop-manager:latest
+  only:
+    changes:
+      - desktop-manager-api/**/*
+    refs:
+      - tags
+
+build-desktop-manager-api-develop:
+  stage: build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - cd desktop-manager-api
+    - docker build -t $CI_REGISTRY_IMAGE/desktop-manager:latest .
+    - docker push $CI_REGISTRY_IMAGE/desktop-manager:latest
+  only:
+    changes:
+      - desktop-manager-api/**/*
+    refs:
+      - main
+
+build-desktop-manager-frontend:
+  stage: build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - cd app
+    - docker build -t $CI_REGISTRY_IMAGE/desktop-manager-frontend:$CI_COMMIT_TAG .
+    - docker push $CI_REGISTRY_IMAGE/desktop-manager-frontend:$CI_COMMIT_TAG
+    - docker tag $CI_REGISTRY_IMAGE/desktop-manager-frontend:$CI_COMMIT_TAG $CI_REGISTRY_IMAGE/desktop-manager-frontend:latest
+    - docker push $CI_REGISTRY_IMAGE/desktop-manager-frontend:latest
+  only:
+    changes:
+      - app/**/*
+    refs:
+      - tags
+
+build-desktop-manager-frontend-develop:
+  stage: build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - cd app
+    - docker build -t $CI_REGISTRY_IMAGE/desktop-manager-frontend:latest .
+    - docker push $CI_REGISTRY_IMAGE/desktop-manager-frontend:latest
+  only:
+    changes:
+      - app/**/*
+    refs:
+      - main
