@@ -30,7 +30,7 @@ pre-commit:
     - pre-commit run --all-files
   only:
     - merge_requests
-    - main
+    - master
     - tags
 
 build-guac-no-root:
@@ -44,7 +44,7 @@ build-guac-no-root:
     changes:
       - guacamole-helm/docker/guac-no-root/**/*
     refs:
-      - main
+      - master
       - tags
 
 
@@ -59,7 +59,7 @@ build-desktop-manager-api:
     changes:
       - desktop-manager-api/**/*
     refs:
-      - main
+      - master
 
 
 build-desktop-manager-frontend:
@@ -73,4 +73,4 @@ build-desktop-manager-frontend:
     changes:
       - app/**/*
     refs:
-      - main
+      - master
