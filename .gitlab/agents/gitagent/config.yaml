@@ -1,0 +1,6 @@
+gitops:
+    manifest_projects:
+        - id: p-pnlgp
+          default_namespace: fischer-ns
+          paths:
+              - glob: '/manifest/*.{yaml,yml,json}'
