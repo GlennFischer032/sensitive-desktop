@@ -47,36 +47,8 @@ build-guac-no-root:
       - main
       - tags
 
-build-desktop-browsers:
-  stage: build
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - cd guacamole-helm/docker/desktops/ubuntu22.04-browsers
-    - docker build --network=host -t $CI_REGISTRY_IMAGE/desktop:browsers .
-    - docker push $CI_REGISTRY_IMAGE/desktop:browsers
-  only:
-    changes:
-      - guacamole-helm/docker/desktops/ubuntu22.04-browsers/**/*
-    refs:
-      - main
-      - tags
 
 build-desktop-manager-api:
-  stage: build
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - cd desktop-manager-api
-    - docker build -t $CI_REGISTRY_IMAGE/desktop-manager:$CI_COMMIT_TAG .
-    - docker push $CI_REGISTRY_IMAGE/desktop-manager:$CI_COMMIT_TAG
-    - docker tag $CI_REGISTRY_IMAGE/desktop-manager:$CI_COMMIT_TAG $CI_REGISTRY_IMAGE/desktop-manager:latest
-    - docker push $CI_REGISTRY_IMAGE/desktop-manager:latest
-  only:
-    changes:
-      - desktop-manager-api/**/*
-    refs:
-      - tags
-
-build-desktop-manager-api-develop:
   stage: build
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -89,22 +61,8 @@ build-desktop-manager-api-develop:
     refs:
       - main
 
-build-desktop-manager-frontend:
-  stage: build
-  script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - cd app
-    - docker build -t $CI_REGISTRY_IMAGE/desktop-manager-frontend:$CI_COMMIT_TAG .
-    - docker push $CI_REGISTRY_IMAGE/desktop-manager-frontend:$CI_COMMIT_TAG
-    - docker tag $CI_REGISTRY_IMAGE/desktop-manager-frontend:$CI_COMMIT_TAG $CI_REGISTRY_IMAGE/desktop-manager-frontend:latest
-    - docker push $CI_REGISTRY_IMAGE/desktop-manager-frontend:latest
-  only:
-    changes:
-      - app/**/*
-    refs:
-      - tags
 
-build-desktop-manager-frontend-develop:
+build-desktop-manager-frontend:
   stage: build
   script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
