@@ -136,11 +136,10 @@ These steps are primarily for setting up the local environment for development *
     EXTERNAL_GUACAMOLE_URL=http://localhost:8080/guacamole # External URL used in frontend redirects
 
     # --- OIDC Settings (for python-social-auth) --- #
-    SOCIAL_AUTH_OIDC_PROVIDER_URL=https://your_oidc_provider.com/oidc
-    SOCIAL_AUTH_OIDC_CLIENT_ID=your_api_oidc_client_id
-    SOCIAL_AUTH_OIDC_CLIENT_SECRET=your_api_oidc_client_secret
-    SOCIAL_AUTH_OIDC_CALLBACK_URL=http://localhost:5000/api/auth/oidc/callback # Backend callback
-    SOCIAL_AUTH_OIDC_FRONTEND_REDIRECT_URI=http://localhost:5001/auth/oidc/callback # Frontend callback
+    OIDC_PROVIDER_URL=https://your_oidc_provider.com/oidc
+    OIDC_CLIENT_ID=your_api_oidc_client_id
+    OIDC_CLIENT_SECRET=your_api_oidc_client_secret
+    OIDC_CALLBACK_URL=http://localhost:5001/auth/oidc/callback # Frontend callback
     FRONTEND_URL=http://localhost:5001 # URL of the frontend application
 
     # --- Kubernetes/Rancher Settings (Optional, if features are used) --- #
@@ -277,8 +276,8 @@ The API exposes several sets of endpoints, organized by Flask Blueprints:
 ## Authentication/Authorization
 
 -   **Primary Authentication:** OpenID Connect (OIDC) is the main method for user authentication, implemented using `python-social-auth`.
-    -   The flow typically starts with the frontend redirecting the user to the OIDC provider (`SOCIAL_AUTH_OIDC_PROVIDER_URL`).
-    -   After successful login at the provider, the user is redirected back to the API's callback endpoint (`/api/auth/oidc/callback`, configured by `SOCIAL_AUTH_OIDC_CALLBACK_URL`).
+    -   The flow typically starts with the frontend redirecting the user to the OIDC provider (`OIDC_PROVIDER_URL`).
+    -   After successful login at the provider, the user is redirected back to the API's callback endpoint (`/api/auth/oidc/callback`, configured by `OIDC_CALLBACK_URL`).
     -   The API backend verifies the OIDC token, retrieves user information, and creates/updates the user in its own database and potentially in Guacamole.
     -   A session or token is likely generated for the user.
 -   **Admin User:** A default administrative user is identified based on the OIDC subject claim specified in the `ADMIN_OIDC_SUB` environment variable. This user is automatically granted admin privileges within the application upon first login via OIDC.

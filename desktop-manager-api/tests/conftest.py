@@ -57,7 +57,6 @@ class MockSettings:
     OIDC_PROVIDER_URL = "http://test-provider"
     OIDC_CLIENT_ID = "test-client"
     OIDC_CLIENT_SECRET = "test-secret"
-    OIDC_BACKEND_REDIRECT_URI = "http://localhost/callback"
     FRONTEND_URL = "http://localhost"
     OIDC_REDIRECT_URI = "http://localhost/callback"
     CORS_ALLOWED_ORIGINS = "http://localhost"

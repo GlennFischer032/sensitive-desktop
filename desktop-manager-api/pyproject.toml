@@ -44,9 +44,6 @@ dev = [
     "psycopg2-binary",
     "python-multipart",
     "werkzeug",
-    "python-social-auth[flask]",
-    "Flask-SQLAlchemy",
-    "social-auth-core[openidconnect]",
 ]
 
 [tool.setuptools.packages.find]
