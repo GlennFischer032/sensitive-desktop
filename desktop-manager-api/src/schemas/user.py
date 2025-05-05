@@ -80,12 +80,6 @@ class UserList(BaseModel):
     users: list[UserResponse] = Field(default_factory=list, description="List of users")
 
 
-class UserLogin(BaseModel):
-    """Schema for user login (deprecated - OIDC login is now required)."""
-
-    username: str = Field(..., description="Username for login")
-
-
 class UserUpdate(BaseModel):
     """Schema for updating user data."""
 

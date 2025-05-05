@@ -13,27 +13,15 @@ requires-python = ">=3.11"
 dependencies = [
     "flask",
     "flask-cors",
-    "gunicorn",
-    "psycopg2-binary",
     "sqlalchemy",
     "requests",
     "pydantic",
     "pydantic-settings",
     "python-jose[cryptography]",
     "passlib[bcrypt]",
-    "python-multipart",
-    "kubernetes",
-    "werkzeug",
     "PyJWT",
-    "sqlmodel",
     # Guacamole JSON Auth dependency
     "pycryptodome",
-    # Social Auth dependencies
-    "python-social-auth[flask]",
-    "Flask-SQLAlchemy",
-    "social-auth-core[openidconnect]",
-    # Security dependencies
-    "bleach",
     "pydantic[email]",
 ]
 
@@ -44,7 +32,7 @@ test = [
     "pytest-mock>=3.10.0",
     "pytest-asyncio>=0.21.0",
     "pytest-env>=1.0.1",
-    "fakeredis>=2.0.0",
+    "fakeredis",
     "responses>=0.23.0",
     "freezegun>=1.2.0",
     "SQLAlchemy-Utils>=0.41.0"
@@ -52,6 +40,13 @@ test = [
 
 dev = [
     "debugpy",
+    "gunicorn",
+    "psycopg2-binary",
+    "python-multipart",
+    "werkzeug",
+    "python-social-auth[flask]",
+    "Flask-SQLAlchemy",
+    "social-auth-core[openidconnect]",
 ]
 
 [tool.setuptools.packages.find]
@@ -225,3 +220,39 @@ check-typed-exception = true
 [tool.flake8]
 max-line-length = 120
 exclude = ".git,__pycache__,build,dist"
+
+# Deptry configuration
+[tool.deptry]
+exclude = ["venv", ".venv", ".direnv", "tests", ".git", "setup.py"]
+extend_exclude = []
+known_first_party = ["src"]
+ignore = ["DEP003"]
+
+[tool.deptry.per_rule_ignores]
+DEP002 = [
+    "gunicorn",
+    "psycopg2-binary",
+    "python-multipart",
+    "kubernetes",
+    "werkzeug",
+    "sqlmodel",
+    "python-social-auth",
+    "Flask-SQLAlchemy",
+    "social-auth-core",
+    "bleach",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-asyncio",
+    "pytest-env",
+    "fakeredis",
+    "responses",
+    "freezegun",
+    "SQLAlchemy-Utils",
+    "debugpy"
+]
+
+[tool.deptry.package_module_name_map]
+"pytest-asyncio" = "pytest_asyncio"
+"pytest-env" = "pytest_env"
+"debugpy" = "debugpy"
