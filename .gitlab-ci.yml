@@ -17,7 +17,7 @@ variables:
   # Add timestamp variable for tags
   TIMESTAMP: $(date +%Y%m%d-%H%M%S)
 
-# Cache pip dependencies
+# Global cache config
 cache:
   paths:
     - .cache/pip
@@ -27,6 +27,17 @@ pre-commit:
   tags:
     - shared-fi
   image: python:3.11-slim
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+    PRE_COMMIT_HOME: "$CI_PROJECT_DIR/.cache/pre-commit"
+  cache:
+    key: pre-commit-cache-v1
+    paths:
+      - .cache/pip
+      - .cache/pre-commit
+      - desktop-manager-api/.pytest_cache/
+      - app/.pytest_cache/
+      - app/.sass-cache/
   before_script:
     - apt-get update && apt-get install -y git
     - pip install pre-commit pytest fakeredis pytest-cov pytest-mock pytest-flask pytest-asyncio pytest-env responses freezegun sqlalchemy-utils libsass
