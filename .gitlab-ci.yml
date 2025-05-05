@@ -27,7 +27,11 @@ pre-commit:
   image: python:3.11-slim
   before_script:
     - apt-get update && apt-get install -y git
-    - pip install pre-commit
+    - pip install pre-commit pytest
+    # Install any other dependencies needed by app and desktop-manager-api
+    - cd desktop-manager-api && pip install -e . || true
+    - cd ../app && pip install -e . || true
+    - cd ..
   script:
     - pre-commit run --all-files
   only:
