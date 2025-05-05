@@ -68,6 +68,7 @@ class MockSettings:
     ADMIN_PASSWORD = "admin-password"
     ADMIN_FIRST_NAME = "Admin"
     ADMIN_LAST_NAME = "User"
+    LOG_LEVEL = "DEBUG"
 
 
 @pytest.fixture(scope="session", autouse=True)

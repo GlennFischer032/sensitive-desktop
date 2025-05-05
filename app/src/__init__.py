@@ -9,7 +9,6 @@ from config.config import Config
 from flasgger import Swagger
 from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_cors import CORS
-from flask_session import Session
 from middleware.auth import token_required
 from middleware.logging import init_request_logging
 from middleware.security import init_security, rate_limiter
@@ -34,6 +33,8 @@ from services.users import (
     users_bp,
 )
 from utils.swagger import auto_document_blueprint
+
+from flask_session import Session
 
 
 def init_session(app: Flask):
