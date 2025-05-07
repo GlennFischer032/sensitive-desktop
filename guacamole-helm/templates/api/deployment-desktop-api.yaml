@@ -120,6 +120,8 @@ spec:
               secretKeyRef:
                 name: {{ include "guacamole.fullname" . }}-credentials
                 key: rancherToken
+          - name: CORS_ALLOWED_ORIGINS
+            value: {{ printf "http://desktop-frontend-%s:%s,%s" .Release.Name (.Values.common.ports.frontend | toString) .Values.common.oidc.frontendUrl | quote }}
         ports:
         - containerPort: {{ .Values.desktopApi.containerPort }}
           name: http

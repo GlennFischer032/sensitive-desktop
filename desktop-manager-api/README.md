@@ -4,39 +4,45 @@
 
 ## Overview
 
-This project provides the backend RESTful API for the Desktop Manager system. It handles business logic, data persistence, authentication (including OIDC), and communication with external services like Guacamole and potentially Kubernetes.
+This project provides the backend RESTful API for the Desktop Manager system. It handles business logic, data persistence, authentication, and communication with external services like Guacamole to support remote desktop access.
 
-This API is designed to be consumed primarily by the `desktop-frontend` service, which acts as a secure proxy. The API itself should generally not be exposed directly to the public internet.
+The API serves as the central component of the system, coordinating between:
+- Frontend web application (`app/` directory in the project root)
+- PostgreSQL database for persistent storage
+- Guacamole for remote desktop protocol handling
+- Storage management for persistent user data
+
+This API is designed to work as part of a complete system deployed via the Helm chart in the `guacamole-helm` directory. In development, it runs as part of the Docker Compose setup defined in the project root.
 
 ## Features
 
 -   **RESTful API:** Provides endpoints for managing system resources.
--   **Database Interaction:** Uses SQLAlchemy and SQLModel to interact with a PostgreSQL database.
+-   **Database Interaction:** Uses SQLAlchemy to interact with a PostgreSQL database.
 -   **Authentication:**
-    -   Supports OIDC-based authentication via `python-social-auth`.
+    -   Supports JWT-based authentication using PyJWT.
+    -   Uses Python-Jose with cryptography for enhanced security.
+    -   Password hashing via Passlib with bcrypt.
     -   Handles user sessions and authorization.
-    -   Integrates with Guacamole authentication mechanisms (PostgreSQL & potentially JSON auth).
--   **Guacamole Integration:** Manages Guacamole connections, users, and configurations within the database.
--   **Kubernetes Integration:** (Inferred from dependencies) Likely interacts with Kubernetes APIs for managing resources (e.g., related to desktop sessions).
+-   **Guacamole Integration:** Manages Guacamole connections, users, and configurations.
+-   **Storage Management:** Handles Persistent Volume Claims (PVCs) for user storage.
 -   **Service Layer:** Business logic is encapsulated within services.
--   **Data Validation:** Uses Pydantic for request/response validation (implied via schemas).
--   **Security:** Includes measures for CSRF protection, security headers (Talisman), rate limiting, password hashing (Argon2), and input sanitization (Bleach).
+-   **Data Validation:** Uses Pydantic for request/response validation.
+-   **Security:** Includes CORS protection and secure password handling.
 -   **Containerization:** Dockerfile for building and running the API in a container.
--   **Testing:** Test suite using Pytest.
--   **Code Quality:** Linting and formatting enforced using Ruff and pre-commit hooks.
+-   **Testing:** Comprehensive test suite using Pytest.
+-   **Code Quality:** Extensive linting and formatting enforced using Ruff and pre-commit hooks.
 
 ## Tech Stack
 
 -   **Backend:** Python 3.11+, Flask
 -   **Web Server:** Gunicorn (production), Flask development server (debug)
 -   **Database:** PostgreSQL
--   **ORM:** SQLAlchemy, SQLModel
--   **Authentication:** Python Social Auth (OIDC), PyJWT, Passlib/Argon2, PyCryptodome (for Guacamole JSON auth)
+-   **ORM:** SQLAlchemy
+-   **Authentication:** Python-Jose with cryptography, Passlib with bcrypt, PyJWT, PyCryptodome (for Guacamole JSON auth)
 -   **API Interaction:** Requests
--   **Kubernetes Client:** Kubernetes Python Client
--   **Data Validation:** Pydantic
--   **Security Libraries:** Flask-Cors, Flask-Limiter, Flask-Talisman, Flask-Seasurf, Argon2-cffi, Bleach
--   **Testing:** Pytest, pytest-cov, pytest-mock, pytest-asyncio, responses, fakeredis
+-   **Data Validation:** Pydantic, Pydantic-Settings
+-   **Security Libraries:** Flask-Cors
+-   **Testing:** Pytest, pytest-cov, pytest-mock, pytest-asyncio, pytest-env, fakeredis, responses, freezegun, SQLAlchemy-Utils
 -   **Linting/Formatting:** Ruff, pre-commit
 -   **Containerization:** Docker
 -   **Dependency Management:** uv, pip, setuptools
@@ -45,189 +51,270 @@ This API is designed to be consumed primarily by the `desktop-frontend` service,
 
 ```
 desktop-manager-api/
-├── src/
-│   ├── desktop_manager/  # Main application package
-│   │   ├── __init__.py
-│   │   ├── main.py       # Flask app factory and entry point
-│   │   ├── routes/       # API route definitions (blueprints)
-│   │   ├── services/     # Business logic layer
-│   │   ├── schemas/      # Pydantic schemas for data validation/serialization
-│   │   ├── database/     # Database models, session management, initialization
-│   │   ├── clients/      # Clients for external services (e.g., Guacamole, Kubernetes)
-│   │   ├── config/       # Configuration loading
-│   │   ├── core/         # Core components (e.g., security)
-│   │   └── utils/        # Utility functions
-│   └── desktop_manager.egg-info/
-├── tests/                # Pytest test suite
+├── src/             # Main application code
+│   ├── __init__.py
+│   ├── main.py      # Flask app factory and entry point
+│   ├── routes/      # API route definitions (blueprints)
+│   ├── services/    # Business logic layer
+│   ├── schemas/     # Pydantic schemas for data validation/serialization
+│   ├── database/    # Database models, session management, initialization
+│   ├── clients/     # Clients for external services (e.g., Guacamole, Kubernetes)
+│   ├── config/      # Configuration loading
+│   ├── core/        # Core components (e.g., security)
+│   └── utils/       # Utility functions
+├── tests/           # Pytest test suite
 ├── .pre-commit-config.yaml # Pre-commit hook configurations
-├── Dockerfile            # Docker configuration for building the API image
-├── pyproject.toml        # Project metadata, dependencies, tool configurations
-├── uv.lock               # Pinned Python dependencies
-├── healthcheck.sh        # Script used for Docker healthcheck
+├── Dockerfile       # Docker configuration for building the API image
+├── pyproject.toml   # Project metadata, dependencies, tool configurations
+├── uv.lock          # Pinned Python dependencies
+├── format_code.sh   # Helper script to run formatting tools
+├── healthcheck.sh   # Script used for Docker healthcheck
+├── run_tests.sh     # Script to run the test suite
 └── ... (other config/cache files)
 ```
 
 ## Database Setup
 
 -   The application requires a **PostgreSQL** database.
--   Database connection details are configured via environment variables (see `Installation` section).
+-   Database connection details are configured via environment variables (see `Environment Variables` section).
 -   **Initialization:**
-    -   The Docker Compose setup automatically runs the `.sql` scripts in the `/docker-entrypoint-initdb.d/` directory of the PostgreSQL container on first startup.
-    -   `guacamole-init-postgres.sql`: Sets up the necessary tables for Guacamole.
-    -   `guacamole-init-users-postgres.sql`: Initializes default Guacamole users/permissions.
-    -   Manual initialization might be required if not using the provided Docker Compose setup.
+    -   The database schema is automatically created during application startup via the `initialize_db()` function in `src/database/core/session.py`.
+    -   This function calls `Base.metadata.create_all()` to create all tables defined in the SQLAlchemy models if they don't already exist.
+    -   No manual database initialization is required when running with Docker Compose, as the API container will create the necessary tables on startup.
+    -   If you need to reset the database, you can simply delete the PostgreSQL data volume and restart the containers.
 
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
 
--   **Python:** Version 3.11 or higher.
--   **uv or pip:** For Python package management (`uv` is recommended).
--   **Docker & Docker Compose:** Required for running the local development environment (API, PostgreSQL, Guacamole, etc.).
--   **psql:** (Optional) Command-line client for PostgreSQL, useful for direct database inspection.
--   **pre-commit:** For managing Git hooks.
+-   **Docker & Docker Compose:** Required for running the local development environment. The project uses Docker Compose to orchestrate multiple services.
+-   **Python:** Version 3.11 or higher for local development, running tests, and pre-commit hooks.
+-   **Git:** For version control and pre-commit hook integration.
+-   **pre-commit:** For running code quality checks before committing changes.
+-   **kubectl & Helm:** (Optional) Required only for deploying to a Kubernetes cluster.
+
+For local development that doesn't involve changing the API itself, you might only need Docker and Docker Compose, as the application can run entirely in containers.
 
 ## Installation
 
-These steps are primarily for setting up the local environment for development *on this specific API service*. For running the *entire system*, refer to the `docker-compose.yaml` in the project root.
+These steps are for setting up the local development environment for working on the Desktop Manager API.
 
-1.  **Clone the repository:** (If you haven't already)
+1.  **Clone the repository:**
     ```bash
-    git clone <your-repository-url>
-    cd <repository-root>/desktop-manager-api
+    git clone <repository-url>
+    cd <repository-root>
     ```
 
-2.  **Create and activate a virtual environment:** (Optional, if you need to run linters/tools locally outside Docker)
+2.  **Install pre-commit hooks:**
     ```bash
-    python -m venv .venv
-    source .venv/bin/activate  # On Windows use `.venv\Scripts\activate`
-    ```
+    # Install hooks for the entire project
+    ./install_pre_commit.sh
 
-3.  **Install dependencies:** (Optional, needed for local pre-commit hooks or IDE integration)
-    ```bash
-    # Using uv (recommended)
-    uv pip install -e ".[dev,test]"
-
-    # Or using pip
-    pip install -e ".[dev,test]"
-    ```
-
-4.  **Environment Variables:**
-    The API relies heavily on environment variables for configuration. When running via the root `docker-compose.yaml`, these are set within the compose file itself, often referencing a `.env` file in the project root.
-
-    Key variables for *this API service* include:
-    ```dotenv
-    # --- Database Settings --- #
-    POSTGRES_HOST=postgres
-    POSTGRES_PORT=5432
-    POSTGRES_DATABASE=your_db_name
-    POSTGRES_USER=your_db_user
-    POSTGRES_PASSWORD=your_db_password
-
-    # --- Application Settings --- #
-    SECRET_KEY=your_strong_random_secret_key # Used for Flask sessions, JWT signing etc.
-    ADMIN_OIDC_SUB=your_admin_oidc_subject # OIDC subject claim for the default admin user
-
-    # --- Guacamole Settings --- #
-    GUACAMOLE_URL=http://guacamole:8080/guacamole # Internal URL for API to reach Guacamole
-    GUACAMOLE_USERNAME=guacadmin # Admin user for API to interact with Guacamole API
-    GUACAMOLE_PASSWORD=your_guacadmin_password
-    GUACAMOLE_JSON_SECRET_KEY=your_guacamole_json_auth_secret # If using Guacamole JSON auth extension
-    EXTERNAL_GUACAMOLE_URL=http://localhost:8080/guacamole # External URL used in frontend redirects
-
-    # --- OIDC Settings (for python-social-auth) --- #
-    OIDC_PROVIDER_URL=https://your_oidc_provider.com/oidc
-    OIDC_CLIENT_ID=your_api_oidc_client_id
-    OIDC_CLIENT_SECRET=your_api_oidc_client_secret
-    OIDC_CALLBACK_URL=http://localhost:5001/auth/oidc/callback # Frontend callback
-    FRONTEND_URL=http://localhost:5001 # URL of the frontend application
-
-    # --- Kubernetes/Rancher Settings (Optional, if features are used) --- #
-    RANCHER_API_TOKEN=
-    RANCHER_API_URL=
-    RANCHER_CLUSTER_ID=
-    RANCHER_REPO_NAME=
-    NAMESPACE=
-
-    # --- CORS Settings --- #
-    CORS_ALLOWED_ORIGINS=http://localhost:5001,http://desktop-frontend:5000 # Comma-separated list
-
-    # --- Development Settings --- #
-    FLASK_DEBUG=1 # Set to 1 for development mode
-    ```
-    *Note:* Refer to `src/config/settings.py` for defaults and the root `docker-compose.yaml` for the definitive development setup.
-
-5.  **Install pre-commit hooks:** (Run from within the `desktop-manager-api` directory)
-    ```bash
+    # Or just for the API component
+    cd desktop-manager-api
     pre-commit install
     ```
 
+3.  **Create a virtual environment** (Optional, for running tests or tools locally):
+    ```bash
+    cd desktop-manager-api
+    python -m venv .venv
+    source .venv/bin/activate  # On Windows use `.venv\Scripts\activate`
+    pip install -e .
+    ```
+
+4.  **Set up environment variables:**
+    Create a `.env` file in the project root with required environment variables (see `Environment Variables` section).
+
+5.  **Start the development environment:**
+    ```bash
+    # From the project root
+    docker-compose up -d
+    ```
+
+This will start the API, PostgreSQL, Guacamole, and frontend services. The API will be accessible at http://localhost:5000 and the frontend at http://localhost:5001.
+
+## Environment Variables
+
+The API relies heavily on environment variables for configuration. When running via the root `docker-compose.yaml`, these are set within the compose file itself, often referencing a `.env` file in the project root.
+
+Key variables for this API service include:
+```dotenv
+# --- Database Settings --- #
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DATABASE=desktop_manager
+POSTGRES_USER=guacamole_user
+POSTGRES_PASSWORD=your_db_password
+
+# --- Application Settings --- #
+SECRET_KEY=your_strong_random_secret_key  # Used for Flask sessions, JWT signing
+LOG_LEVEL=INFO  # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+ADMIN_OIDC_SUB=your_admin_oidc_subject  # OIDC subject claim for the default admin user
+
+# --- Guacamole Settings --- #
+GUACAMOLE_URL=http://guacamole:8080/guacamole  # Internal URL for API to reach Guacamole
+GUACAMOLE_JSON_SECRET_KEY=your_guacamole_json_auth_secret  # If using Guacamole JSON auth extension
+GUACAMOLE_SECRET_KEY=your_guacamole_secret_key
+EXTERNAL_GUACAMOLE_URL=http://localhost:8080/guacamole  # External URL used in frontend redirects
+
+# --- OIDC Settings --- #
+OIDC_PROVIDER_URL=https://login.e-infra.cz/oidc
+OIDC_CLIENT_ID=your_oidc_client_id
+OIDC_CLIENT_SECRET=your_oidc_client_secret
+OIDC_CALLBACK_URL=http://localhost:5001/auth/oidc/callback  # Frontend callback
+FRONTEND_URL=http://localhost:5001  # URL of the frontend application
+
+# --- Rancher/Kubernetes Settings --- #
+RANCHER_API_TOKEN=your_rancher_token
+RANCHER_API_URL=your_rancher_api_url
+RANCHER_CLUSTER_ID=your_cluster_id
+RANCHER_CLUSTER_NAME=kuba-cluster
+RANCHER_PROJECT_ID=your_project_id
+RANCHER_REPO_NAME=your_repo_name
+NAMESPACE=default
+
+# --- Desktop Settings --- #
+DESKTOP_IMAGE=cerit.io/desktops/ubuntu-xfce:22.04-user
+
+# --- CORS Settings --- #
+CORS_ALLOWED_ORIGINS=http://localhost:5001  # Comma-separated list of allowed origins
+```
+*Note:* Refer to `src/config/settings.py` for defaults and the root `docker-compose.yaml` for the definitive development setup.
+
 ## Running the API (Local Development)
 
-This API service is **not designed to be run standalone**. It requires at least a **PostgreSQL** database and potentially other services defined in the root `docker-compose.yaml` (like Guacamole, Guacd, Redis for the frontend, etc.).
+This API service is designed to be run as part of a complete system using Docker Compose. It requires several services defined in the root `docker-compose.yaml`:
 
-The recommended way to run the full system for development is using Docker Compose from the **project root directory**:
+- **PostgreSQL**: For data persistence
+- **Guacamole and Guacd**: For remote desktop capabilities
+- **Redis**: Used by the frontend for session management
+- **Desktop Frontend**: The web frontend that consumes this API
 
-1.  Navigate to the project root directory (the one containing `docker-compose.yaml`).
-2.  Ensure you have a `.env` file in the root directory with all the required environment variables defined.
+The recommended way to run the full system for development is:
+
+1.  Navigate to the project root directory (containing `docker-compose.yaml`).
+2.  Ensure you have a `.env` file with all required environment variables defined.
 3.  Start all services:
     ```bash
     docker-compose up -d
     ```
-4.  The API service should then be running and accessible *internally* to other Docker containers (e.g., the frontend) at `http://desktop-api:5000`. It is also exposed externally on port `5000` by default in the compose file (`http://localhost:5000`).
+4.  The API service will be accessible at:
+    - Internally (to other containers): `http://desktop-api:5000`
+    - Externally: `http://localhost:5000`
+    - Debug port: `5679` (for connecting debuggers)
 
-Running `flask run` or `gunicorn` directly within the `desktop-manager-api` directory *without* the database and potentially other services will likely result in errors.
+For debugging, the API container includes a debug port (5679) and mounts the source code as a volume to enable live code reloading.
 
 ## Running with Docker
 
-As mentioned above, Docker (specifically Docker Compose) is the primary way to run the API locally for development, alongside its dependencies.
+Docker Compose is the primary way to run this API locally for development, alongside its dependencies.
 
-The `desktop-manager-api/Dockerfile` defines how to build the image for this specific API service. The `docker-compose.yaml` file in the **project root** orchestrates the building and running of this service along with all its dependencies.
+The `desktop-manager-api/Dockerfile` defines how to build the image, and the `docker-compose.yaml` in the project root orchestrates running this service with its dependencies.
 
-Please refer to the `docker-compose.yaml` in the project root for details on:
--   Building the development image (usually includes `FLASK_DEBUG=1` build arg).
--   Service dependencies (PostgreSQL, Guacamole, etc.).
--   Network configuration.
--   Volume mounts for live code reloading during development (`./desktop-manager-api/src:/app/src`).
--   Database initialization via SQL scripts.
--   Environment variable injection.
+The docker-compose.yaml includes:
+-   Build configuration with `FLASK_DEBUG=1` for development mode
+-   Service dependencies (PostgreSQL, Guacamole, Guacd, Redis)
+-   Network configuration via the `desktop-network` bridge network
+-   Volume mounts for source code (`./desktop-manager-api/src:/app/src`)
+-   Environment variable configuration
+-   Healthchecks for service readiness
+-   Restart policies
 
-To build/run only this service (e.g., after changes), you can use compose commands from the root directory:
+To build or run specific services:
 ```bash
-# Rebuild the API service image
+# Build all services
+docker-compose build
+
+# Build only the API service
 docker-compose build desktop-api
 
-# Stop and restart only the API service (and potentially dependent services)
-docker-compose stop desktop-api
-docker-compose up -d desktop-api
+# Start only the API and its direct dependencies
+docker-compose up -d postgres guacd guacamole desktop-api
+
+# View logs for the API service
+docker-compose logs -f desktop-api
+
+# Restart the API service
+docker-compose restart desktop-api
 ```
 
 ## Running Tests
 
+The project has a comprehensive test suite organized into unit and functional tests.
 
-**Running Locally (Requires local Python env setup):**
+### Test Types
+
+- **Unit Tests** (`tests/unit/`): Focus on testing small components in isolation (models, utilities, services)
+- **Functional Tests** (`tests/functional/`): Focus on testing API endpoints (HTTP methods, validation, responses)
+
+### Running Tests Locally
+
+You have multiple options for running tests:
+
 ```bash
-python -m pytest tests/
+# Run all tests with coverage
+python -m pytest --cov=desktop_manager --cov-report=term-missing
 
-# With coverage
-python -m pytest tests/ --cov=src
+# Run only unit tests
+python -m pytest tests/unit/
+
+# Run only functional tests
+python -m pytest tests/functional/
+
+# Run a specific test file
+python -m pytest tests/unit/test_models.py
 ```
-Refer to `pyproject.toml` (`[tool.pytest.ini_options]`) for pytest configuration.
+
+### Using the Provided Script
+
+A helper script is available to run tests with pre-commit hooks:
+
+```bash
+./run_tests.sh
+```
+
+This script runs pre-commit hooks on all files and then executes the test suite with coverage reporting.
+
+### Running Tests in Docker
+
+You can also run tests within the Docker container:
+
+```bash
+docker-compose run --rm desktop-api python -m pytest
+```
+
+Refer to `tests/README.md` and `pyproject.toml` (`[tool.pytest.ini_options]`) for more details on test configuration.
 
 ## Linting and Formatting
 
-This project uses `pre-commit` with `Ruff` to enforce code style and quality.
+This project uses `pre-commit` with `Ruff` to enforce code style and quality. The pre-commit configuration is defined in `.pre-commit-config.yaml`.
 
--   **Automatic Checks:** Hooks run automatically when you commit changes (requires local pre-commit installation).
+### Pre-commit Hooks
+
+The pre-commit configuration includes:
+- **Ruff**: For linting Python code with `--fix` and `--unsafe-fixes` arguments
+- **Ruff Format**: For code formatting
+- **Standard pre-commit hooks**: Checking for trailing whitespace, YAML validity, file size, etc.
+- **Pytest**: Runs basic tests during pre-commit and coverage tests during pre-push
+
+### Running Pre-commit
+
+-   **Installation:** Set up pre-commit hooks with:
+    ```bash
+    pre-commit install
+    ```
+
 -   **Manual Checks:** Run checks on all files:
     ```bash
-    # Run locally (requires pre-commit and Python env)
+    # Run locally
     pre-commit run --all-files
 
     # Or run within the Docker container
     docker-compose run --rm desktop-api pre-commit run --all-files
     ```
--   **Manual Formatting:** A helper script `format_code.sh` is provided which runs `ruff` formatting and checking:
+
+-   **Manual Formatting:** Use the helper script to run Ruff formatting and checking:
     ```bash
     # Run locally
     ./format_code.sh
@@ -235,39 +322,79 @@ This project uses `pre-commit` with `Ruff` to enforce code style and quality.
     # Or run within the Docker container
     docker-compose run --rm desktop-api /bin/bash -c "./format_code.sh"
     ```
-Configuration is in `.pre-commit-config.yaml` and `pyproject.toml` (`[tool.ruff]`).
+
+### Project-wide Pre-commit Setup
+
+There's also a root-level `.pre-commit-config.yaml` file in the project root directory. This configuration runs the pre-commit hooks for all services in the project, including both the desktop-manager-api and the app.
+
+For installing pre-commit hooks at the project level, use:
+```bash
+./install_pre_commit.sh
+```
 
 ## Deployment
 
 The primary deployment strategy for this API and the entire Desktop Manager system is using **Kubernetes with Helm**.
 
-While the `desktop-manager-api/Dockerfile` can be used to build a production-ready image (by setting `FLASK_DEBUG=0` during build), the deployment process typically involves:
+### CI/CD Pipeline
 
-1.  Packaging the application along with its Kubernetes manifests into a Helm chart.
-2.  Configuring environment-specific values (secrets, database credentials, API URLs, resource limits, OIDC details, etc.) via Helm values files.
-3.  Ensuring the database schema is initialized/migrated (potentially via Helm hooks or a separate job).
-4.  Deploying the chart to a Kubernetes cluster using `helm install` or `helm upgrade`.
+The project includes a GitLab CI/CD pipeline (`.gitlab-ci.yml` in the project root) that:
 
-Refer to the Helm chart definition (if available in the repository) for specific deployment instructions and configuration options.
+1. Runs pre-commit hooks and tests during the lint stage
+2. Builds Docker images for all components using Kaniko
+3. Pushes the images to the GitLab container registry with both `latest` and timestamp-based tags
 
-Running the API using `docker run` or Docker Compose in production is generally **not recommended** compared to a proper Kubernetes/Helm deployment, especially due to the need for managing the database and other potential stateful dependencies.
+The pipeline is configured to build images only when changes are made to their respective directories.
+
+### Helm Deployment
+
+The `guacamole-helm` directory in the project root contains the Helm chart for deploying the entire Desktop Manager system to Kubernetes:
+
+- `Chart.yaml`: Basic chart metadata
+- `values.yaml`: Default configuration values
+- `values.local.yaml`: Local development configuration overrides
+- `templates/`: Kubernetes manifest templates
+- `generate-secrets.py`: Script to generate required secrets
+
+To deploy the application to a Kubernetes cluster:
+
+1. Ensure you have Helm installed and configured with access to your cluster
+2. Generate the required secrets with `generate-secrets.py`
+3. Deploy the chart with the appropriate values file:
+
+   ```bash
+   cd guacamole-helm
+   helm install desktop-manager . -f values.yaml
+   ```
+
+4. For local/development deployment, use the local values:
+
+   ```bash
+   helm install desktop-manager . -f values.local.yaml
+   ```
+
+### Deploying Individual Components
+
+The Dockerfile in the `desktop-manager-api` directory can be used to build a production-ready image for standalone deployment. However, the recommended approach is to deploy the entire system using the Helm chart to ensure proper integration and configuration.
+
+For more information about the Helm chart and deployment options, refer to the `guacamole-helm/README.md` file in the project root.
 
 ## API Endpoints Overview
 
 The API exposes several sets of endpoints, organized by Flask Blueprints:
 
 -   **/api/connections/** (`connection_routes.py`):
-    -   Manages user connections, likely related to Guacamole connections (CRUD operations, details, parameters).
+    -   Manages user connections related to Guacamole (CRUD operations, details, parameters).
 -   **/api/desktop-config/** (`desktop_configuration_routes.py`):
     -   Handles configuration settings specific to user desktops or sessions.
 -   **/api/users/** (`user_routes.py`):
-    -   Manages user information within the Desktop Manager system (listing users, potentially user details).
+    -   Manages user information within the Desktop Manager system.
 -   **/api/storage-pvcs/** (`storage_pvc_routes.py`):
-    -   Manages Persistent Volume Claims (PVCs) related to user storage, likely interacting with Kubernetes.
+    -   Manages Persistent Volume Claims (PVCs) related to user storage.
 -   **/api/auth/oidc/** (`oidc_routes.py`):
-    -   Handles the OpenID Connect (OIDC) authentication flow (login initiation, callback processing) using `python-social-auth`.
+    -   Handles authentication flows.
 -   **/api/token/** (`token_routes.py`):
-    -   Provides endpoints for obtaining API tokens (e.g., JWTs) after successful authentication, potentially used by the frontend to authenticate subsequent requests.
+    -   Provides endpoints for obtaining and refreshing API tokens.
 -   **/api/health** (`main.py`):
     -   A simple health check endpoint to verify API and database connectivity.
 
@@ -275,12 +402,10 @@ The API exposes several sets of endpoints, organized by Flask Blueprints:
 
 ## Authentication/Authorization
 
--   **Primary Authentication:** OpenID Connect (OIDC) is the main method for user authentication, implemented using `python-social-auth`.
-    -   The flow typically starts with the frontend redirecting the user to the OIDC provider (`OIDC_PROVIDER_URL`).
-    -   After successful login at the provider, the user is redirected back to the API's callback endpoint (`/api/auth/oidc/callback`, configured by `OIDC_CALLBACK_URL`).
-    -   The API backend verifies the OIDC token, retrieves user information, and creates/updates the user in its own database and potentially in Guacamole.
-    -   A session or token is likely generated for the user.
--   **Admin User:** A default administrative user is identified based on the OIDC subject claim specified in the `ADMIN_OIDC_SUB` environment variable. This user is automatically granted admin privileges within the application upon first login via OIDC.
--   **API Tokens (JWT):** The `/api/token/` endpoint suggests the API issues tokens (likely JWTs, given the `PyJWT` dependency) after authentication. These tokens are probably used by the frontend to authorize subsequent API requests.
--   **Authorization:** Endpoint access control is likely implemented within the route handlers or decorators, checking user roles (e.g., `is_admin`) or permissions based on the authenticated user session or token.
--   **Guacamole Authentication:** The API manages user authentication within Guacamole, potentially creating users and associating them based on OIDC identity. It uses the `GUACAMOLE_USERNAME` and `GUACAMOLE_PASSWORD` to interact with the Guacamole API. If `GUACAMOLE_JSON_SECRET_KEY` is set, it may also leverage Guacamole's JSON authentication extension.
+-   **Primary Authentication:** The API uses JWT tokens for authentication.
+    -   Tokens are issued via the `/api/token/` endpoints.
+    -   Authentication is managed through the token_routes.py module.
+-   **Admin User:** A default administrative user is automatically created during initialization as defined in the `main.py` file using the UserService.
+-   **API Tokens (JWT):** The `/api/token/` endpoints provide functionality to obtain and refresh JWT tokens used for authenticating API requests.
+-   **Authorization:** Endpoint access control is implemented within the route handlers or through decorators that check user roles and permissions based on the authenticated user token.
+-   **Guacamole Integration:** The API manages user authentication within Guacamole, creating and associating users. It uses the credentials configured in the environment variables to interact with the Guacamole API.
