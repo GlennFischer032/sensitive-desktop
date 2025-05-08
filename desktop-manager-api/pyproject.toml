@@ -16,6 +16,7 @@ dependencies = [
     "sqlalchemy",
     "requests",
     "pydantic",
+    "psycopg2-binary",
     "pydantic-settings",
     "python-jose[cryptography]",
     "passlib[bcrypt]",
@@ -41,7 +42,6 @@ test = [
 dev = [
     "debugpy",
     "gunicorn",
-    "psycopg2-binary",
     "python-multipart",
     "werkzeug",
 ]
