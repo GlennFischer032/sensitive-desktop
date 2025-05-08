@@ -1,4 +1,3 @@
-import logging
 import os
 
 
@@ -9,21 +8,21 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "")
 
     # Debug options
-    DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 
+    DEBUG = os.environ.get("FLASK_DEBUG", "0") == "1"
     # API endpoints
+
     API_URL = os.environ.get("API_URL", "http://localhost:5000")
-    EXTERNAL_GUACAMOLE_URL = os.environ.get("EXTERNAL_GUACAMOLE_URL", "http://guacamole:8080/guacamole")
 
     # Logging configuration
-    LOG_LEVEL = logging.INFO
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 
     # Session configuration
     SESSION_TYPE = "redis"
     SESSION_REDIS = os.environ.get("REDIS_URL", "redis://redis:6379/0")
     SESSION_PERMANENT = True
     PERMANENT_SESSION_LIFETIME = 1800  # 30 minutes
-    SESSION_COOKIE_SECURE = os.environ.get("DEBUG", "false").lower() == "false"
+    SESSION_COOKIE_SECURE = os.environ.get("FLASK_DEBUG", "0") != "1"  # Secure cookies except in debug mode
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_KEY_PREFIX = "desktop_frontend:"

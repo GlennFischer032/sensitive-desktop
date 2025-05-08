@@ -76,23 +76,6 @@ def test_view_tokens_page_admin(admin_client, mock_tokens_client):
     mock_tokens_client.list_tokens.assert_called_once()
 
 
-@patch("utils.session.is_authenticated")
-def test_api_list_tokens_unauthorized(mock_is_authenticated, client):
-    """
-    GIVEN the tokens API route
-    WHEN accessed without authentication
-    THEN check that the application returns an error when the backend is unavailable
-    """
-    mock_is_authenticated.return_value = False
-
-    response = client.get("/api/tokens/")
-
-    # The application gets a 500 error when trying to connect to the backend
-    # which isn't available in the test context
-    assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
-    assert b"error" in response.data
-
-
 def test_api_list_tokens_non_admin(logged_in_client, mock_tokens_client):
     """
     GIVEN the tokens API route

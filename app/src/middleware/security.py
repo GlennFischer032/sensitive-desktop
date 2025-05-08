@@ -1,6 +1,5 @@
 import logging
 from collections.abc import Callable
-from datetime import timedelta
 from functools import wraps
 
 from clients.factory import client_factory
@@ -158,10 +157,10 @@ def init_security(app):
         content_security_policy_nonce_in=["script-src"],  # Apply nonce only to script-src
         force_https=not app.config.get("TESTING", False),  # Don't force HTTPS in testing
         force_https_permanent=False,
-        strict_transport_security=True,
-        strict_transport_security_preload=True,
-        session_cookie_secure=True,
-        session_cookie_http_only=True,
+        strict_transport_security=not app.config.get("TESTING", False),
+        strict_transport_security_preload=not app.config.get("TESTING", False),
+        session_cookie_secure=not app.config.get("TESTING", False),
+        session_cookie_http_only=not app.config.get("TESTING", False),
         feature_policy={
             "geolocation": "'none'",
             "microphone": "'none'",
@@ -180,14 +179,6 @@ def init_security(app):
         # Exempt swagger paths from CSP
         if any(request.path.startswith(path) for path in swagger_paths):
             talisman.content_security_policy = False
-
-    # Session security
-    app.config.update(
-        PERMANENT_SESSION_LIFETIME=timedelta(hours=1),
-        SESSION_COOKIE_SECURE=True,
-        SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SAMESITE="Lax",
-    )
 
     # Return talisman instance so it can be used as a decorator in routes
     return talisman

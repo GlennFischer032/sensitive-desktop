@@ -43,14 +43,10 @@ spec:
             value: {{ .Values.common.credentials.secretKey | quote }}
           - name: API_URL
             value: "http://desktop-api-{{ .Release.Name }}"
-          - name: GUACAMOLE_URL
-            value: {{ printf "https://%s" (include "guacamole.hostname" .) | quote }}
-          - name: EXTERNAL_GUACAMOLE_URL
-            value: {{ printf "https://%s/guacamole" (include "guacamole.hostname" .) | quote }}
           - name: FLASK_APP
             value: "app.py"
           - name: FLASK_ENV
-            value: "development"
+            value: "production"
           - name: PYTHONUNBUFFERED
             value: "1"
           - name: REDIS_URL

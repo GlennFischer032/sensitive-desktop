@@ -9,6 +9,7 @@ from config.config import Config
 from flasgger import Swagger
 from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_cors import CORS
+from flask_session import Session
 from middleware.auth import token_required
 from middleware.logging import init_request_logging
 from middleware.security import init_security
@@ -33,8 +34,6 @@ from services.users import (
     users_bp,
 )
 from utils.swagger import auto_document_blueprint
-
-from flask_session import Session
 
 
 def init_session(app: Flask):
@@ -86,10 +85,6 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
     app = Flask(__name__)
     app.config.from_object(config_class)
     logging.basicConfig(level=app.config.get("LOG_LEVEL", logging.INFO))
-
-    # Health check endpoint is now implemented as a WSGI middleware in middleware.security
-    # It intercepts /health requests before they reach Flask or security middleware
-
     # Initialize security features - save talisman instance for use as decorator
     talisman = init_security(app)
 
@@ -423,4 +418,5 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
         return jsonify({"status": "healthy"}), 200
 
     logger.debug("=== Starting Frontend Application ===")
+    print(app.config)
     return app

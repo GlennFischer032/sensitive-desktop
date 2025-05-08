@@ -21,7 +21,6 @@ class TestConfig:
     DEBUG = True
     TESTING = True
     API_URL = "http://localhost:5000"
-    EXTERNAL_GUACAMOLE_URL = "http://guacamole:8080/guacamole"
 
     # Use null session for testing
     SESSION_TYPE = "null"

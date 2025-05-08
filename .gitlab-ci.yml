@@ -16,11 +16,39 @@ variables:
   CI_REGISTRY_IMAGE: gitlab.fi.muni.cz:5050/xfischer/sensitive-desktop
   # Add timestamp variable for tags
   TIMESTAMP: $(date +%Y%m%d-%H%M%S)
+  # Cache directory
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PRE_COMMIT_HOME: "$CI_PROJECT_DIR/.cache/pre-commit"
 
 # Global cache config
 cache:
   paths:
     - .cache/pip
+
+# Create cache warmup job that runs before other jobs
+.cache-warmup:
+  stage: .pre
+  image: python:3.11-slim
+  tags:
+    - shared-fi
+  variables:
+    GIT_STRATEGY: fetch
+  cache:
+    key:
+      files:
+        - .pre-commit-config.yaml
+      prefix: "pre-commit-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .cache/pip
+      - .cache/pre-commit
+    policy: pull-push
+  script:
+    - mkdir -p .cache/pip .cache/pre-commit
+    - pip install --cache-dir .cache/pip pre-commit
+    - pre-commit install-hooks
+  only:
+    - master
+    - merge_requests
 
 pre-commit:
   stage: lint
@@ -35,24 +63,17 @@ pre-commit:
     paths:
       - .cache/pip
       - .cache/pre-commit
-      - desktop-manager-api/.pytest_cache/
-      - app/.pytest_cache/
-      - app/.sass-cache/
     policy: pull-push
   before_script:
     - apt-get update && apt-get install -y git
     # Create cache directories to prevent warnings
-    - mkdir -p .cache/pre-commit desktop-manager-api/.pytest_cache/ app/.pytest_cache/ app/.sass-cache/
-    # Only install packages if cache was not restored
-    - if [ ! -d "$PRE_COMMIT_HOME" ]; then
-        pip install --no-cache-dir pre-commit;
-        pip install --no-cache-dir pytest fakeredis pytest-cov pytest-mock pytest-flask pytest-asyncio pytest-env responses freezegun sqlalchemy-utils libsass;
-      else
-        echo "Using cached pre-commit installation";
-      fi
-    # Install dependencies directly instead of relying on -e installs
-    - cd desktop-manager-api && pip install -e . || true
-    - cd ../app && pip install -e . || true
+    - mkdir -p .cache/pip .cache/pre-commit desktop-manager-api/.pytest_cache/ app/.pytest_cache/ app/.sass-cache/
+    # Install pre-commit and dependencies
+    - pip install --cache-dir=$PIP_CACHE_DIR pre-commit
+    - pip install --cache-dir=$PIP_CACHE_DIR pytest fakeredis pytest-cov pytest-mock pytest-flask pytest-asyncio pytest-env responses freezegun sqlalchemy-utils libsass
+    # Install dependencies directly
+    - cd desktop-manager-api && pip install --cache-dir=$PIP_CACHE_DIR -e . || true
+    - cd ../app && pip install --cache-dir=$PIP_CACHE_DIR -e . || true
     - cd ..
   script:
     - pre-commit run --all-files --show-diff-on-failure || echo "Pre-commit check failed, but pipeline will continue"

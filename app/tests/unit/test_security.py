@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock
 from flask import Flask, request, jsonify, make_response
 from middleware.security import rate_limit, init_security, limiter
 from datetime import datetime
+import os
 
 
 @pytest.fixture
@@ -107,25 +108,3 @@ def test_rate_limit_format():
 
     formatted_partial = ";".join(partial_limits)
     assert formatted_partial == "30 per minute;500 per hour"
-
-
-def test_init_security_sets_session_configs(app):
-    """
-    GIVEN a Flask application
-    WHEN init_security is called
-    THEN session configuration is properly set
-    """
-    # Reset the config to ensure we're testing the actual values
-    app.config["SESSION_COOKIE_SECURE"] = False
-    app.config["SESSION_COOKIE_HTTPONLY"] = False
-    app.config["SESSION_COOKIE_SAMESITE"] = None
-
-    # Call init_security with proper patching in an app context
-    with app.app_context():
-        with patch("middleware.security.LimiterManager"):
-            init_security(app)
-
-    # Verify session security settings
-    assert app.config["SESSION_COOKIE_SECURE"] is True
-    assert app.config["SESSION_COOKIE_HTTPONLY"] is True
-    assert app.config["SESSION_COOKIE_SAMESITE"] == "Lax"

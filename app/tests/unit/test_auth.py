@@ -46,14 +46,10 @@ def test_auth_client_callback_handling(mock_get_auth_client, app):
     )
 
     # Call the method
-    response, status = mock_auth_client.oidc_callback(
-        code="test_code", state="test_state", redirect_uri="https://app.example.com/callback"
-    )
+    response, status = mock_auth_client.oidc_callback(code="test_code", state="test_state")
 
     # Assertions
-    mock_auth_client.oidc_callback.assert_called_once_with(
-        code="test_code", state="test_state", redirect_uri="https://app.example.com/callback"
-    )
+    mock_auth_client.oidc_callback.assert_called_once_with(code="test_code", state="test_state")
 
     assert status == 200
     assert "token" in response

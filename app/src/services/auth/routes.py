@@ -1,5 +1,4 @@
 import logging
-import os
 from datetime import datetime, timedelta
 from http import HTTPStatus
 
@@ -97,14 +96,10 @@ def oidc_callback():
         return redirect(url_for("auth.login"))
 
     try:
-        callback_url = os.environ.get("OIDC_REDIRECT_URI", request.base_url)
-        logger.debug(f"Using callback URL: {callback_url}")
-
         auth_client = client_factory.get_auth_client()
         response_data, status_code = auth_client.oidc_callback(
             code=code,
             state=state,
-            redirect_uri=callback_url,
         )
 
         if status_code != HTTPStatus.OK:
@@ -234,6 +229,7 @@ def debug_login():  # noqa
       500:
         description: Server error during login process
     """
+    print(current_app.config)
     if not current_app.config.get("DEBUG", False):
         logger.warning("Attempt to access debug login when disabled")
         abort(404)

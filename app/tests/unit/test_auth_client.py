@@ -33,9 +33,7 @@ def test_auth_client_oidc_callback_success(mock_post):
 
     # Create client and call method
     client = AuthClient(base_url="http://test-api:5000")
-    response, status = client.oidc_callback(
-        code="test-code", state="test-state", redirect_uri="https://app.example.com/callback"
-    )
+    response, status = client.oidc_callback(code="test-code", state="test-state")
 
     # Check results
     assert response["token"] == "test-token"
@@ -49,7 +47,6 @@ def test_auth_client_oidc_callback_success(mock_post):
     assert request_arg.endpoint == "/api/auth/oidc/callback"
     assert request_arg.data["code"] == "test-code"
     assert request_arg.data["state"] == "test-state"
-    assert request_arg.data["redirect_uri"] == "https://app.example.com/callback"
     assert request_arg.timeout == 10
 
 
@@ -68,7 +65,7 @@ def test_auth_client_oidc_callback_error(mock_post):
     client = AuthClient(base_url="http://test-api:5000")
 
     with pytest.raises(APIError) as exc_info:
-        client.oidc_callback(code="test-code", state="test-state", redirect_uri="https://app.example.com/callback")
+        client.oidc_callback(code="test-code", state="test-state")
 
     assert exc_info.value == api_error
 

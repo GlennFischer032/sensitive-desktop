@@ -15,13 +15,12 @@ class AuthClient(BaseClient):
         # Clear session data
         session.clear()
 
-    def oidc_callback(self, code: str, state: str, redirect_uri: str) -> tuple[dict[str, Any], int]:
+    def oidc_callback(self, code: str, state: str) -> tuple[dict[str, Any], int]:
         """Handle OIDC callback by forwarding to backend.
 
         Args:
             code: Authorization code from OIDC provider
             state: State parameter from OIDC provider
-            redirect_uri: Redirect URI used for the OIDC flow
 
         Returns:
             Tuple[Dict[str, Any], int]: OIDC callback response and status code
@@ -35,7 +34,6 @@ class AuthClient(BaseClient):
                 data={
                     "code": code,
                     "state": state,
-                    "redirect_uri": redirect_uri,
                 },
                 timeout=10,
             )
