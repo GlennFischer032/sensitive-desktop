@@ -41,6 +41,8 @@ pre-commit:
     policy: pull-push
   before_script:
     - apt-get update && apt-get install -y git
+    # Create cache directories to prevent warnings
+    - mkdir -p .cache/pre-commit desktop-manager-api/.pytest_cache/ app/.pytest_cache/ app/.sass-cache/
     # Only install packages if cache was not restored
     - if [ ! -d "$PRE_COMMIT_HOME" ]; then
         pip install --no-cache-dir pre-commit;
@@ -53,7 +55,7 @@ pre-commit:
     - cd ../app && pip install -e . || true
     - cd ..
   script:
-    - pre-commit run --all-files --show-diff-on-failure --parallel || echo "Pre-commit check failed, but pipeline will continue"
+    - pre-commit run --all-files --show-diff-on-failure || echo "Pre-commit check failed, but pipeline will continue"
   allow_failure: true
   only:
     - merge_requests

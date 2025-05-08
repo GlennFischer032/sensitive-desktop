@@ -84,7 +84,7 @@ class UserService:
             auth_params = {
                 "response_type": "code",
                 "client_id": settings.OIDC_CLIENT_ID,
-                "redirect_uri": settings.OIDC_REDIRECT_URI,
+                "redirect_uri": settings.OIDC_CALLBACK_URL,
                 "scope": "openid profile email organization offline_access",
                 "state": state,
                 "code_challenge": code_challenge,
@@ -133,7 +133,7 @@ class UserService:
             token_data = {
                 "grant_type": "authorization_code",
                 "code": code,
-                "redirect_uri": settings.OIDC_REDIRECT_URI,
+                "redirect_uri": settings.OIDC_CALLBACK_URL,
                 "client_id": settings.OIDC_CLIENT_ID,
                 "client_secret": settings.OIDC_CLIENT_SECRET,
                 "code_verifier": code_verifier,
