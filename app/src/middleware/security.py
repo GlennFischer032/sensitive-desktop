@@ -125,7 +125,13 @@ def rate_limit(
 
 
 def init_security(app):
-    """Initialize security settings for the application."""
+    """Initialize security settings for the application.
+
+    IMPORTANT NOTE ABOUT HEALTH CHECKS:
+    The health check endpoint (/health) is registered in __init__.py before
+    calling init_security, which ensures it won't be affected by HTTPS redirects
+    that would cause Kubernetes health checks to fail.
+    """
     # Initialize the limiter
     LimiterManager.initialize(app)
 
