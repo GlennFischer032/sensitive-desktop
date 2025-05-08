@@ -365,7 +365,7 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
             return jsonify({"error": str(e), "api_url": app.config["API_URL"]}), 500
 
     # Health check endpoint
-    @app.route("/health")
+    @app.route("/health", endpoint="health_check")
     def health_check():
         """Health check endpoint
         This endpoint can be used to check if the service is up and running.
@@ -382,7 +382,15 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
                   type: string
                   example: healthy
         """
-        return {"status": "healthy"}, 200
+        # Force the response to be 200 OK, bypassing any middleware
+        response = jsonify({"status": "healthy"})
+        response.status_code = 200
+        # Add headers to prevent caching and redirection
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        response.headers["X-Redirect-Bypass"] = "true"
+        return response
 
     # Register custom template filters
     @app.template_filter("datetime")

@@ -146,12 +146,16 @@ def init_security(app):
     # Swagger/API docs endpoints will be completely exempt from CSP
     swagger_paths = ["/api/docs/", "/apispec.json", "/flasgger_static/"]
 
+    # Define paths that should be exempt from HTTPS redirection
+    https_exempt_paths = ["/health"]
+
     # Initialize Talisman with specific configuration
     talisman = Talisman(
         app,
         content_security_policy=csp,
         content_security_policy_nonce_in=["script-src"],  # Apply nonce only to script-src
         force_https=not app.config.get("TESTING", False),  # Don't force HTTPS in testing
+        force_https_permanent=False,
         strict_transport_security=True,
         strict_transport_security_preload=True,
         session_cookie_secure=True,
@@ -168,11 +172,16 @@ def init_security(app):
         content_security_policy_report_only=False,
     )
 
-    # Define CSP exemption for swagger documentation routes
+    # Define exemptions for security features
     @app.before_request
-    def exempt_swagger_from_csp():
+    def exempt_from_security():
+        # Exempt swagger paths from CSP
         if any(request.path.startswith(path) for path in swagger_paths):
             talisman.content_security_policy = False
+
+        # Exempt health check from HTTPS redirect
+        if request.path in https_exempt_paths:
+            talisman.force_https = False
 
     # Session security
     app.config.update(
