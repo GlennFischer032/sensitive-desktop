@@ -25,9 +25,8 @@ def test_app_initialization(app):
     # Check that some connections endpoints exist
     assert any(endpoint.startswith("connections.") for endpoint in view_functions)
 
-    # Check core routes
+    # Check core routes - health_check is now handled at WSGI level before Flask
     assert "index" in view_functions
-    assert "health_check" in view_functions
     assert "test_api_connection" in view_functions
 
 
@@ -110,12 +109,18 @@ def test_security_headers_middleware(mock_redis_set, app):
 
     client = app.test_client()
 
-    # First verify the health endpoint works but doesn't have security headers
+    # First verify the health endpoint works correctly
+    # It should have security headers but no HTTPS enforcement
     health_response = client.get("/health")
     assert health_response.status_code == 200
+    assert health_response.json == {"status": "healthy"}
 
-    # For actual security header testing, use a simple page like 404 error
-    # which will have security headers but won't need authentication
+    # Health check should have security headers, but it should not force HTTPS
+    assert health_response.headers.get("X-Content-Type-Options") == "nosniff"
+    # Ensure no Location header forcing HTTPS
+    assert "Location" not in health_response.headers
+
+    # For other routes security headers are also applied
     response = client.get("/nonexistent-page")
 
     # We expect security headers on regular routes, regardless of status code

@@ -87,29 +87,11 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
     app.config.from_object(config_class)
     logging.basicConfig(level=app.config.get("LOG_LEVEL", logging.INFO))
 
-    # Register health check endpoint early, before security middleware
-    # This ensures it's available for Kubernetes probes and won't be affected by HTTPS redirects
-    @app.route("/health", endpoint="health_check")
-    def health_check():
-        """Health check endpoint
-        This endpoint can be used to check if the service is up and running.
-        ---
-        tags:
-          - System
-        responses:
-          200:
-            description: Service is healthy
-            schema:
-              type: object
-              properties:
-                status:
-                  type: string
-                  example: healthy
-        """
-        return jsonify({"status": "healthy"}), 200
+    # Health check endpoint is now implemented as a WSGI middleware in middleware.security
+    # It intercepts /health requests before they reach Flask or security middleware
 
-    # Initialize security features
-    init_security(app)
+    # Initialize security features - save talisman instance for use as decorator
+    talisman = init_security(app)
 
     init_session(app)
 
@@ -416,6 +398,29 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
             return value.strftime(date_format)
 
         return value
+
+    # Health check endpoint with HTTPS enforcement disabled
+    # Using talisman decorator to override global setting just for this route
+    @app.route("/health")
+    @talisman(force_https=False)
+    def health_check():
+        """Health check endpoint
+        This endpoint can be used to check if the service is up and running.
+        It's configured to ignore HTTPS enforcement for Kubernetes health checks.
+        ---
+        tags:
+          - System
+        responses:
+          200:
+            description: Service is healthy
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  example: healthy
+        """
+        return jsonify({"status": "healthy"}), 200
 
     logger.debug("=== Starting Frontend Application ===")
     return app

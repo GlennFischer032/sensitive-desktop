@@ -31,22 +31,29 @@ pre-commit:
     PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
     PRE_COMMIT_HOME: "$CI_PROJECT_DIR/.cache/pre-commit"
   cache:
-    key: pre-commit-cache-v1
+    key: pre-commit-cache-$CI_COMMIT_REF_SLUG
     paths:
       - .cache/pip
       - .cache/pre-commit
       - desktop-manager-api/.pytest_cache/
       - app/.pytest_cache/
       - app/.sass-cache/
+    policy: pull-push
   before_script:
     - apt-get update && apt-get install -y git
-    - pip install pre-commit pytest fakeredis pytest-cov pytest-mock pytest-flask pytest-asyncio pytest-env responses freezegun sqlalchemy-utils libsass
+    # Only install packages if cache was not restored
+    - if [ ! -d "$PRE_COMMIT_HOME" ]; then
+        pip install --no-cache-dir pre-commit;
+        pip install --no-cache-dir pytest fakeredis pytest-cov pytest-mock pytest-flask pytest-asyncio pytest-env responses freezegun sqlalchemy-utils libsass;
+      else
+        echo "Using cached pre-commit installation";
+      fi
     # Install dependencies directly instead of relying on -e installs
     - cd desktop-manager-api && pip install -e . || true
     - cd ../app && pip install -e . || true
     - cd ..
   script:
-    - pre-commit run --all-files || echo "Pre-commit check failed, but pipeline will continue"
+    - pre-commit run --all-files --show-diff-on-failure --parallel || echo "Pre-commit check failed, but pipeline will continue"
   allow_failure: true
   only:
     - merge_requests

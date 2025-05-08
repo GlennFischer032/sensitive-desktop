@@ -128,9 +128,8 @@ def init_security(app):
     """Initialize security settings for the application.
 
     IMPORTANT NOTE ABOUT HEALTH CHECKS:
-    The health check endpoint (/health) is registered in __init__.py before
-    calling init_security, which ensures it won't be affected by HTTPS redirects
-    that would cause Kubernetes health checks to fail.
+    The health check endpoint (/health) will be configured to ignore HTTPS enforcement
+    using the @talisman decorator directly on the route in __init__.py.
     """
     # Initialize the limiter
     LimiterManager.initialize(app)
@@ -151,9 +150,6 @@ def init_security(app):
     # Create a list of routes that should be exempt from CSP
     # Swagger/API docs endpoints will be completely exempt from CSP
     swagger_paths = ["/api/docs/", "/apispec.json", "/flasgger_static/"]
-
-    # Define paths that should be exempt from HTTPS redirection
-    https_exempt_paths = ["/health"]
 
     # Initialize Talisman with specific configuration
     talisman = Talisman(
@@ -185,10 +181,6 @@ def init_security(app):
         if any(request.path.startswith(path) for path in swagger_paths):
             talisman.content_security_policy = False
 
-        # Exempt health check from HTTPS redirect
-        if request.path in https_exempt_paths:
-            talisman.force_https = False
-
     # Session security
     app.config.update(
         PERMANENT_SESSION_LIFETIME=timedelta(hours=1),
@@ -196,3 +188,23 @@ def init_security(app):
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
     )
+
+    # Return talisman instance so it can be used as a decorator in routes
+    return talisman
+
+
+# Create a decorator to exempt routes from HTTPS
+def exempt_from_https(view_function):
+    """Decorator that exempts a route from HTTPS enforcement.
+
+    This works by setting a special attribute on the view function
+    which Talisman will check before enforcing HTTPS.
+    """
+
+    @wraps(view_function)
+    def decorated_function(*args, **kwargs):
+        return view_function(*args, **kwargs)
+
+    # Add attribute that Talisman checks to identify exempt routes
+    decorated_function._exempt_from_https = True
+    return decorated_function
