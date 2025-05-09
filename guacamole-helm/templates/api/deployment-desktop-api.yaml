@@ -75,7 +75,7 @@ spec:
             valueFrom:
               secretKeyRef:
                 name: {{ include "guacamole.fullname" . }}-credentials
-                key: secretKey
+                key: desktopApiSecretKey
           - name: ENCRYPTION_KEY
             valueFrom:
               secretKeyRef:

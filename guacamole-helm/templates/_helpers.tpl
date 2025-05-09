@@ -64,12 +64,20 @@ release: {{ .Release.Name }}
 Generate hostname for Guacamole
 */}}
 {{- define "guacamole.hostname" -}}
+{{- if .Values.guacamole.hostname | ne "" }}
+{{- printf "%s-%s-%s.dyn.cloud.e-infra.cz" .Values.guacamole.hostname .Release.Name .Release.Namespace }}
+{{- else }}
 {{- printf "%s-%s.dyn.cloud.e-infra.cz" .Release.Name .Release.Namespace }}
+{{- end }}
 {{- end }}
 
 {{/*
-Generate hostname for Desktop Manager
+Generate hostname for Desktop Manager Frontend
 */}}
-{{- define "desktop-manager.hostname" -}}
-{{- printf "manage-desktops-%s-%s.dyn.cloud.e-infra.cz" .Release.Name .Release.Namespace }}
+{{- define "desktop-frontend.hostname" -}}
+{{- if .Values.desktopFrontend.hostname | ne "" }}
+{{- printf "%s-%s-%s.dyn.cloud.e-infra.cz"  .Values.desktopFrontend.hostname .Release.Name .Release.Namespace }}
+{{- else }}
+{{- printf "%s-%s.dyn.cloud.e-infra.cz" .Release.Name .Release.Namespace }}
+{{- end }}
 {{- end }}

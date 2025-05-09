@@ -72,31 +72,6 @@ def test_session_initialization(mock_get_redis_client, app):
     init_session(app)
 
 
-def test_cors_initialization(app):
-    """
-    GIVEN a Flask application
-    WHEN CORS is initialized
-    THEN check that CORS headers are added to responses
-    """
-    from __init__ import init_cors
-
-    # Set CORS configuration
-    app.config["CORS_ALLOWED_ORIGINS"] = ["http://localhost:5000"]
-    app.config["CORS_SUPPORTS_CREDENTIALS"] = True
-
-    # Initialize CORS
-    init_cors(app)
-
-    # Create test client and make a request
-    client = app.test_client()
-    response = client.options("/", headers={"Origin": "http://localhost:5000", "Access-Control-Request-Method": "GET"})
-
-    # Check CORS headers
-    assert response.status_code == 200
-    assert response.headers.get("Access-Control-Allow-Origin") == "http://localhost:5000"
-    assert response.headers.get("Access-Control-Allow-Credentials") == "true"
-
-
 @patch("flask_session.redis.redis.Redis.set")
 def test_security_headers_middleware(mock_redis_set, app):
     """

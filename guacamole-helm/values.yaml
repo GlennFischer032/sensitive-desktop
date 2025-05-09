@@ -28,17 +28,16 @@ common:
   database:
     host: postgres-guacamole
     port: "5432"
-    user: "guacamole_user" # Set the database user
-    password: "" # Will be auto-generated if empty
+    user: "guacamole_user" # Database user
+    password: "" # Database password
     database: desktop_manager # Main database name
 
   # Credentials and secrets
   credentials:
-    secretKey: "" # Set a secure secret key for the application (will be auto-generated if empty)
     desktopAdmin:
-      oidcSub: "" # Set the Desktop Manager admin OIDC subject
-    guacamoleJsonSecretKey: "" # Will be auto-generated if empty (for Guacamole JSON auth)
-    encryptionKey: "" # Will be auto-generated if empty (valid Fernet key for encryption)
+      oidcSub: "" # Desktop Manager admin OIDC subject
+    guacamoleJsonSecretKey: "" # Guacamole JSON auth secret key
+    encryptionKey: "" # Fernet key for encryption
     desktopApiSecretKey: "" # Secret key for desktop API
     desktopFrontendSecretKey: "" # Secret key for desktop frontend if using debug mode, need to match with desktopApiSecretKey for debug login
 
@@ -90,6 +89,7 @@ desktopFrontend:
   replicaCount: 1
   image: "gitlab.fi.muni.cz:5050/xfischer/sensitive-desktop/desktop-manager-frontend:latest"
   containerPort: 5000
+  hostname: "manage-desktops"
   healthcheck:
     enabled: true
     path: /health
@@ -130,7 +130,7 @@ guacamole:
   image: "gitlab.fi.muni.cz:5050/xfischer/sensitive-desktop/guac-no-root:latest"
   containerPort: 8080
   extensionPriority: "json"
-
+  hostname: "guacamole"
 #####################################################
 # Redis values
 #####################################################

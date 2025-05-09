@@ -8,7 +8,6 @@ from clients.factory import client_factory
 from config.config import Config
 from flasgger import Swagger
 from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
-from flask_cors import CORS
 from flask_session import Session
 from middleware.auth import token_required
 from middleware.logging import init_request_logging
@@ -34,6 +33,7 @@ from services.users import (
     users_bp,
 )
 from utils.swagger import auto_document_blueprint
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 def init_session(app: Flask):
@@ -52,45 +52,19 @@ def init_session(app: Flask):
     app.config["SESSION_REFRESH_EACH_REQUEST"] = True
 
 
-def init_cors(app: Flask):
-    CORS(
-        app,
-        resources={
-            r"/*": {
-                "origins": app.config.get("CORS_ALLOWED_ORIGINS", [app.config["API_URL"]]),
-                "supports_credentials": app.config.get("CORS_SUPPORTS_CREDENTIALS", True),
-                "expose_headers": app.config.get("CORS_EXPOSE_HEADERS", ["Content-Range", "X-Total-Count"]),
-                "allow_headers": app.config.get(
-                    "CORS_ALLOWED_HEADERS",
-                    [
-                        "Content-Type",
-                        "Authorization",
-                        "X-Requested-With",
-                        "Accept",
-                        "Origin",
-                    ],
-                ),
-                "methods": app.config.get("CORS_ALLOWED_METHODS", ["GET", "POST", "PUT", "DELETE", "OPTIONS"]),
-                "max_age": app.config.get("CORS_MAX_AGE", 3600),
-            }
-        },
-    )
-
-
 def create_app(config_class=Config):  # noqa: C901, PLR0915
     """Create and configure the Flask application."""
     # Configure logging
     logger = logging.getLogger(__name__)
 
     app = Flask(__name__)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
     app.config.from_object(config_class)
     logging.basicConfig(level=app.config.get("LOG_LEVEL", logging.INFO))
     # Initialize security features - save talisman instance for use as decorator
     talisman = init_security(app)
 
     init_session(app)
-
-    init_cors(app)
 
     # Initialize request logging
     init_request_logging(app)
@@ -197,6 +171,14 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
         # Generate CSP nonce for inline scripts
         if not hasattr(request, "csp_nonce"):
             request.csp_nonce = secrets.token_hex(16)
+
+    @app.route("/debug/ip")
+    def debug_ip():
+        return {
+            "remote_addr": request.remote_addr,
+            "access_route": request.access_route,  # ProxyFix-processed list
+            "raw_x_forwarded_for": request.headers.get("X-Forwarded-For", ""),
+        }
 
     # Apply global rate limiting
     @app.before_request

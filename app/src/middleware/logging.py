@@ -45,6 +45,11 @@ def init_request_logging(app):
     @app.before_request
     def log_request():
         """Log details of every incoming request."""
+        # Log request headers
+        logger.debug(f"Request headers: {request.headers}")
+        logger.debug(f"Request url: {request.url}")
+        logger.debug(f"Request full path: {request.full_path}")
+
         # Get current timestamp
         timestamp = datetime.now().isoformat()
 

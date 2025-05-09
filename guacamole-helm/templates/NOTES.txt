@@ -8,7 +8,7 @@ This chart deploys two main components:
    - Handles remote desktop protocol connections
 
 2. Desktop Manager - Management Interface
-   URL: https://{{ include "desktop-manager.hostname" . }}
+   URL: https://{{ include "desktop-frontend.hostname" . }}
    - Provides an easy-to-use interface for managing remote desktops
    - Automates desktop creation and configuration
    - Integrates with Rancher for container management

@@ -85,7 +85,7 @@ def app():
 @pytest.fixture(scope="module")
 def client(app):
     """A test client for the app."""
-    return app.test_client()
+    return JSONTestClient(app.test_client())
 
 
 @pytest.fixture(scope="module")
@@ -143,3 +143,40 @@ def admin_client(client, admin_token):
         sess["user"] = {"id": "admin_user", "name": "Admin User", "email": "admin@example.com"}
         sess["is_admin"] = True
     return client
+
+
+class JSONTestClient:
+    """A test client wrapper that adds Content-Type header to all requests."""
+
+    def __init__(self, app_test_client):
+        self.app_test_client = app_test_client
+        # Pass through application attribute
+        self.application = app_test_client.application
+
+    def get(self, *args, **kwargs):
+        return self.app_test_client.get(*args, **kwargs)
+
+    def post(self, *args, **kwargs):
+        if "headers" not in kwargs:
+            kwargs["headers"] = {}
+        kwargs["headers"]["Content-Type"] = "application/json"
+        return self.app_test_client.post(*args, **kwargs)
+
+    def put(self, *args, **kwargs):
+        if "headers" not in kwargs:
+            kwargs["headers"] = {}
+        kwargs["headers"]["Content-Type"] = "application/json"
+        return self.app_test_client.put(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if "headers" not in kwargs:
+            kwargs["headers"] = {}
+        kwargs["headers"]["Content-Type"] = "application/json"
+        return self.app_test_client.delete(*args, **kwargs)
+
+    def session_transaction(self, *args, **kwargs):
+        return self.app_test_client.session_transaction(*args, **kwargs)
+
+    # Forward any other attributes to the wrapped test client
+    def __getattr__(self, name):
+        return getattr(self.app_test_client, name)

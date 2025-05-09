@@ -40,7 +40,10 @@ spec:
           runAsGroup: 1000
         env:
           - name: SECRET_KEY
-            value: {{ .Values.common.credentials.desktopFrontendSecretKey | quote }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ include "guacamole.fullname" . }}-credentials
+                key: desktopFrontendSecretKey
           - name: API_URL
             value: "http://desktop-api-{{ .Release.Name }}"
           - name: FLASK_APP
