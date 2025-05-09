@@ -4,7 +4,7 @@ A comprehensive remote desktop management system built on Apache Guacamole, prov
 
 ## Overview
 
-Sensitive Desktop is a complete solution for managing remote desktop connections with a focus on security, scalability, and user experience. The system consists of three main components:
+Secure Desktop is a complete solution for managing remote desktop connections with a focus on security, scalability, and user experience. The system consists of three main components:
 
 1. **Desktop Manager API**: Backend service that handles business logic, database operations, and communication with external services like Guacamole.
 
