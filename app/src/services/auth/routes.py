@@ -229,7 +229,6 @@ def debug_login():  # noqa
       500:
         description: Server error during login process
     """
-    print(current_app.config)
     if not current_app.config.get("DEBUG", False):
         logger.warning("Attempt to access debug login when disabled")
         abort(404)

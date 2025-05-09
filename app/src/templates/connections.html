@@ -40,33 +40,30 @@
                     {% if not conn.is_stopped %}
                     <div class="button-group-actions">
                         <a href="{{ url_for('connections.direct_connect', connection_id=conn.id) }}" target="_blank" class="button small connect-btn">Connect</a>
-                        <form action="{{ url_for('connections_api.stop_connection', connection_name=conn.name) }}" method="POST"
-                            onsubmit="handleStop(event, '{{ conn.name }}')">
+                        <form class="stop-form" action="{{ url_for('connections_api.stop_connection', connection_name=conn.name) }}" method="POST" data-connection-name="{{ conn.name }}">
                             <button type="submit" class="button small danger delete-btn">Stop</button>
                         </form>
                         {% if storage_pvcs %}
                         {% if conn.has_external_pvc %}
-                        <button type="button" class="button small info" onclick="handleDetachStorage({{ conn.id }})">Disconnect Storage</button>
+                        <button type="button" class="button small info storage-detach-btn" data-connection-id="{{ conn.id }}">Disconnect Storage</button>
                         {% else %}
-                        <button type="button" class="button small info" onclick="handleAttachStorage({{ conn.id }})">Connect Storage</button>
+                        <button type="button" class="button small info storage-attach-btn" data-connection-id="{{ conn.id }}">Connect Storage</button>
                         {% endif %}
                         {% endif %}
                     </div>
                     {% else %}
                     <div class="button-group-actions">
-                        <form action="{{ url_for('connections_api.resume_connection', connection_name=conn.name) }}" method="POST"
-                              onsubmit="handleResume(event, '{{ conn.name }}')">
+                        <form class="resume-form" action="{{ url_for('connections_api.resume_connection', connection_name=conn.name) }}" method="POST" data-connection-name="{{ conn.name }}">
                             <button type="submit" class="button small success resume-btn">Resume</button>
                         </form>
-                        <form action="{{ url_for('connections_api.delete_connection', connection_name=conn.name) }}" method="DELETE"
-                              onsubmit="handleDelete(event, '{{ conn.name }}')">
+                        <form class="delete-form" action="{{ url_for('connections_api.delete_connection', connection_name=conn.name) }}" method="DELETE" data-connection-name="{{ conn.name }}">
                             <button type="submit" class="button small danger permanent-delete-btn">Delete</button>
                         </form>
                         {% if storage_pvcs %}
                         {% if conn.has_external_pvc %}
-                        <button type="button" class="button small info" onclick="handleDetachStorage({{ conn.id }})">Disconnect Storage</button>
+                        <button type="button" class="button small info storage-detach-btn" data-connection-id="{{ conn.id }}">Disconnect Storage</button>
                         {% else %}
-                        <button type="button" class="button small info" onclick="handleAttachStorage({{ conn.id }})">Connect Storage</button>
+                        <button type="button" class="button small info storage-attach-btn" data-connection-id="{{ conn.id }}">Connect Storage</button>
                         {% endif %}
                         {% endif %}
                     </div>
@@ -260,6 +257,7 @@ async function handleStop(event, connectionName) {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Content-Type': 'application/json'
             },
+            body: JSON.stringify({}),
             credentials: 'same-origin'
         });
 
@@ -404,6 +402,10 @@ async function handleDelete(event, connectionName) {
     try {
         const response = await fetch(form.action, {
             method: "DELETE",
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json'
+            },
             credentials: 'same-origin'
         });
 
@@ -460,6 +462,38 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Storage attach/detach buttons
+    document.querySelectorAll('.storage-attach-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const connectionId = this.getAttribute('data-connection-id');
+            handleAttachStorage(connectionId);
+        });
+    });
+
+    document.querySelectorAll('.storage-detach-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const connectionId = this.getAttribute('data-connection-id');
+            handleDetachStorage(connectionId);
+        });
+    });
+
+    // Handle stop form submission
+    document.addEventListener('submit', function(e) {
+        if (e.target.classList.contains('stop-form')) {
+            e.preventDefault();
+            const connectionName = e.target.dataset.connectionName;
+            handleStop(e, connectionName);
+        } else if (e.target.classList.contains('resume-form')) {
+            e.preventDefault();
+            const connectionName = e.target.dataset.connectionName;
+            handleResume(e, connectionName);
+        } else if (e.target.classList.contains('delete-form')) {
+            e.preventDefault();
+            const connectionName = e.target.dataset.connectionName;
+            handleDelete(e, connectionName);
+        }
+    });
+
     // Connection form submission
     document.getElementById('connection-form').addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -480,17 +514,26 @@ document.addEventListener('DOMContentLoaded', function() {
         form.style.display = 'none';
         createLoading.classList.remove('hidden');
 
-        // Ensure the checkbox value is properly set
-        const persistentHomeCheckbox = document.getElementById('persistent_home');
-        let formData = new FormData(form);
+        // Convert form data to JSON
+        const formData = new FormData(form);
+        const jsonData = {};
+        formData.forEach((value, key) => {
+            // Handle checkbox values properly
+            if (key === 'persistent_home') {
+                jsonData[key] = value !== 'off';
+            } else {
+                jsonData[key] = value;
+            }
+        });
 
         try {
             const response = await fetch(form.action, {
                 method: 'POST',
-                body: formData,
                 headers: {
+                    'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
-                }
+                },
+                body: JSON.stringify(jsonData)
             });
 
             const contentType = response.headers.get('content-type');
@@ -604,9 +647,14 @@ document.addEventListener('DOMContentLoaded', function() {
 function handleAttachStorage(connectionId) {
     document.getElementById('attach-connection-id').value = connectionId;
 
-    // Check if the connection is running or stopped
-    const row = document.querySelector(`[id^="connection-"][id$="${connectionId}"]`);
-    const isStopped = row.classList.contains('stopped-connection');
+    // Find the button first, then traverse up to find the row
+    const button = document.querySelector(`.storage-attach-btn[data-connection-id="${connectionId}"]`);
+    let isStopped = false;
+
+    if (button) {
+        const row = button.closest('tr');
+        isStopped = row && row.classList.contains('stopped-connection');
+    }
 
     document.getElementById('attach-connection-status').value = isStopped ? 'stopped' : 'running';
 
@@ -618,8 +666,21 @@ function handleAttachStorage(connectionId) {
 }
 
 async function handleDetachStorage(connectionId) {
-    // Find the connection row and check if it's stopped
-    const row = document.querySelector(`[id^="connection-"][id$="${connectionId}"]`);
+    // Find the button first, then traverse up to find the row
+    const button = document.querySelector(`.storage-detach-btn[data-connection-id="${connectionId}"]`);
+    if (!button) {
+        console.error('Could not find button for connection ID:', connectionId);
+        alert('Error: Could not find the connection to disconnect storage from.');
+        return;
+    }
+
+    const row = button.closest('tr');
+    if (!row) {
+        console.error('Could not find row for connection ID:', connectionId);
+        alert('Error: Could not find the connection to disconnect storage from.');
+        return;
+    }
+
     const isStopped = row.classList.contains('stopped-connection');
 
     let warningMessage = 'Are you sure you want to disconnect storage from this connection?';
@@ -632,7 +693,6 @@ async function handleDetachStorage(connectionId) {
     }
 
     // Store the original button for later restoration
-    const button = row.querySelector('button[onclick^="handleDetachStorage"]');
     const originalButtonHTML = button.outerHTML;
 
     // Replace button with loading animation

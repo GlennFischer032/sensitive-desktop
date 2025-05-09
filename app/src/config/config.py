@@ -26,10 +26,10 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_KEY_PREFIX = "desktop_frontend:"
-    SESSION_USE_SIGNER = True
+    SESSION_USE_SIGNER = os.environ.get("FLASK_DEBUG", "0") != "1"
     SESSION_COOKIE_NAME = "desktop_frontend_session"
 
-    # Security configuration
+    # Security configuration only for debug mode
     JWT_ALGORITHM = "HS256"
 
     # Rate limiting configuration

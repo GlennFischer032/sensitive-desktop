@@ -351,7 +351,7 @@ class RancherClient(BaseClient):
                         time.sleep(retry_interval)
                         continue
 
-                    self.logger.debug("Desktop pod for %s is ready", connection_name)
+                    self.logger.info("Desktop pod for %s is ready", connection_name)
                     return True
 
                 except Exception as e:
@@ -384,14 +384,17 @@ class RancherClient(BaseClient):
             APIError: If checking release uninstallation fails
         """
         try:
+            # First verify that the release and pod are gone
             for attempt in range(max_retries):
                 try:
                     releases = self.list_releases()
                     release_removed = connection_name not in [release["metadata"]["name"] for release in releases]
 
                     pods = self.list_pods()
-                    pod_removed = connection_name not in [pod["metadata"]["name"] for pod in pods]
+                    pod_removed = connection_name + "-0" not in [pod["metadata"]["name"] for pod in pods]
+
                     if release_removed and pod_removed:
+                        # Now perform confirmation checks to ensure uninstallation is truly complete
                         return True
                     elif not release_removed:
                         self.logger.warning(

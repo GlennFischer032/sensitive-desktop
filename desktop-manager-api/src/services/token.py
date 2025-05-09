@@ -118,7 +118,7 @@ class TokenService:
         try:
             token_repo = TokenRepository(session)
             # Check if token exists
-            token = token_repo.get_by_id(token_id)
+            token = token_repo.get_by_token_id(token_id)
             if not token:
                 raise NotFoundError(f"Token with ID {token_id} not found")
 

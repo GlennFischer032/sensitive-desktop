@@ -107,8 +107,6 @@ spec:
               secretKeyRef:
                 name: {{ include "guacamole.fullname" . }}-credentials
                 key: oidcClientSecret
-          - name: FRONTEND_URL
-            value: {{ .Values.common.oidc.frontendUrl | quote }}
           - name: OIDC_CALLBACK_URL
             value: {{ .Values.common.oidc.redirectUri | quote }}
           - name: RANCHER_API_TOKEN

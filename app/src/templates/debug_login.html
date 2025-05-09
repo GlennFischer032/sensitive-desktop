@@ -23,11 +23,12 @@
     <div class="debug-info">
         Enter the Sub ID of an existing user. The username and admin status will be automatically
         fetched from the database. Other fields will be used for additional OIDC information.
+        This will not update the user in the database, it will only affect the current session.
     </div>
 
     <div id="errorMessage" class="message error" style="display: none;"></div>
 
-    <form id="debugLoginForm" onsubmit="submitForm(event)">
+    <form id="debugLoginForm">
         <div class="form-group">
             <label for="sub">User Sub (ID) <span class="required">*</span></label>
             <input type="text" id="sub" name="sub" required placeholder="Enter user sub from database">
@@ -39,8 +40,8 @@
             <small class="form-help">This will be automatically fetched based on the Sub</small>
         </div>
         <div class="form-group">
-            <label for="email">Email <span class="required">*</span></label>
-            <input type="email" id="email" name="email" required placeholder="Enter email">
+            <label for="email">Email </label>
+            <input type="email" id="email" name="email" placeholder="Enter email">
         </div>
         <div class="form-group">
             <label for="given_name">Given Name</label>
@@ -65,23 +66,29 @@
         <div class="form-group form-checkbox">
             <input type="checkbox" id="email_verified" name="email_verified" checked>
             <label for="email_verified">Email Verified</label>
+            <small class="form-help">Indicates if the email address has been verified</small>
         </div>
         <div class="form-group form-checkbox">
             <input type="checkbox" id="is_admin" name="is_admin">
             <label for="is_admin">Is Admin (override database value)</label>
-            <small class="form-help">Check this to override the user's admin status for this session</small>
+            <small class="form-help">Check this to override the user's admin status for this session, this will not allow the user to access admin protected routes only show the admin view in the UI</small>
         </div>
         <div class="form-actions">
-            <button type="submit" class="button debug-button">Debug Login</button>
+            <button type="button" id="debug-login-btn" class="button debug-button">Debug Login</button>
             <a href="{{ url_for('auth.login') }}" class="button cancel-button">Cancel</a>
         </div>
     </form>
 </div>
 
 <script nonce="{{ csp_nonce() }}">
-function submitForm(event) {
-    event.preventDefault();
+document.addEventListener('DOMContentLoaded', function() {
+    // Add click event listener to the login button
+    document.getElementById('debug-login-btn').addEventListener('click', function() {
+        submitForm();
+    });
+});
 
+function submitForm() {
     // Clear previous error messages
     const errorEl = document.getElementById('errorMessage');
     errorEl.style.display = 'none';
@@ -100,6 +107,13 @@ function submitForm(event) {
         is_admin: document.getElementById('is_admin').checked
         // username is not included as it is determined by the server
     };
+
+    // Validate required fields
+    if (!formData.sub) {
+        errorEl.textContent = 'User Sub (ID) is required';
+        errorEl.style.display = 'block';
+        return;
+    }
 
     // Send as JSON
     fetch('{{ url_for("auth.debug_login") }}', {

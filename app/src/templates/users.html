@@ -35,9 +35,7 @@
                 <td class="action-buttons">
                     <div class="button-group">
                         <button class="button small view-details-btn" data-username="{{ user.username }}">View Details</button>
-                        <form action="{{ url_for('users_api.delete_user', username=user.username) }}" method="post" onsubmit="handleDelete(event, '{{ user.username }}')">
-                            <button type="submit" class="button small danger delete-btn">Delete</button>
-                        </form>
+                        <button class="button small danger delete-btn" data-username="{{ user.username }}">Delete</button>
                     </div>
                 </td>
             </tr>
@@ -179,14 +177,11 @@
 {{ modal_js() }}
 
 <script nonce="{{ csp_nonce() }}">
-async function handleDelete(event, username) {
-    event.preventDefault();
-
+async function handleDelete(username) {
     if (!confirm('Are you sure you want to delete this user?')) {
         return;
     }
 
-    const form = event.target;
     const row = document.getElementById(`user-${username}`);
     const actionButtons = row.querySelector('.action-buttons');
 
@@ -205,9 +200,9 @@ async function handleDelete(event, username) {
     row.classList.add('deleting-row');
 
     try {
-        const response = await fetch(form.action, {
+        const response = await fetch(`/api/users/${username}`, {
             method: 'DELETE',
-            credentials: 'same-origin'
+            credentials: 'same-origin',
         });
 
         if (response.ok) {
@@ -266,6 +261,14 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function() {
             const username = this.getAttribute('data-username');
             loadUserDetails(username);
+        });
+    });
+
+    // Delete User buttons
+    document.querySelectorAll('.delete-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const username = this.getAttribute('data-username');
+            handleDelete(username);
         });
     });
 

@@ -39,6 +39,8 @@ common:
       oidcSub: "" # Set the Desktop Manager admin OIDC subject
     guacamoleJsonSecretKey: "" # Will be auto-generated if empty (for Guacamole JSON auth)
     encryptionKey: "" # Will be auto-generated if empty (valid Fernet key for encryption)
+    desktopApiSecretKey: "" # Secret key for desktop API
+    desktopFrontendSecretKey: "" # Secret key for desktop frontend if using debug mode, need to match with desktopApiSecretKey for debug login
 
   # Rancher configuration
   rancher:
@@ -54,8 +56,6 @@ common:
     clientSecret: "" # Set your OIDC client secret
     providerUrl: "" # Set your OIDC provider URL
     redirectUri: "" # Set your OIDC redirect URI
-    backendRedirectUri: "" # Set your OIDC backend redirect URI
-    frontendUrl: "" # Set your frontend URL
 
   # Social Auth Configuration
   socialAuth:
@@ -64,6 +64,7 @@ common:
     loginErrorUrl: "" # Set your Social Auth login error URL
     oidcCallbackUrl: "" # Set your Social Auth OIDC callback URL
     oidcRedirectUri: "" # Set your Social Auth OIDC frontend redirect URI
+
 # Component-specific configurations
 replicaCount: 1
 
@@ -72,12 +73,12 @@ replicaCount: 1
 #####################################################
 desktopApi:
   replicaCount: 1
-  image: "glennfischer032/desktop-manager-api:latest" # Update with specific version if needed
+  image: "gitlab.fi.muni.cz:5050/xfischer/sensitive-desktop/desktop-manager-api:latest"
   containerPort: 5000
   healthcheck:
     enabled: true
     path: /api/health
-    initialDelaySeconds: 30
+    initialDelaySeconds: 10
     periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 3
@@ -87,12 +88,12 @@ desktopApi:
 #####################################################
 desktopFrontend:
   replicaCount: 1
-  image: "glennfischer032/desktop-manager-frontend:latest" # Update with specific version if needed
+  image: "gitlab.fi.muni.cz:5050/xfischer/sensitive-desktop/desktop-manager-frontend:latest"
   containerPort: 5000
   healthcheck:
     enabled: true
-    path: /
-    initialDelaySeconds: 10
+    path: /health
+    initialDelaySeconds: 5
     periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 3
@@ -109,8 +110,8 @@ postgres:
     size: 1Gi
   healthcheck:
     enabled: true
-    command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
-    initialDelaySeconds: 30
+    command: ["pg_isready", "-U", "$(POSTGRES_USER)"]
+    initialDelaySeconds: 10
     periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 5
@@ -126,9 +127,9 @@ guacd:
 # guacamole (web app) values
 #####################################################
 guacamole:
-  image: "glennfischer032/guac-no-root:latest"
+  image: "gitlab.fi.muni.cz:5050/xfischer/sensitive-desktop/guac-no-root:latest"
   containerPort: 8080
-  extensionPriority: "postgresql,json"
+  extensionPriority: "json"
 
 #####################################################
 # Redis values
@@ -139,7 +140,7 @@ redis:
   healthcheck:
     enabled: true
     command: ["redis-cli", "ping"]
-    initialDelaySeconds: 10
+    initialDelaySeconds: 5
     periodSeconds: 5
     timeoutSeconds: 3
     failureThreshold: 3

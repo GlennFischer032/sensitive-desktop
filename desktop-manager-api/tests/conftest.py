@@ -57,7 +57,6 @@ class MockSettings:
     OIDC_PROVIDER_URL = "http://test-provider"
     OIDC_CLIENT_ID = "test-client"
     OIDC_CLIENT_SECRET = "test-secret"
-    FRONTEND_URL = "http://localhost"
     OIDC_CALLBACK_URL = "http://localhost/callback"
     CORS_ALLOWED_ORIGINS = "http://localhost"
     database_url = "sqlite:///:memory:"

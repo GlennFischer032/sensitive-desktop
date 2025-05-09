@@ -41,7 +41,6 @@ class Settings(BaseSettings):
     OIDC_CLIENT_ID: str = os.getenv("OIDC_CLIENT_ID", "")
     OIDC_CLIENT_SECRET: str = os.getenv("OIDC_CLIENT_SECRET", "")
     OIDC_CALLBACK_URL: str = os.getenv("OIDC_CALLBACK_URL", "http://localhost:5001/auth/oidc/callback")
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5001")
     CORS_ALLOWED_ORIGINS: str = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5001")
 
     @property

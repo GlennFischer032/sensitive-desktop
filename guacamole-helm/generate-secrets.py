@@ -70,9 +70,15 @@ def update_values_file(values_file, output_file=None):
         print("✓ Generated Guacamole JSON secret key")
 
     # Generate secret key if not already set
-    if not values["common"]["credentials"].get("secretKey"):
-        values["common"]["credentials"]["secretKey"] = generate_random_key()
+    if not values["common"]["credentials"].get("desktopApiSecretKey"):
+        values["common"]["credentials"]["desktopApiSecretKey"] = generate_random_key()
         print("✓ Generated application secret key")
+
+    if not values["common"]["credentials"].get("desktopFrontendSecretKey"):
+        values["common"]["credentials"][
+            "desktopFrontendSecretKey"
+        ] = generate_random_key()
+        print("✓ Generated frontend secret key")
 
     # Generate database password if not already set
     if not values["common"]["database"].get("password"):

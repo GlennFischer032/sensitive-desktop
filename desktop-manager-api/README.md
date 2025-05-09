@@ -163,7 +163,6 @@ OIDC_PROVIDER_URL=https://login.e-infra.cz/oidc
 OIDC_CLIENT_ID=your_oidc_client_id
 OIDC_CLIENT_SECRET=your_oidc_client_secret
 OIDC_CALLBACK_URL=http://localhost:5001/auth/oidc/callback  # Frontend callback
-FRONTEND_URL=http://localhost:5001  # URL of the frontend application
 
 # --- Rancher/Kubernetes Settings --- #
 RANCHER_API_TOKEN=your_rancher_token

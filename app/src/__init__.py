@@ -174,25 +174,13 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
 
         # Validate content type for POST/PUT requests that expect JSON
         if request.method in ["POST", "PUT"]:
-            # List of endpoints that accept form data
-            form_endpoints = [
-                "auth.login",
-                "users.add_user",
-                "users.delete_user",
-                "connections.add_connection",
-                "connections.delete_connection",
-                "tokens.create_token",
-                "tokens.revoke_token",
-            ]
-
-            # Only enforce JSON content type for non-form endpoints
-            if request.endpoint not in form_endpoints:
-                content_type = request.headers.get("Content-Type", "")
-                if not content_type.startswith("application/json"):
-                    return {
-                        "error": "Invalid Content-Type",
-                        "message": "Content-Type must be application/json",
-                    }, HTTPStatus.BAD_REQUEST
+            # Enforce JSON content type for all POST/PUT requests
+            content_type = request.headers.get("Content-Type", "")
+            if not content_type.startswith("application/json"):
+                return {
+                    "error": "Invalid Content-Type",
+                    "message": "Content-Type must be application/json",
+                }, HTTPStatus.BAD_REQUEST
 
         # Validate content length
         max_content_length = app.config.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024)  # 10MB default
@@ -418,5 +406,4 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
         return jsonify({"status": "healthy"}), 200
 
     logger.debug("=== Starting Frontend Application ===")
-    print(app.config)
     return app

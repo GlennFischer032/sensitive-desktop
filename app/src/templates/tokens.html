@@ -35,7 +35,7 @@
         <p><strong>Important:</strong> This is the only time this token will be displayed. Copy it now!</p>
         <div class="token-value" id="newTokenValue">
             {{ new_token.token }}
-            <button class="copy-button" onclick="copyToken()">Copy</button>
+            <button class="copy-button" id="copyStaticTokenBtn">Copy</button>
         </div>
         <div class="token-details">
             <p><strong>Name:</strong> {{ new_token.name }}</p>
@@ -70,7 +70,7 @@
                 </div>
 
                 <div class="token-actions">
-                    <button type="button" class="button danger" onclick="revokeToken('{{ token.token_id }}')">Revoke Token</button>
+                    <button type="button" class="button danger revoke-token-btn" data-token-id="{{ token.token_id }}">Revoke Token</button>
                 </div>
             </div>
             {% endfor %}
@@ -95,7 +95,7 @@
                 </div>
 
                 <div class="token-actions">
-                    <button type="button" class="button danger" onclick="revokeToken('{{ token.token_id }}')">Revoke Token</button>
+                    <button type="button" class="button danger revoke-token-btn" data-token-id="{{ token.token_id }}">Revoke Token</button>
                 </div>
             </div>
             {% endfor %}
@@ -159,7 +159,7 @@
         <div class="token-container">
             <div class="token-value-wrapper">
                 <pre id="tokenString" class="token-string"></pre>
-                <button class="button small" onclick="copyDynamicToken()">Copy</button>
+                <button class="button small" id="copyDynamicTokenBtn">Copy</button>
             </div>
         </div>
         <div class="token-details">
@@ -179,6 +179,9 @@
 
 <script nonce="{{ csp_nonce() if csp_nonce is defined else '' }}">
 document.addEventListener('DOMContentLoaded', function() {
+    // Track if a token was successfully created
+    let tokenCreatedSuccessfully = false;
+
     // Create token button
     const createBtn = document.getElementById('createTokenButton');
     if (createBtn) {
@@ -191,6 +194,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Reset modal when it's closed
     document.querySelectorAll('.close-modal, .modal-overlay, .modal-close').forEach(element => {
         element.addEventListener('click', function() {
+            // If a token was created successfully and the modal is being closed, refresh the page
+            if (tokenCreatedSuccessfully) {
+                window.location.reload();
+                return;
+            }
             resetTokenModal();
         });
     });
@@ -198,6 +206,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Also handle the ESC key
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
+            // If a token was created successfully and the modal is being closed, refresh the page
+            if (tokenCreatedSuccessfully) {
+                window.location.reload();
+                return;
+            }
             resetTokenModal();
         }
     });
@@ -218,6 +231,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (tokenResult) tokenResult.classList.add('hidden');
         if (loading) loading.classList.add('hidden');
         if (document.getElementById('create-error')) document.getElementById('create-error').classList.add('hidden');
+
+        // Reset token created flag
+        tokenCreatedSuccessfully = false;
     }
 
     // Create token form submission
@@ -279,6 +295,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     setTimeout(function() {
                         copyDynamicToken();
                     }, 500);
+
+                    // Show success notification
+                    NotificationManager.show('Token created successfully', 'success');
+
+                    // Set flag to indicate a token was created successfully
+                    tokenCreatedSuccessfully = true;
                 } else {
                     throw new Error('No token was returned from the server');
                 }
@@ -298,7 +320,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Copy token function for statically rendered tokens
-    window.copyToken = function() {
+    function copyToken() {
         const tokenValue = document.getElementById('newTokenValue');
         if (!tokenValue) return;
 
@@ -310,10 +332,16 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Failed to copy:', err);
             NotificationManager.show('Failed to copy token. Please select and copy manually.', 'error');
         });
-    };
+    }
+
+    // Bind the static token copy button
+    const copyStaticTokenBtn = document.getElementById('copyStaticTokenBtn');
+    if (copyStaticTokenBtn) {
+        copyStaticTokenBtn.addEventListener('click', copyToken);
+    }
 
     // Copy function for dynamically created tokens
-    window.copyDynamicToken = function() {
+    function copyDynamicToken() {
         const tokenValue = document.getElementById('tokenString');
         if (!tokenValue) return;
 
@@ -325,45 +353,59 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Failed to copy:', err);
             NotificationManager.show('Failed to copy token. Please select and copy manually.', 'error');
         });
-    };
+    }
+
+    // Bind the dynamic token copy button
+    const copyDynamicTokenBtn = document.getElementById('copyDynamicTokenBtn');
+    if (copyDynamicTokenBtn) {
+        copyDynamicTokenBtn.addEventListener('click', copyDynamicToken);
+    }
 
     // Auto-copy token on page load if available
     const newTokenDisplay = document.getElementById('newTokenDisplay');
     if (newTokenDisplay) {
         setTimeout(function() {
-            window.copyToken();
+            copyToken();
         }, 500);
     }
-});
 
-// Revoke token function
-function revokeToken(tokenId) {
-    if (!confirm('Are you sure you want to revoke this token? This action cannot be undone.')) {
-        return;
+    // Revoke token function
+    function revokeToken(tokenId) {
+        if (!confirm('Are you sure you want to revoke this token? This action cannot be undone.')) {
+            return;
+        }
+
+        fetch(`/api/tokens/${tokenId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Failed to revoke token');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            NotificationManager.show('Token revoked successfully', 'success');
+            // Reload the page to reflect changes
+            window.location.reload();
+        })
+        .catch(error => {
+            NotificationManager.show(error.message, 'error');
+        });
     }
 
-    fetch(`/api/tokens/${tokenId}`, {
-        method: 'DELETE',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(data => {
-                throw new Error(data.error || 'Failed to revoke token');
-            });
-        }
-        return response.json();
-    })
-    .then(data => {
-        NotificationManager.show('Token revoked successfully', 'success');
-        // Reload the page to reflect changes
-        window.location.reload();
-    })
-    .catch(error => {
-        NotificationManager.show(error.message, 'error');
+    // Bind revoke buttons
+    document.querySelectorAll('.revoke-token-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const tokenId = this.getAttribute('data-token-id');
+            revokeToken(tokenId);
+        });
     });
-}
+});
 </script>
 {% endblock %}

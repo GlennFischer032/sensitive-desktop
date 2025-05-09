@@ -88,26 +88,25 @@ def add_connection():  # noqa: PLR0911
     tags:
       - Connections
     parameters:
-      - name: connection_name
-        in: formData
-        type: string
-        required: true
-        description: Name for the new connection
-      - name: desktop_configuration_id
-        in: formData
-        type: integer
-        required: false
-        description: ID of the desktop configuration to use
-      - name: persistent_home
-        in: formData
-        type: string
-        required: false
-        description: Whether to enable persistent home directory
-      - name: external_pvc
-        in: formData
-        type: string
-        required: false
-        description: External PVC to mount
+      - name: body
+        in: body
+        schema:
+          type: object
+          required:
+            - connection_name
+          properties:
+            connection_name:
+              type: string
+              description: Name for the new connection
+            desktop_configuration_id:
+              type: string
+              description: ID of the desktop configuration to use
+            persistent_home:
+              type: boolean
+              description: Whether to enable persistent home directory
+            external_pvc:
+              type: string
+              description: External PVC to mount
     responses:
       200:
         description: Connection created successfully
@@ -124,7 +123,10 @@ def add_connection():  # noqa: PLR0911
         description: Error creating connection
     """
     try:
-        connection_name = request.form.get("connection_name")
+        # Get data from either JSON or form data
+        data = request.get_json() or request.form
+
+        connection_name = data.get("connection_name")
         if not connection_name:
             error_msg = "Connection name is required"
             return _return_connection_error(error_msg, 400)
@@ -133,11 +135,11 @@ def add_connection():  # noqa: PLR0911
         if name_validation_result:
             return name_validation_result
 
-        persistent_home_value = request.form.get("persistent_home", "off")
+        persistent_home_value = data.get("persistent_home", "off")
         persistent_home = persistent_home_value != "off"
 
-        external_pvc = request.form.get("external_pvc")
-        desktop_configuration_id = request.form.get("desktop_configuration_id")
+        external_pvc = data.get("external_pvc")
+        desktop_configuration_id = data.get("desktop_configuration_id")
 
         connection_data = _prepare_connection_data(
             connection_name, persistent_home, desktop_configuration_id, external_pvc

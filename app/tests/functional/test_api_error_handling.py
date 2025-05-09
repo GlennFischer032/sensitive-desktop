@@ -55,7 +55,7 @@ def test_connection_add_api_error_handled(mock_connections_client, mock_return_e
     with patch.object(logged_in_client.application, "handle_exception", return_value="Error handled"):
         response = logged_in_client.post(
             "/connections/add",
-            data={
+            json={
                 "connection_name": "test-conn",
                 "desktop_configuration_id": "config1",
             },
@@ -94,7 +94,7 @@ def test_ajax_error_handling(mock_connections_client, logged_in_client):
         # Submit AJAX request
         response = logged_in_client.post(
             "/connections/add",
-            data={
+            json={
                 "connection_name": "test-conn",
                 "desktop_configuration_id": "config1",
             },
