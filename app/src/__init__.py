@@ -172,14 +172,6 @@ def create_app(config_class=Config):  # noqa: C901, PLR0915
         if not hasattr(request, "csp_nonce"):
             request.csp_nonce = secrets.token_hex(16)
 
-    @app.route("/debug/ip")
-    def debug_ip():
-        return {
-            "remote_addr": request.remote_addr,
-            "access_route": request.access_route,  # ProxyFix-processed list
-            "raw_x_forwarded_for": request.headers.get("X-Forwarded-For", ""),
-        }
-
     # Apply global rate limiting
     @app.before_request
     def check_rate_limit():

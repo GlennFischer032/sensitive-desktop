@@ -2,6 +2,7 @@
 import logging
 import os
 from datetime import datetime
+from http import HTTPStatus
 
 from flask import g, request, session
 
@@ -45,6 +46,15 @@ def init_request_logging(app):
     @app.before_request
     def log_request():
         """Log details of every incoming request."""
+        # Get request path
+        path = request.path
+
+        # Skip logging for health endpoint
+        if path == "/health":
+            # Store a flag in g to indicate this is a health request
+            g.is_health_request = True
+            return
+
         # Log request headers
         logger.debug(f"Request headers: {request.headers}")
         logger.debug(f"Request url: {request.url}")
@@ -55,7 +65,6 @@ def init_request_logging(app):
 
         # Get request method and path
         method = request.method
-        path = request.path
 
         # Get username if available in session
         username = session.get("username", "anonymous")
@@ -82,6 +91,10 @@ def init_request_logging(app):
 
         # Get status code
         status_code = response.status_code
+
+        # Skip logging for health endpoint if status is 200
+        if getattr(g, "is_health_request", False) and status_code == HTTPStatus.OK:
+            return response
 
         # Get username if available
         username = getattr(g, "username", "anonymous")
