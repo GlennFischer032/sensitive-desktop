@@ -114,7 +114,7 @@ services:
       - LOG_LEVEL=DEBUG
       - PYTHONUNBUFFERED=1
       - REDIS_URL=redis://redis:6379/0
-      # Debug settings
+      # Debug settingss
       - PYTHONDONTWRITEBYTECODE=1  # Don't write .pyc files
     depends_on:
       desktop-api:

@@ -26,35 +26,8 @@ ENV LC_ALL en_US.UTF-8
 
 RUN rm -f /usr/bin/chfn && ln -s /bin/true /usr/bin/chfn
 
-# Prevent snapd installation
-RUN echo 'Package: snapd\nPin: release a=*\nPin-Priority: -10\n' > /etc/apt/preferences.d/no-snapd
 
-# Install basic tools needed for apt operations
 RUN fakeroot apt-get update && DEBIAN_FRONTEND=noninteractive fakeroot apt-get install -y --no-install-recommends \
-    gnupg \
-    software-properties-common \
-    curl \
-    apt-transport-https \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Setup Firefox from Mozilla Team PPA (non-snap version)
-RUN fakeroot apt-get update && \
-    DEBIAN_FRONTEND=noninteractive fakeroot add-apt-repository -y ppa:mozillateam/ppa && \
-    echo "Package: firefox*\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001" | tee /etc/apt/preferences.d/mozilla-firefox \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Install Firefox
-RUN fakeroot apt-get update && DEBIAN_FRONTEND=noninteractive fakeroot apt-get install -y --no-install-recommends --no-install-suggests \
-    firefox \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Install Google Chrome
-RUN cd /tmp/ && curl -sfLO https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && fakeroot dpkg -i google-chrome-stable_current_amd64.deb || true && \
-    fakeroot apt-get update && fakeroot apt-get -f install -y && rm -f /tmp/google-chrome-stable_current_amd64.deb \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Install main packages
-RUN fakeroot apt-get update && DEBIAN_FRONTEND=noninteractive fakeroot apt-get install -y --no-install-recommends --no-install-suggests \
         libxcb-keysyms1 \
         xfce4 \
         xfce4-terminal \
@@ -66,6 +39,7 @@ RUN fakeroot apt-get update && DEBIAN_FRONTEND=noninteractive fakeroot apt-get i
         x11-xserver-utils \
         x11-utils \
         libxrandr-dev \
+        curl \
         vim \
         nano \
         mc \
@@ -93,8 +67,6 @@ COPY --chown=1000:1000 krb5.conf /etc/
 
 RUN \
     mv /etc/xdg/autostart/xscreensaver.desktop /etc/xdg/autostart/xscreensaver.desktop.bak
-
-RUN cd /tmp/ && curl -sfLO https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && fakeroot dpkg -i  google-chrome-stable_current_amd64.deb
 
 COPY --chown=1000:1000 vulkan /usr/share/vulkan
 

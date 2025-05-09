@@ -40,7 +40,7 @@ spec:
           runAsGroup: 1000
         env:
           - name: SECRET_KEY
-            value: {{ .Values.common.credentials.secretKey | quote }}
+            value: {{ .Values.common.credentials.desktopFrontendSecretKey | quote }}
           - name: API_URL
             value: "http://desktop-api-{{ .Release.Name }}"
           - name: FLASK_APP
@@ -60,6 +60,8 @@ spec:
             value: {{ .Values.common.oidc.providerUrl | quote }}
           - name: OIDC_REDIRECT_URI
             value: {{ .Values.common.oidc.redirectUri | quote }}
+          - name: FLASK_DEBUG
+            value: "0"
         ports:
         - containerPort: {{ .Values.desktopFrontend.containerPort }}
           name: http
