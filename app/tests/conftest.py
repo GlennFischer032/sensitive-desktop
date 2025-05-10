@@ -82,13 +82,13 @@ def app():
             yield app
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def client(app):
     """A test client for the app."""
     return JSONTestClient(app.test_client())
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def runner(app):
     """A test CLI runner for the app."""
     return app.test_cli_runner()
@@ -124,7 +124,7 @@ def admin_token(app):
     return token
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def logged_in_client(client, auth_token):
     """A test client with an active user session."""
     with client.session_transaction() as sess:
@@ -134,7 +134,7 @@ def logged_in_client(client, auth_token):
     return client
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def admin_client(client, admin_token):
     """A test client with an active admin session."""
     with client.session_transaction() as sess:

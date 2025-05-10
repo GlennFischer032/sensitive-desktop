@@ -223,7 +223,6 @@ def test_stop_connection_success(mock_connections_client, logged_in_client):
     mock_client.stop_connection.assert_called_once_with(connection_name, token=ANY)
 
 
-@pytest.mark.skip("This test is failing due to issues with the test environment")
 @patch("clients.factory.client_factory.get_connections_client")
 def test_resume_connection_success(mock_connections_client, logged_in_client):
     """
@@ -243,6 +242,13 @@ def test_resume_connection_success(mock_connections_client, logged_in_client):
 
     # Make the request
     response = logged_in_client.post(f"/api/connections/{connection_name}/resume", json={})
+
+    # Check response
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "success"
+    assert "message" in data
+    assert "resumed successfully" in data["message"]
 
     # Verify the mock was called
     mock_client.resume_connection.assert_called_once_with(connection_name, token=ANY)

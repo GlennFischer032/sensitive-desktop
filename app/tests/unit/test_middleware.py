@@ -15,13 +15,19 @@ def fresh_app():
 
     # Create auth blueprint with login route
     auth_bp = Blueprint("auth", __name__)
+    connections_bp = Blueprint("connections", __name__)
 
     @auth_bp.route("/login")
     def login():
         return "Login page"
 
+    @connections_bp.route("/")
+    def view_connections():
+        return "Connections list"
+
     # Register the auth blueprint
     app.register_blueprint(auth_bp, url_prefix="/auth")
+    app.register_blueprint(connections_bp, url_prefix="/connections")
 
     return app
 
@@ -102,9 +108,8 @@ def test_admin_required_redirects_non_admin(logged_in_protected_client):
     # Access the admin route as a regular user
     response = logged_in_protected_client.get("/admin-only", follow_redirects=False)
 
-    # Should redirect to login with an error message
     assert response.status_code == 302
-    assert "auth/login" in response.location
+    assert "connections" in response.location
 
 
 def test_admin_required_allows_admin_access(admin_protected_client):
@@ -155,3 +160,86 @@ def test_token_required_accepts_auth_header(mock_get_tokens_client, fresh_app):
     # Should allow access
     assert response.status_code == 200
     assert b"API access granted" in response.data
+
+
+def test_request_validation_middleware(app):
+    """
+    GIVEN a Flask application
+    WHEN a request with incorrect Content-Type is made
+    THEN check that validation middleware rejects it
+    """
+    client = app.test_client()
+
+    # Test POST request without proper JSON Content-Type
+    response = client.post("/api/connections", data='{"name": "test"}', headers={"Content-Type": "text/plain"})
+
+    assert response.status_code == 400
+    assert "Content-Type must be application/json" in response.get_json()["message"]
+
+    # Test with correct Content-Type
+    response = client.post("/api/connections", json={"name": "test"}, headers={"Content-Type": "application/json"})
+
+    # Should not be rejected by middleware (might fail for other reasons but not 400)
+    assert response.status_code != 400 or "Content-Type must be application/json" not in response.get_json().get(
+        "message", ""
+    )
+
+
+def test_content_length_validation(app):
+    """
+    GIVEN a Flask application
+    WHEN a request with excessive content length is made
+    THEN check that it's rejected
+    """
+    client = app.test_client()
+
+    # Set a very small max content length for testing
+    original_max_length = app.config.get("MAX_CONTENT_LENGTH")
+    app.config["MAX_CONTENT_LENGTH"] = 10  # Only allow 10 bytes
+
+    # Create a payload larger than the limit
+    large_payload = {"data": "x" * 100}
+
+    # Make request with too large payload
+    response = client.post("/api/connections", json=large_payload, headers={"Content-Type": "application/json"})
+
+    assert response.status_code == 413  # Request Entity Too Large
+
+    # Restore original setting
+    if original_max_length is not None:
+        app.config["MAX_CONTENT_LENGTH"] = original_max_length
+    else:
+        del app.config["MAX_CONTENT_LENGTH"]
+
+
+def test_swagger_protection_middleware(app):
+    """
+    GIVEN a Flask application
+    WHEN a request to Swagger docs is made
+    THEN check that admin protection works correctly
+    """
+    client = app.test_client()
+
+    # Test access to Swagger docs without being logged in
+    response = client.get("/api/docs/")
+    assert response.status_code == 302  # Should redirect to login
+
+    # Test non-admin access
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+        sess["token"] = "fake-token"
+        sess["user"] = {"id": "user", "name": "Test User"}
+        sess["is_admin"] = False
+
+    response = client.get("/api/docs/")
+    assert response.status_code == 302  # Should redirect to connections
+
+    # Test admin access
+    with client.session_transaction() as sess:
+        sess["logged_in"] = True
+        sess["token"] = "fake-token"
+        sess["user"] = {"id": "admin", "name": "Admin User"}
+        sess["is_admin"] = True
+
+    response = client.get("/api/docs/")
+    assert response.status_code == 200  # Admin should be able to access

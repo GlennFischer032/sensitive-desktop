@@ -13,9 +13,16 @@
             {% endif %}
         </div>
         <div class="error-actions">
-            <button onclick="window.location.reload()" class="button">Try Again</button>
+            <button id="reload-button" class="button">Try Again</button>
             <a href="{{ url_for('connections.view_connections') }}" class="button secondary">Go to Connections</a>
         </div>
     </div>
 </div>
+
+<script nonce="{{ csp_nonce() }}">
+    // Add event listener for the reload button
+    document.getElementById('reload-button').addEventListener('click', function() {
+        window.location.reload();
+    });
+</script>
 {% endblock %}

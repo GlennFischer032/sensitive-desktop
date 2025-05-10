@@ -55,7 +55,7 @@ def admin_required(view_func: Callable) -> Callable:
     def wrapped_view(*args, **kwargs):
         if not session.get("is_admin"):
             flash("You need administrator privileges", "error")
-            return redirect(url_for("auth.login"))
+            return redirect(url_for("connections.view_connections"))
         return view_func(*args, **kwargs)
 
     return wrapped_view

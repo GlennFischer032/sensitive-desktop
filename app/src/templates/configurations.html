@@ -481,9 +481,14 @@ async function handleDelete(configId) {
         actionButtons.innerHTML = `
             <div class="button-group">
                 <span class="error-text">Error: ${error.message}</span>
-                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
             </div>
         `;
+
+        const retryButton = document.createElement('button');
+        retryButton.className = 'button small retry-btn';
+        retryButton.textContent = 'Retry';
+        retryButton.addEventListener('click', () => location.reload());
+        actionButtons.querySelector('.button-group').appendChild(retryButton);
     }
 }
 </script>

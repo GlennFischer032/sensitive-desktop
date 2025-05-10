@@ -16,12 +16,12 @@
             {% endif %}
         </div>
         <div class="error-actions">
-            <button onclick="window.location.reload()" class="button secondary">Try Again</button>
+            <button id="reload-button" class="button secondary">Try Again</button>
         </div>
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Countdown timer and auto-refresh
     const countdownElement = document.getElementById('countdown');
     if (countdownElement) {
@@ -37,5 +37,10 @@
             }
         }, 1000);
     }
+
+    // Add event listener for the reload button
+    document.getElementById('reload-button').addEventListener('click', function() {
+        window.location.reload();
+    });
 </script>
 {% endblock %}

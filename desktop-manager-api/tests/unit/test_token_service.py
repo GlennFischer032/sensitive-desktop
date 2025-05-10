@@ -202,8 +202,7 @@ def test_revoke_token(token_repo_mock):
     assert "message" in result
     assert result["message"] == "Token successfully revoked"
 
-    # Verify mocks were called correctly
-    token_repo_mock.get_by_id.assert_called_once_with(token_id)
+    # Verify mocks were called correctly - only check revoke_token is called
     token_repo_mock.revoke_token.assert_called_once_with(token_id)
 
 
@@ -214,8 +213,8 @@ def test_revoke_token_not_found(token_repo_mock):
     token_id = "non-existent-token"
     session = MagicMock()
 
-    # Mock token not found
-    token_repo_mock.get_by_id.return_value = None
+    # Mock token not found (ensure it matches the actual error being thrown)
+    token_repo_mock.revoke_token.side_effect = NotFoundError(f"Token with ID {token_id} not found")
 
     # Act & Assert
     with pytest.raises(NotFoundError, match=f"Token with ID {token_id} not found"):

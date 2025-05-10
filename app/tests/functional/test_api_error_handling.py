@@ -5,6 +5,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from clients.base import APIError
 from flask import jsonify
+import json
 
 
 @patch("clients.factory.client_factory.get_connections_client")
@@ -129,3 +130,75 @@ def test_direct_connect_error_handling(mock_connections_client, logged_in_client
     # Should redirect to connections page with error
     assert response.status_code == 200
     assert b"Error connecting to desktop: Connection failed" in response.data
+
+
+@patch("requests.get")
+def test_api_connection_timeout(mock_get, client):
+    """
+    GIVEN a Flask application
+    WHEN the API connection test endpoint times out
+    THEN check an appropriate error response is returned
+    """
+    # Configure the mock to raise a timeout exception
+    import requests
+
+    mock_get.side_effect = requests.exceptions.Timeout("Request timed out")
+
+    # Access the endpoint
+    response = client.get("/test-api-connection")
+
+    # Verify the response
+    assert response.status_code == 500
+    data = json.loads(response.data)
+    assert "error" in data
+    assert "Request timed out" in data["error"]
+    assert "api_url" in data
+
+
+@patch("requests.get")
+def test_api_connection_connection_error(mock_get, client):
+    """
+    GIVEN a Flask application
+    WHEN the API connection test fails due to connection error
+    THEN check an appropriate error response is returned
+    """
+    # Configure the mock to raise a connection exception
+    import requests
+
+    mock_get.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+    # Access the endpoint
+    response = client.get("/test-api-connection")
+
+    # Verify the response
+    assert response.status_code == 500
+    data = json.loads(response.data)
+    assert "error" in data
+    assert "Connection refused" in data["error"]
+    assert "api_url" in data
+
+
+@patch("requests.get")
+def test_api_connection_invalid_json(mock_get, client):
+    """
+    GIVEN a Flask application
+    WHEN the API connection test receives invalid JSON
+    THEN check the response includes the invalid content
+    """
+    # Configure the mock to return invalid JSON
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.text = "Not valid JSON"
+    mock_get.return_value = mock_response
+
+    # Access the endpoint
+    response = client.get("/test-api-connection")
+
+    # Verify the response
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert "api_url" in data
+    assert "status_code" in data
+    assert data["status_code"] == 200
+    assert "response" in data
+    assert data["response"] == "Not valid JSON"

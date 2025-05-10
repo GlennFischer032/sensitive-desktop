@@ -257,7 +257,6 @@ async function handleStop(event, connectionName) {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({}),
             credentials: 'same-origin'
         });
 
@@ -285,12 +284,17 @@ async function handleStop(event, connectionName) {
             throw new Error(error);
         }
     } catch (error) {
+        const retryButton = document.createElement('button');
+        retryButton.className = 'button small retry-btn';
+        retryButton.textContent = 'Retry';
+        retryButton.addEventListener('click', () => location.reload());
+
         actionButtons.innerHTML = `
             <div class="button-group-actions">
                 <span class="error-text">Error: ${error.message}</span>
-                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
             </div>
         `;
+        actionButtons.querySelector('.button-group-actions').appendChild(retryButton);
     }
 }
 
@@ -347,7 +351,7 @@ async function handleResume(event, connectionName) {
                 setTimeout(() => notificationContainer.remove(), 300);
             }, 3000);
 
-            // Reload the page to show updated connection
+            // Reload to show the resumed state properly
             location.reload();
         } else {
             let errorMessage = 'Failed to resume connection';
@@ -365,12 +369,17 @@ async function handleResume(event, connectionName) {
         }
     } catch (error) {
         console.error('Resume error:', error);
+        const retryButton = document.createElement('button');
+        retryButton.className = 'button small retry-btn';
+        retryButton.textContent = 'Retry';
+        retryButton.addEventListener('click', () => location.reload());
+
         actionButtons.innerHTML = `
             <div class="button-group-actions">
                 <span class="error-text">Error: ${error.message}</span>
-                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
             </div>
         `;
+        actionButtons.querySelector('.button-group-actions').appendChild(retryButton);
     }
 }
 
@@ -444,12 +453,17 @@ async function handleDelete(event, connectionName) {
         }
     } catch (error) {
         console.error('Permanent delete error:', error);
+        const retryButton = document.createElement('button');
+        retryButton.className = 'button small retry-btn';
+        retryButton.textContent = 'Retry';
+        retryButton.addEventListener('click', () => location.reload());
+
         actionButtons.innerHTML = `
             <div class="button-group-actions">
                 <span class="error-text">Error: ${error.message}</span>
-                <button onclick="location.reload()" class="button small retry-btn">Retry</button>
             </div>
         `;
+        actionButtons.querySelector('.button-group-actions').appendChild(retryButton);
     }
 }
 

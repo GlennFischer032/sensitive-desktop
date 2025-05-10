@@ -499,10 +499,15 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show the delete modal
             ModalManager.show('delete-modal', {
                 onShow: function() {
-                    // Set up the confirm delete button click handler
-                    document.getElementById('delete-modal-confirm').onclick = function() {
+                    // Set up the confirm delete button click handler using addEventListener
+                    const confirmButton = document.getElementById('delete-modal-confirm');
+                    // Remove any existing event listeners first to prevent duplicates
+                    const newConfirmButton = confirmButton.cloneNode(true);
+                    confirmButton.parentNode.replaceChild(newConfirmButton, confirmButton);
+
+                    newConfirmButton.addEventListener('click', function() {
                         handleDeleteConfirm(pvcId);
-                    };
+                    });
                 }
             });
         });
