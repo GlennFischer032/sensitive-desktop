@@ -29,9 +29,11 @@ variables:
   tags:
   - shared-fi
   image: python:3.11-slim
-  script:
+  before_script:
+    - apt-get update -qq && apt-get install -y --no-install-recommends git
     - mkdir -p .cache/pip .cache/pre-commit
-    - pip install --cache-dir .cache/pip pre-commit
+    - python -m pip install --cache-dir .cache/pip --upgrade pip pre-commit
+  script:
     - pre-commit install-hooks
   cache:
     key: pre-commit-cache-$CI_COMMIT_REF_SLUG
