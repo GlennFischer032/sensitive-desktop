@@ -198,6 +198,8 @@ test_api:
 # ---------------------------------------------------------------------------
 pages:
   stage: pages
+  tags:
+    - shared-fi
   needs:                   # download artifacts from both test jobs
     - job: test_app
       artifacts: true
