@@ -5,7 +5,9 @@ services:
 
 stages:
   - lint
+  - test
   - build
+  - pages
 
 variables:
   DOCKER_TLS_CERTDIR: "/certs"
@@ -143,3 +145,86 @@ build-desktop-manager-frontend:
       - app/**/*
     refs:
       - master
+
+.coverage-job: &coverage_job
+  stage: test
+  image: python:3.11-slim
+  tags:
+    - shared-fi
+  variables:
+    PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  cache:                   # re-use the global pip cache
+    key: pip-cache-$CI_COMMIT_REF_SLUG
+    paths:
+      - .cache/pip
+    policy: pull-push
+  before_script:
+    - mkdir -p $PIP_CACHE_DIR
+    - python -m pip install --cache-dir=$PIP_CACHE_DIR --upgrade pip
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - $HTMLCOV_DIR
+      - $COVERAGE_XML
+    reports:
+      coverage_report:       # MR diff annotations (optional)
+        coverage_format: cobertura
+        path: $COVERAGE_XML
+  coverage: '/TOTAL.*\s+(\d+%)/'   # pulls % into pipeline UI
+
+test_app:
+  <<: *coverage_job
+  variables:
+    PROJ_DIR: "app"
+    HTMLCOV_DIR: "htmlcov_app"
+    COVERAGE_XML: "coverage_app.xml"
+  script:
+    - cd "$PROJ_DIR"
+    # install prod + *test* deps declared in pyproject.toml
+    - pip install --cache-dir=$PIP_CACHE_DIR -e ".[test]"
+    - pytest --cov=. \
+             --cov-report=xml:../$COVERAGE_XML \
+             --cov-report=html
+    - mv htmlcov ../$HTMLCOV_DIR
+
+test_api:
+  <<: *coverage_job
+  variables:
+    PROJ_DIR: "desktop-manager-api"
+    HTMLCOV_DIR: "htmlcov_api"
+    COVERAGE_XML: "coverage_api.xml"
+  script:
+    - cd "$PROJ_DIR"
+    - pip install --cache-dir=$PIP_CACHE_DIR -e ".[test]"
+    - pytest --cov=. \
+             --cov-report=xml:../$COVERAGE_XML \
+             --cov-report=html
+    - mv htmlcov ../$HTMLCOV_DIR
+
+# ---------------------------------------------------------------------------
+# 🌐 Publish both reports on GitLab Pages
+# ---------------------------------------------------------------------------
+pages:
+  stage: pages
+  needs:                   # download artifacts from both test jobs
+    - job: test_app
+      artifacts: true
+    - job: test_api
+      artifacts: true
+  script: |
+    mkdir -p public/app public/api
+    mv htmlcov_app public/app/htmlcov
+    mv htmlcov_api public/api/htmlcov
+    # simple landing page
+    cat > public/index.html <<'EOF'
+    <h1>Coverage reports</h1>
+    <ul>
+      <li><a href="app/htmlcov/index.html">App</a></li>
+      <li><a href="api/htmlcov/index.html">Desktop-Manager-API</a></li>
+    </ul>
+    EOF
+  artifacts:
+    paths:
+      - public
+  only:
+    - master

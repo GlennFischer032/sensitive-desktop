@@ -29,19 +29,3 @@ repos:
         language: system
         pass_filenames: false
         files: ^app/src/scss/.*\.scss$
-
-      - id: pytest-check
-        name: pytest-check
-        entry: python -m pytest app/tests/
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-commit]
-
-      - id: pytest-cov
-        name: pytest-coverage
-        entry: python -m pytest app/tests/ --cov=app/src --cov-report=term-missing:skip-covered
-        language: system
-        pass_filenames: false
-        always_run: false
-        stages: [pre-push]
