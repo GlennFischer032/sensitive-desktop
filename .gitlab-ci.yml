@@ -4,6 +4,7 @@ services:
   - docker:dind
 
 stages:
+  - .pre
   - lint
   - test
   - build
@@ -22,35 +23,27 @@ variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
   PRE_COMMIT_HOME: "$CI_PROJECT_DIR/.cache/pre-commit"
 
-# Global cache config
-cache:
-  paths:
-    - .cache/pip
-
-# Create cache warmup job that runs before other jobs
-.cache-warmup:
+# template, still hidden
+.cache-warmup-template:
   stage: .pre
   image: python:3.11-slim
-  tags:
-    - shared-fi
-  variables:
-    GIT_STRATEGY: fetch
-  cache:
-    key:
-      files:
-        - .pre-commit-config.yaml
-      prefix: "pre-commit-$CI_COMMIT_REF_SLUG"
-    paths:
-      - .cache/pip
-      - .cache/pre-commit
-    policy: pull-push
   script:
     - mkdir -p .cache/pip .cache/pre-commit
     - pip install --cache-dir .cache/pip pre-commit
     - pre-commit install-hooks
+  cache:
+    key: pre-commit-cache-$CI_COMMIT_REF_SLUG
+    paths:
+      - .cache/pip
+      - .cache/pre-commit
+    policy: pull-push
   only:
     - master
     - merge_requests
+
+# real job
+cache-warmup:
+  extends: .cache-warmup-template
 
 pre-commit:
   stage: lint

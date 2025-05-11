@@ -491,42 +491,48 @@ class ConnectionsService:
         # Configure storage with persistent_home setting
         desktop_values.storage.persistenthome = connection.persistent_home
 
-        # Install Helm chart
-        logging.debug("Installing Helm chart for %s", connection_name)
-        rancher_client.install(connection_name, desktop_values)
-        logging.debug("Helm chart installation completed")
+        try:
+            # Install Helm chart
+            logging.debug("Installing Helm chart for %s", connection_name)
+            rancher_client.install(connection_name, desktop_values)
+            logging.debug("Helm chart installation completed")
 
-        # Check if VNC server is ready
-        logging.debug("Checking if VNC server is ready for %s", connection_name)
-        vnc_ready = rancher_client.check_vnc_ready(connection_name)
-        status = "ready" if vnc_ready else "provisioning"
-        logging.debug("VNC server ready status for %s: %s", connection_name, status)
+            # Check if VNC server is ready
+            logging.debug("Checking if VNC server is ready for %s", connection_name)
+            vnc_ready = rancher_client.check_vnc_ready(connection_name)
+            status = "ready" if vnc_ready else "provisioning"
+            logging.debug("VNC server ready status for %s: %s", connection_name, status)
 
-        # Update database to mark as active and update the new Guacamole connection ID
-        conn_repo.update_connection(
-            connection.id,
-            {
-                "is_stopped": False,
-                "hostname": connection.hostname,
-                "port": connection.port,
-                "vnc_password": vnc_password,
-            },
-        )
+            # Update database to mark as active and update the new Guacamole connection ID
+            conn_repo.update_connection(
+                connection.id,
+                {
+                    "is_stopped": False,
+                    "hostname": connection.hostname,
+                    "port": connection.port,
+                    "vnc_password": vnc_password,
+                },
+            )
 
-        updated_connection = conn_repo.get_by_name(connection_name)
-        logging.debug("Resumed connection in database: %s", connection_name)
+            updated_connection = conn_repo.get_by_name(connection_name)
+            logging.debug("Resumed connection in database: %s", connection_name)
 
-        return {
-            "message": f"Connection {connection_name} resumed successfully",
-            "connection": {
-                "name": updated_connection.name,
-                "id": updated_connection.id,
-                "created_at": (updated_connection.created_at.isoformat() if updated_connection.created_at else None),
-                "created_by": updated_connection.created_by,
-                "status": status,
-                "persistent_home": updated_connection.persistent_home,
-            },
-        }
+            return {
+                "message": f"Connection {connection_name} resumed successfully",
+                "connection": {
+                    "name": updated_connection.name,
+                    "id": updated_connection.id,
+                    "created_at": (
+                        updated_connection.created_at.isoformat() if updated_connection.created_at else None
+                    ),
+                    "created_by": updated_connection.created_by,
+                    "status": status,
+                    "persistent_home": updated_connection.persistent_home,
+                },
+            }
+        except Exception as e:
+            logging.error("Error resuming connection: %s", str(e))
+            raise APIError(f"Failed to resume connection: {e!s}") from e
 
     def permanent_delete(self, connection_name, current_user, session):
         """Permanently delete a connection and its associated PVC."""
