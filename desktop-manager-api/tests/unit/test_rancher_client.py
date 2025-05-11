@@ -5,17 +5,20 @@ Tests for the Rancher client.
 import pytest
 import sys
 import os
+import unittest
 from unittest.mock import patch, MagicMock, call
 import requests
 
 # Add src to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 
-from clients.rancher import RancherClient, DesktopValues
+from clients.rancher import RancherClient, DesktopValues, Storage, WebRTCImages
 from clients.base import APIError
 
 
 class TestRancherClient:
+    """Tests for the RancherClient."""
+
     @pytest.fixture
     def rancher_client(self):
         """Create a RancherClient with mocked settings."""
@@ -60,222 +63,6 @@ class TestRancherClient:
             assert client.namespace == "test-namespace"
             assert client.headers["Authorization"] == "Bearer test-token"
 
-    def test_install(self, rancher_client):
-        """Test installing a desktop with Rancher."""
-        with patch("requests.post") as mock_post:
-            # Arrange
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"status": "success"}
-            mock_post.return_value = mock_response
-
-            connection_name = "test-desktop"
-            desktop_values = DesktopValues(
-                desktop="test-image:latest",
-                name=connection_name,
-                mincpu=1,
-                maxcpu=4,
-                minram="4096Mi",
-                maxram="16384Mi",
-                vnc_password="test-password",
-                persistent_home=True,
-            )
-
-            # Act
-            result = rancher_client.install(connection_name, desktop_values)
-
-            # Assert
-            assert result == {"status": "success"}
-            mock_post.assert_called_once()
-
-            # Verify URL and headers
-            call_args = mock_post.call_args
-            assert (
-                "https://rancher.example.com/k8s/clusters/test-cluster-id/v1/catalog.cattle.io.clusterrepos/test-repo?action=install"
-                in call_args[0][0]
-            )
-            assert call_args[1]["headers"] == rancher_client.headers
-
-            # Verify payload contains expected values
-            payload = call_args[1]["json"]
-            assert payload["charts"][0]["releaseName"] == "test-desktop"
-            assert payload["namespace"] == "test-namespace"
-
-    def test_uninstall(self, rancher_client):
-        """Test uninstalling a desktop with Rancher."""
-        with patch("requests.post") as mock_post:
-            # Arrange
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"status": "success"}
-            mock_post.return_value = mock_response
-
-            connection_name = "test-desktop"
-
-            # Act
-            result = rancher_client.uninstall(connection_name)
-
-            # Assert
-            assert result == {"status": "success"}
-            mock_post.assert_called_once()
-
-            # Verify URL and headers
-            call_args = mock_post.call_args
-            assert (
-                "https://rancher.example.com/k8s/clusters/test-cluster-id/v1/catalog.cattle.io.apps/test-namespace/test-desktop?action=uninstall"
-                in call_args[0][0]
-            )
-            assert call_args[1]["headers"] == rancher_client.headers
-
-    def test_check_vnc_ready(self, rancher_client):
-        """Test checking if VNC is ready."""
-        with patch.object(rancher_client, "list_pods") as mock_list_pods:
-            # Arrange - mock a running pod
-            mock_pod = {
-                "metadata": {"name": "test-desktop-0"},
-                "status": {"phase": "Running", "containerStatuses": [{"ready": True}]},
-            }
-            mock_list_pods.return_value = [mock_pod]
-
-            # Act
-            result = rancher_client.check_vnc_ready("test-desktop", max_retries=1)
-
-            # Assert
-            assert result is True
-            mock_list_pods.assert_called_once()
-
-    def test_check_vnc_not_ready(self, rancher_client):
-        """Test checking if VNC is not ready."""
-        with patch.object(rancher_client, "list_pods") as mock_list_pods:
-            # Arrange - mock a pod that is not ready
-            mock_pod = {"metadata": {"name": "test-desktop-0"}, "status": {"phase": "Pending"}}
-            mock_list_pods.return_value = [mock_pod]
-
-            # Act
-            result = rancher_client.check_vnc_ready("test-desktop", max_retries=1, retry_interval=0)
-
-            # Assert
-            assert result is False
-            mock_list_pods.assert_called_once()
-
-    def test_check_release_uninstalled(self, rancher_client):
-        """Test checking if a release is uninstalled."""
-        with patch.object(rancher_client, "list_releases") as mock_list_releases, patch.object(
-            rancher_client, "list_pods"
-        ) as mock_list_pods:
-            # Arrange - release and pod not found
-            mock_list_releases.return_value = [{"metadata": {"name": "other-release"}}]
-            mock_list_pods.return_value = [{"metadata": {"name": "other-pod-0"}}]
-
-            # Act
-            result = rancher_client.check_release_uninstalled("test-desktop", max_retries=1, retry_interval=0)
-
-            # Assert
-            assert result is True
-            mock_list_releases.assert_called_once()
-            mock_list_pods.assert_called_once()
-
-    def test_check_release_not_uninstalled(self, rancher_client):
-        """Test checking if a release is not uninstalled (still exists)."""
-        with patch.object(rancher_client, "list_releases") as mock_list_releases:
-            # Arrange - release still exists
-            mock_list_releases.return_value = [{"metadata": {"name": "test-desktop"}}]
-
-            # Act
-            result = rancher_client.check_release_uninstalled("test-desktop", max_retries=1, retry_interval=0)
-
-            # Assert
-            assert result is False
-            mock_list_releases.assert_called_once()
-
-    def test_get_pod_ip(self, rancher_client):
-        """Test getting pod IP."""
-        with patch("requests.get") as mock_get:
-            # Arrange
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"data": [{"status": {"phase": "Running", "podIP": "10.0.0.1"}}]}
-            mock_get.return_value = mock_response
-
-            # Act
-            result = rancher_client.get_pod_ip("test-desktop")
-
-            # Assert
-            assert result == "10.0.0.1"
-            mock_get.assert_called_once()
-
-    def test_list_releases(self, rancher_client):
-        """Test listing Helm releases."""
-        with patch("requests.get") as mock_get:
-            # Arrange
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {
-                "data": [{"metadata": {"name": "test-desktop"}}, {"metadata": {"name": "other-desktop"}}]
-            }
-            mock_get.return_value = mock_response
-
-            # Act
-            result = rancher_client.list_releases()
-
-            # Assert
-            assert len(result) == 2
-            assert result[0]["metadata"]["name"] == "test-desktop"
-            assert result[1]["metadata"]["name"] == "other-desktop"
-            mock_get.assert_called_once()
-
-    def test_list_pods(self, rancher_client):
-        """Test listing pods."""
-        with patch("requests.get") as mock_get:
-            # Arrange
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {
-                "data": [{"metadata": {"name": "test-desktop-0"}}, {"metadata": {"name": "other-desktop-0"}}]
-            }
-            mock_get.return_value = mock_response
-
-            # Act
-            result = rancher_client.list_pods()
-
-            # Assert
-            assert len(result) == 2
-            assert result[0]["metadata"]["name"] == "test-desktop-0"
-            assert result[1]["metadata"]["name"] == "other-desktop-0"
-            mock_get.assert_called_once()
-
-    def test_create_pvc(self, rancher_client):
-        """Test creating a persistent volume claim."""
-        with patch("requests.post") as mock_post:
-            # Arrange
-            mock_response = MagicMock()
-            mock_response.status_code = 201
-            mock_response.json.return_value = {"status": "success"}
-            mock_post.return_value = mock_response
-
-            # Act
-            result = rancher_client.create_pvc("test-pvc", size="10Gi")
-
-            # Assert
-            assert result == {"status": "success"}
-            mock_post.assert_called_once()
-
-    def test_delete_pvc(self, rancher_client):
-        """Test deleting a persistent volume claim."""
-        with patch("requests.delete") as mock_delete:
-            # Arrange
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"status": "success"}
-            mock_delete.return_value = mock_response
-
-            # Act
-            result = rancher_client.delete_pvc("test-pvc")
-
-            # Assert
-            assert result == {"status": "success"}
-            mock_delete.assert_called_once()
-
     def test_initialization(self):
         """Test initialization with custom parameters."""
         client = RancherClient(
@@ -318,6 +105,224 @@ class TestRancherClient:
         assert client.project_id == "p-default"
         assert client.repo_name == "default-repo"
         assert client.namespace == "default-namespace"
+
+    def test_webrtc_images_init(self):
+        """Test WebRTCImages initialization."""
+        # Default initialization
+        images = WebRTCImages()
+        assert images.xserver == "cerit.io/desktops/xserver:v0.3"
+        assert images.pulseaudio == "cerit.io/desktops/pulseaudio:v0.1"
+        assert images.gstreamer == "cerit.io/desktops/webrtc-app:1.20.1-nv"
+        assert images.web == "cerit.io/desktops/webrtc-web:0.6"
+
+        # Custom initialization
+        custom_images = WebRTCImages(
+            xserver="custom/xserver:latest",
+            pulseaudio="custom/pulseaudio:latest",
+            gstreamer="custom/gstreamer:latest",
+            web="custom/web:latest",
+        )
+        assert custom_images.xserver == "custom/xserver:latest"
+        assert custom_images.pulseaudio == "custom/pulseaudio:latest"
+        assert custom_images.gstreamer == "custom/gstreamer:latest"
+        assert custom_images.web == "custom/web:latest"
+
+    def test_storage_init(self):
+        """Test Storage initialization."""
+        # Default initialization
+        storage = Storage()
+        assert storage.enable is False
+        assert storage.server == ""
+        assert storage.username == ""
+        assert storage.password == ""
+        assert storage.persistenthome is True
+        assert storage.externalpvc == {"enable": False, "name": ""}
+
+        # Custom initialization
+        custom_storage = Storage(
+            enable=True, server="storage.example.com", username="user", password="pass", persistenthome=False
+        )
+        assert custom_storage.enable is True
+        assert custom_storage.server == "storage.example.com"
+        assert custom_storage.username == "user"
+        assert custom_storage.password == "pass"
+        assert custom_storage.persistenthome is False
+        assert custom_storage.externalpvc == {"enable": False, "name": ""}
+
+    def test_storage_use_external_pvc(self):
+        """Test Storage.use_external_pvc method."""
+        storage = Storage()
+        storage.use_external_pvc("test-pvc")
+
+        # Verify externalpvc was updated
+        assert storage.externalpvc == {"enable": True, "name": "test-pvc"}
+
+    def test_desktop_values_init(self):
+        """Test DesktopValues initialization with defaults."""
+        # Default initialization
+        values = DesktopValues()
+        assert values.desktop == "cerit.io/desktops/ubuntu-xfce:22.04-user"
+        assert values.name is None
+        assert values.mincpu == 1
+        assert values.maxcpu == 4
+        assert values.minram == "4096Mi"
+        assert values.maxram == "16384Mi"
+        assert values.username == "user"
+        assert values.resolution == "1920x1080"
+        assert values.display == "VNC"
+        assert values.vnc_password is None
+        assert values.external_pvc is None
+        assert values.persistent_home is True
+
+        # Verify WebRTCImages instance was created
+        assert isinstance(values.webrtcimages, WebRTCImages)
+
+        # Verify Storage instance was created
+        assert isinstance(values.storage, Storage)
+
+    def test_desktop_values_with_external_pvc(self):
+        """Test DesktopValues with external_pvc."""
+        values = DesktopValues(external_pvc="test-pvc")
+
+        # Verify storage was configured to use external PVC
+        assert values.storage.externalpvc["enable"] is True
+        assert values.storage.externalpvc["name"] == "test-pvc"
+
+    def test_desktop_values_non_persistent(self):
+        """Test DesktopValues with persistent_home=False."""
+        values = DesktopValues(persistent_home=False)
+
+        # Verify storage was disabled
+        assert values.storage.enable is False
+        # But persistenthome should match the input value
+        assert values.persistent_home is False
+
+    def test_desktop_values(self):
+        """Test DesktopValues class and to_dict method."""
+        # Create DesktopValues with all parameters
+        values = DesktopValues(
+            desktop="test-desktop",
+            name="test-connection",
+            mincpu=2,
+            maxcpu=4,
+            minram="4096Mi",
+            maxram="8192Mi",
+            username="test-user",
+            resolution="1920x1080",
+            display="VNC",
+            vnc_password="test-password",
+            external_pvc="test-pvc",
+            persistent_home=True,
+        )
+
+        # Test to_dict result
+        result = values.to_dict()
+        assert result["desktop"] == "test-desktop"
+        assert result["mincpu"] == 2
+        assert result["maxcpu"] == 4
+        assert result["minram"] == "4096Mi"
+        assert result["maxram"] == "8192Mi"
+        assert result["username"] == "test-user"
+        assert result["password"] == "test-password"
+        assert result["resolution"] == "1920x1080"
+        assert result["display"] == "VNC"
+
+        # Check storage configuration
+        assert result["storage"]["externalpvc"]["enable"] is True
+        assert result["storage"]["externalpvc"]["name"] == "test-pvc"
+
+        # Check WebRTC images
+        assert result["webrtcimages"]["xserver"] == "cerit.io/desktops/xserver:v0.3"
+        assert result["webrtcimages"]["pulseaudio"] == "cerit.io/desktops/pulseaudio:v0.1"
+        assert result["webrtcimages"]["gstreamer"] == "cerit.io/desktops/webrtc-app:1.20.1-nv"
+        assert result["webrtcimages"]["web"] == "cerit.io/desktops/webrtc-web:0.6"
+
+    def test_desktop_values_to_dict(self):
+        """Test DesktopValues.to_dict method."""
+        values = DesktopValues(
+            desktop="test-desktop",
+            name="test-connection",
+            mincpu=2,
+            maxcpu=4,
+            minram="4096Mi",
+            maxram="8192Mi",
+            username="test-user",
+            resolution="1920x1080",
+            display="VNC",
+            vnc_password="test-password",
+            external_pvc="test-pvc",
+            persistent_home=True,
+        )
+
+        # Convert to dict
+        result = values.to_dict()
+
+        # Verify all expected keys and values
+        assert result["desktop"] == "test-desktop"
+        assert result["mincpu"] == 2
+        assert result["maxcpu"] == 4
+        assert result["minram"] == "4096Mi"
+        assert result["maxram"] == "8192Mi"
+        assert result["username"] == "test-user"
+        assert result["password"] == "test-password"
+        assert result["resolution"] == "1920x1080"
+        assert result["display"] == "VNC"
+
+        # Verify webrtcimages
+        assert result["webrtcimages"]["xserver"] == "cerit.io/desktops/xserver:v0.3"
+        assert result["webrtcimages"]["pulseaudio"] == "cerit.io/desktops/pulseaudio:v0.1"
+        assert result["webrtcimages"]["gstreamer"] == "cerit.io/desktops/webrtc-app:1.20.1-nv"
+        assert result["webrtcimages"]["web"] == "cerit.io/desktops/webrtc-web:0.6"
+
+        # Verify storage - it appears the actual implementation doesn't set storage.enable to True
+        # automatically when external_pvc is provided
+        assert result["storage"]["server"] == ""
+        assert result["storage"]["username"] == ""
+        assert result["storage"]["password"] == ""
+        assert result["storage"]["persistenthome"] is True
+        assert result["storage"]["externalpvc"]["enable"] is True
+        assert result["storage"]["externalpvc"]["name"] == "test-pvc"
+
+    def test_install(self, rancher_client):
+        """Test installing a desktop with Rancher."""
+        with patch("requests.post") as mock_post:
+            # Arrange
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"status": "success"}
+            mock_post.return_value = mock_response
+
+            connection_name = "test-desktop"
+            desktop_values = DesktopValues(
+                desktop="test-image:latest",
+                name=connection_name,
+                mincpu=1,
+                maxcpu=4,
+                minram="4096Mi",
+                maxram="16384Mi",
+                vnc_password="test-password",
+                persistent_home=True,
+            )
+
+            # Act
+            result = rancher_client.install(connection_name, desktop_values)
+
+            # Assert
+            assert result == {"status": "success"}
+            mock_post.assert_called_once()
+
+            # Verify URL and headers
+            call_args = mock_post.call_args
+            assert (
+                "https://rancher.example.com/k8s/clusters/test-cluster-id/v1/catalog.cattle.io.clusterrepos/test-repo?action=install"
+                in call_args[0][0]
+            )
+            assert call_args[1]["headers"] == rancher_client.headers
+
+            # Verify payload contains expected values
+            payload = call_args[1]["json"]
+            assert payload["charts"][0]["releaseName"] == "test-desktop"
+            assert payload["namespace"] == "test-namespace"
 
     def test_install_success(self, rancher_client):
         """Test successful Helm chart installation."""
@@ -404,6 +409,32 @@ class TestRancherClient:
             assert "Unexpected error installing Helm chart" in context.value.message
             assert "Network error" in context.value.message
 
+    def test_uninstall(self, rancher_client):
+        """Test uninstalling a desktop with Rancher."""
+        with patch("requests.post") as mock_post:
+            # Arrange
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"status": "success"}
+            mock_post.return_value = mock_response
+
+            connection_name = "test-desktop"
+
+            # Act
+            result = rancher_client.uninstall(connection_name)
+
+            # Assert
+            assert result == {"status": "success"}
+            mock_post.assert_called_once()
+
+            # Verify URL and headers
+            call_args = mock_post.call_args
+            assert (
+                "https://rancher.example.com/k8s/clusters/test-cluster-id/v1/catalog.cattle.io.apps/test-namespace/test-desktop?action=uninstall"
+                in call_args[0][0]
+            )
+            assert call_args[1]["headers"] == rancher_client.headers
+
     def test_uninstall_success(self, rancher_client):
         """Test successful Helm chart uninstallation."""
         # Mock the response
@@ -448,6 +479,23 @@ class TestRancherClient:
             assert "Failed to uninstall Helm chart" in context.value.message
             assert "Not found" in context.value.message
 
+    def test_check_vnc_ready(self, rancher_client):
+        """Test checking if VNC is ready."""
+        with patch.object(rancher_client, "list_pods") as mock_list_pods:
+            # Arrange - mock a running pod
+            mock_pod = {
+                "metadata": {"name": "test-desktop-0"},
+                "status": {"phase": "Running", "containerStatuses": [{"ready": True}]},
+            }
+            mock_list_pods.return_value = [mock_pod]
+
+            # Act
+            result = rancher_client.check_vnc_ready("test-desktop", max_retries=1)
+
+            # Assert
+            assert result is True
+            mock_list_pods.assert_called_once()
+
     def test_check_vnc_ready_success(self, rancher_client):
         """Test check_vnc_ready with ready pod."""
         # Mock list_pods to return a ready pod
@@ -464,6 +512,20 @@ class TestRancherClient:
 
             # Verify the result
             assert result is True
+            mock_list_pods.assert_called_once()
+
+    def test_check_vnc_not_ready(self, rancher_client):
+        """Test checking if VNC is not ready."""
+        with patch.object(rancher_client, "list_pods") as mock_list_pods:
+            # Arrange - mock a pod that is not ready
+            mock_pod = {"metadata": {"name": "test-desktop-0"}, "status": {"phase": "Pending"}}
+            mock_list_pods.return_value = [mock_pod]
+
+            # Act
+            result = rancher_client.check_vnc_ready("test-desktop", max_retries=1, retry_interval=0)
+
+            # Assert
+            assert result is False
             mock_list_pods.assert_called_once()
 
     def test_check_vnc_ready_no_pod(self, rancher_client):
@@ -510,6 +572,142 @@ class TestRancherClient:
             assert result is False
             assert mock_list_pods.call_count == 2
 
+    def test_check_release_uninstalled(self, rancher_client):
+        """Test checking if a release is uninstalled."""
+        with patch.object(rancher_client, "list_releases") as mock_list_releases, patch.object(
+            rancher_client, "list_pods"
+        ) as mock_list_pods:
+            # Arrange - release and pod not found
+            mock_list_releases.return_value = [{"metadata": {"name": "other-release"}}]
+            mock_list_pods.return_value = [{"metadata": {"name": "other-pod-0"}}]
+
+            # Act
+            result = rancher_client.check_release_uninstalled("test-desktop", max_retries=1, retry_interval=0)
+
+            # Assert
+            assert result is True
+            mock_list_releases.assert_called_once()
+            mock_list_pods.assert_called_once()
+
+    def test_check_release_not_uninstalled(self, rancher_client):
+        """Test checking if a release is not uninstalled (still exists)."""
+        with patch.object(rancher_client, "list_releases") as mock_list_releases:
+            # Arrange - release still exists
+            mock_list_releases.return_value = [{"metadata": {"name": "test-desktop"}}]
+
+            # Act
+            result = rancher_client.check_release_uninstalled("test-desktop", max_retries=1, retry_interval=0)
+
+            # Assert
+            assert result is False
+            mock_list_releases.assert_called_once()
+
+    def test_get_pod_ip(self, rancher_client):
+        """Test getting pod IP."""
+        with patch("requests.get") as mock_get:
+            # Arrange
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"data": [{"status": {"phase": "Running", "podIP": "10.0.0.1"}}]}
+            mock_get.return_value = mock_response
+
+            # Act
+            result = rancher_client.get_pod_ip("test-desktop")
+
+            # Assert
+            assert result == "10.0.0.1"
+            mock_get.assert_called_once()
+
+    def test_get_pod_ip_not_found(self, rancher_client):
+        """Test get_pod_ip when no running pod is found."""
+        # Mock response with no running pods
+        with patch("requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"data": [{"status": {"phase": "Pending"}}]}
+            mock_get.return_value = mock_response
+
+            # Act
+            result = rancher_client.get_pod_ip("test-connection")
+
+            # Assert
+            assert result is None
+            mock_get.assert_called_once()
+
+    def test_get_pod_ip_error(self, rancher_client):
+        """Test get_pod_ip with error response."""
+        # Mock error response
+        with patch("requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.status_code = 404
+            mock_response.text = "Not found"
+            mock_get.return_value = mock_response
+
+            # Act and assert
+            with pytest.raises(APIError) as context:
+                rancher_client.get_pod_ip("test-connection")
+
+            # Verify exception details - implementation always returns status code 500
+            # for this particular error
+            assert context.value.status_code == 500
+            assert "Failed to get pod IP" in context.value.message
+            mock_get.assert_called_once()
+
+    def test_get_pod_ip_exception(self, rancher_client):
+        """Test get_pod_ip with request exception."""
+        # Mock request exception
+        with patch("requests.get") as mock_get:
+            mock_get.side_effect = Exception("Network error")
+
+            # Act and assert
+            with pytest.raises(APIError) as context:
+                rancher_client.get_pod_ip("test-connection")
+
+            # Verify exception details
+            assert context.value.status_code == 500
+            assert "Unexpected error getting pod IP" in context.value.message
+            mock_get.assert_called_once()
+
+    def test_list_releases(self, rancher_client):
+        """Test listing Helm releases."""
+        with patch("requests.get") as mock_get:
+            # Arrange
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "data": [{"metadata": {"name": "test-desktop"}}, {"metadata": {"name": "other-desktop"}}]
+            }
+            mock_get.return_value = mock_response
+
+            # Act
+            result = rancher_client.list_releases()
+
+            # Assert
+            assert len(result) == 2
+            assert result[0]["metadata"]["name"] == "test-desktop"
+            assert result[1]["metadata"]["name"] == "other-desktop"
+            mock_get.assert_called_once()
+
+    def test_list_pods(self, rancher_client):
+        """Test listing pods."""
+        with patch("requests.get") as mock_get:
+            # Arrange
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {
+                "data": [{"metadata": {"name": "test-desktop-0"}}, {"metadata": {"name": "other-desktop-0"}}]
+            }
+            mock_get.return_value = mock_response
+
+            # Act
+            result = rancher_client.list_pods()
+
+            # Assert
+            assert len(result) == 2
+            assert result[0]["metadata"]["name"] == "test-desktop-0"
+            assert result[1]["metadata"]["name"] == "other-desktop-0"
+            mock_get.assert_called_once()
+
     def test_list_pods_success(self, rancher_client):
         """Test successful pod listing."""
         # Mock the response
@@ -535,55 +733,34 @@ class TestRancherClient:
             assert f"clusters/{rancher_client.cluster_id}" in url
             # No need to check for namespace in URL as it's not included in the implementation
 
-    def test_desktop_values(self):
-        """Test DesktopValues class and to_dict method."""
-        # Create DesktopValues with all parameters
-        values = DesktopValues(
-            desktop="test-desktop",
-            name="test-connection",
-            mincpu=2,
-            maxcpu=4,
-            minram="4096Mi",
-            maxram="8192Mi",
-            username="test-user",
-            resolution="1920x1080",
-            display="VNC",
-            vnc_password="test-password",
-            external_pvc="test-pvc",
-            persistent_home=True,
-        )
+    def test_create_pvc(self, rancher_client):
+        """Test creating a persistent volume claim."""
+        with patch("requests.post") as mock_post:
+            # Arrange
+            mock_response = MagicMock()
+            mock_response.status_code = 201
+            mock_response.json.return_value = {"status": "success"}
+            mock_post.return_value = mock_response
 
-        # Test to_dict result
-        result = values.to_dict()
-        assert result["desktop"] == "test-desktop"
-        assert result["mincpu"] == 2
-        assert result["maxcpu"] == 4
-        assert result["minram"] == "4096Mi"
-        assert result["maxram"] == "8192Mi"
-        assert result["username"] == "test-user"
-        assert result["password"] == "test-password"
-        assert result["resolution"] == "1920x1080"
-        assert result["display"] == "VNC"
+            # Act
+            result = rancher_client.create_pvc("test-pvc", size="10Gi")
 
-        # Check storage configuration - we now know the actual behavior from the implementation
-        # Even with external_pvc, the storage.enable value isn't automatically set to True
-        # and the storage.externalpvc.enable value is True
-        assert result["storage"]["externalpvc"]["enable"] is True
-        assert result["storage"]["externalpvc"]["name"] == "test-pvc"
+            # Assert
+            assert result == {"status": "success"}
+            mock_post.assert_called_once()
 
-        # Check WebRTC images
-        assert result["webrtcimages"]["xserver"] == "cerit.io/desktops/xserver:v0.3"
-        assert result["webrtcimages"]["pulseaudio"] == "cerit.io/desktops/pulseaudio:v0.1"
-        assert result["webrtcimages"]["gstreamer"] == "cerit.io/desktops/webrtc-app:1.20.1-nv"
-        assert result["webrtcimages"]["web"] == "cerit.io/desktops/webrtc-web:0.6"
+    def test_delete_pvc(self, rancher_client):
+        """Test deleting a persistent volume claim."""
+        with patch("requests.delete") as mock_delete:
+            # Arrange
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"status": "success"}
+            mock_delete.return_value = mock_response
 
-    def test_desktop_values_non_persistent(self):
-        """Test DesktopValues with persistent_home=False."""
-        values = DesktopValues(name="test-connection", persistent_home=False)
+            # Act
+            result = rancher_client.delete_pvc("test-pvc")
 
-        result = values.to_dict()
-        # Storage should be disabled
-        assert result["storage"]["enable"] is False
-        # The implementation doesn't update storage.persistenthome based on persistent_home
-        # It keeps the default value of True
-        assert "persistenthome" in result["storage"]
+            # Assert
+            assert result == {"status": "success"}
+            mock_delete.assert_called_once()
