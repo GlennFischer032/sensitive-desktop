@@ -79,7 +79,7 @@ pre-commit:
     - cd ..
   script:
     - pre-commit run --all-files --show-diff-on-failure || echo "Pre-commit check failed, but pipeline will continue"
-  allow_failure: true
+  allow_failure: false
   only:
     - merge_requests
     - master
@@ -180,11 +180,8 @@ test_app:
     COVERAGE_XML: "coverage_app.xml"
   script:
     - cd "$PROJ_DIR"
-    # install prod + *test* deps declared in pyproject.toml
     - pip install --cache-dir=$PIP_CACHE_DIR -e ".[test]"
-    - pytest --cov=. \
-             --cov-report=xml:../$COVERAGE_XML \
-             --cov-report=html
+    - pytest --cov=. --cov-report=xml:../$COVERAGE_XML --cov-report=html
     - mv htmlcov ../$HTMLCOV_DIR
 
 test_api:
@@ -196,13 +193,11 @@ test_api:
   script:
     - cd "$PROJ_DIR"
     - pip install --cache-dir=$PIP_CACHE_DIR -e ".[test]"
-    - pytest --cov=. \
-             --cov-report=xml:../$COVERAGE_XML \
-             --cov-report=html
+    - pytest --cov=. --cov-report=xml:../$COVERAGE_XML --cov-report=html
     - mv htmlcov ../$HTMLCOV_DIR
 
 # ---------------------------------------------------------------------------
-# 🌐 Publish both reports on GitLab Pages
+# Publish both reports on GitLab Pages
 # ---------------------------------------------------------------------------
 pages:
   stage: pages
