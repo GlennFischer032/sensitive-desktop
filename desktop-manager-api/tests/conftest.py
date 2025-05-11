@@ -7,11 +7,12 @@ from flask.testing import FlaskClient
 from typing import Generator, Any
 import logging
 from unittest.mock import patch, MagicMock
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 import jwt
+import pathlib
 
 # Configure coverage to include src directory
 os.environ["COVERAGE_FILE"] = ".coverage"
@@ -24,13 +25,29 @@ else:
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 # Create test engine and session factory
-test_engine = create_engine("sqlite:///:memory:")
+test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+
+
+# Enable foreign key support in SQLite
+@event.listens_for(test_engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 TestingSessionLocal = sessionmaker(bind=test_engine)
 
 
 @pytest.fixture(scope="session")
 def setup_test_db():
     """Set up a test database with tables."""
+    # Import all models to ensure they're registered with Base
+    from database.models.user import User, SocialAuthAssociation, PKCEState
+    from database.models.connection import Connection
+    from database.models.desktop_configuration import DesktopConfiguration, DesktopConfigurationAccess
+    from database.models.storage_pvc import StoragePVC, StoragePVCAccess, ConnectionPVCMap
+    from database.models.token import Token
     from schemas.base import Base
 
     # Create all tables in the in-memory database
@@ -60,6 +77,11 @@ class MockSettings:
     OIDC_CALLBACK_URL = "http://localhost/callback"
     CORS_ALLOWED_ORIGINS = "http://localhost"
     database_url = "sqlite:///:memory:"
+    POSTGRES_USER = "test_user"
+    POSTGRES_PASSWORD = "test_password"
+    POSTGRES_HOST = "test_host"
+    POSTGRES_PORT = "5432"
+    POSTGRES_DATABASE = "test_db"
     ADMIN_OIDC_SUB = "test-admin-sub"
     ADMIN_EMAIL = "admin@example.com"
     ADMIN_USERNAME = "admin"
@@ -73,7 +95,9 @@ class MockSettings:
 def mock_settings():
     """Mock settings for the entire test suite."""
     with patch("config.settings.get_settings", return_value=MockSettings()):
-        yield
+        with patch("core.database.get_settings", return_value=MockSettings()):
+            with patch("database.core.session.get_settings", return_value=MockSettings()):
+                yield
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -110,40 +134,50 @@ def mock_db(monkeypatch):
     # Apply mocks
     monkeypatch.setattr(db_session_module, "get_engine", mock_get_engine)
     monkeypatch.setattr(db_session_module, "get_db_session", mock_get_db_session)
-    monkeypatch.setattr(db_session_module, "initialize_db", lambda: None)  # Skip DB initialization
+
+    # Define initialize_db that actually creates tables
+    def mock_initialize_db():
+        # Import all models to ensure they're registered with Base
+        from database.models.user import User, SocialAuthAssociation, PKCEState
+        from database.models.connection import Connection
+        from database.models.desktop_configuration import DesktopConfiguration, DesktopConfigurationAccess
+        from database.models.storage_pvc import StoragePVC, StoragePVCAccess, ConnectionPVCMap
+        from database.models.token import Token
+        from schemas.base import Base
+
+        # Create tables
+        Base.metadata.create_all(bind=test_engine)
+
+    monkeypatch.setattr(db_session_module, "initialize_db", mock_initialize_db)
 
 
 @pytest.fixture(scope="function")
-def test_app():
+def test_app(setup_test_db):
     """
     Create and configure a Flask app for testing.
 
     Returns:
         Flask application instance configured for testing
     """
-    # We need to patch the UserService for admin user creation
-    with patch("main.UserService") as mock_service:
-        # Set up the mock to not do anything when init_admin_user is called
-        mock_instance = MagicMock()
-        mock_instance.init_admin_user.return_value = None
-        mock_service.return_value = mock_instance
+    # Import create_app
+    from main import create_app
 
-        # Import create_app after mocking
-        from main import create_app
+    # Create the Flask app with test config
+    app = create_app()
+    app.config.update(
+        {
+            "TESTING": True,
+            "SECRET_KEY": "test_secret_key",
+            "SERVER_NAME": "localhost",
+        }
+    )
 
-        # Create the Flask app with test config
-        app = create_app()
-        app.config.update(
-            {
-                "TESTING": True,
-                "SECRET_KEY": "test_secret_key",
-                "SERVER_NAME": "localhost",
-                "WTF_CSRF_ENABLED": False,
-            }
-        )
+    # Make sure test database is properly initialized
+    from database.core.session import initialize_db
 
-        with app.app_context():
-            yield app
+    with app.app_context():
+        initialize_db()
+        yield app
 
 
 @pytest.fixture(scope="function")

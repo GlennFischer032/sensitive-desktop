@@ -433,7 +433,7 @@ class ConnectionsService:
             connections={
                 connection.name + "-direct": {
                     "protocol": "vnc",
-                    "parameters": connection_params,
+                    "parameters": connection_params.model_dump(),
                 }
             },
             expires_in_ms=3600000,

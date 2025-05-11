@@ -4,82 +4,35 @@ This module provides a client for interacting with Apache Guacamole.
 """
 
 import logging
-from typing import NotRequired, TypedDict
 
 from clients.base import APIError, BaseClient
 from config.settings import get_settings
+from pydantic import BaseModel
 import requests
 
 
-class GuacamoleUserAttributes(TypedDict, total=False):
-    """Type definition for Guacamole user attributes."""
-
-    guac_full_name: str
-    guac_organization: str
-    expired: str
-    disabled: str
-    access_window_start: str
-    access_window_end: str
-    valid_from: str
-    valid_until: str
-    timezone: str | None
+def to_kebab(s: str) -> str:  # "swap_red_blue" -> "swap-red-blue"
+    return s.replace("_", "-")
 
 
-class GuacamoleUser(TypedDict):
-    """Type definition for Guacamole user."""
-
-    username: str
-    password: str
-    attributes: GuacamoleUserAttributes
-
-
-class GuacamoleGroup(TypedDict):
-    """Type definition for Guacamole group."""
-
-    identifier: str
-    attributes: GuacamoleUserAttributes
-
-
-class GuacamoleConnectionParameters(TypedDict):
-    """Type definition for Guacamole connection parameters."""
-
+class GuacamoleConnectionParameters(BaseModel):
     hostname: str
     port: str
     password: str
-    enable_audio: NotRequired[str] = "true"
-    read_only: NotRequired[str]
-    swap_red_blue: NotRequired[str]
-    cursor: NotRequired[str]
-    color_depth: NotRequired[str]
-    force_lossless: NotRequired[str]
-    clipboard_encoding: NotRequired[str]
-    disable_copy: NotRequired[str] = "true"
-    disable_paste: NotRequired[str] = "false"
-    dest_port: NotRequired[str]
-    recording_exclude_output: NotRequired[str]
-    recording_exclude_mouse: NotRequired[str]
-    recording_include_keys: NotRequired[str]
-    create_recording_path: NotRequired[str]
-    enable_sftp: NotRequired[str]
-    sftp_port: NotRequired[str]
-    sftp_server_alive_interval: NotRequired[str]
-    sftp_disable_download: NotRequired[str]
-    sftp_disable_upload: NotRequired[str]
-    wol_send_packet: NotRequired[str]
-    wol_udp_port: NotRequired[str]
-    wol_wait_time: NotRequired[str]
+    disable_copy: str = "true"
+    disable_paste: str = "false"
 
+    # Pydantic v1
+    class Config:
+        alias_generator = to_kebab
+        allow_population_by_field_name = True
 
-class GuacamoleConnectionAttributes(TypedDict, total=False):
-    """Type definition for Guacamole connection attributes."""
-
-    max_connections: str
-    max_connections_per_user: str
-    weight: str
-    failover_only: str
-    guacd_hostname: str
-    guacd_port: str
-    guacd_encryption: str
+    def model_dump(self, **kw):
+        kw.setdefault("by_alias", True)
+        kw.setdefault("exclude_none", True)
+        kw.setdefault("exclude_defaults", False)
+        kw.setdefault("exclude_unset", False)
+        return super().model_dump(**kw)
 
 
 class GuacamoleClient(BaseClient):

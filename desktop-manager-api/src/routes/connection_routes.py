@@ -448,3 +448,40 @@ def detach_pvc() -> tuple[dict[str, Any], int]:
     except Exception as e:
         logging.error("Error in detach_pvc: %s", str(e))
         return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+@connections_bp.route("/<connection_name>/status", methods=["GET"])
+@with_db_session
+@token_required
+def get_connection_status(connection_name: str):
+    """Get the status of a connection.
+
+    This endpoint:
+    1. Retrieves the connection status from the system
+    2. Returns the status details
+
+    Args:
+        connection_name: The name of the connection
+
+    Returns:
+        JSON with the connection status details
+    """
+    try:
+        # Get authenticated user
+        current_user = request.current_user
+
+        # Create service instance and call get_connection_status
+        connection_service = ConnectionsService()
+        response_data = connection_service.get_connection_status(connection_name, current_user, request.db_session)
+
+        return jsonify(response_data), HTTPStatus.OK
+
+    except APIError as e:
+        logging.error("API error in get_connection_status: %s (status: %s)", e.message, e.status_code)
+        return jsonify({"error": e.message}), e.status_code
+    except Exception as e:
+        logging.error("Error getting connection status: %s", str(e))
+        return (
+            jsonify({"error": "Internal server error", "details": str(e)}),
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+        )
