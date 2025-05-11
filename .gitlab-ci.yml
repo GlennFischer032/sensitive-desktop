@@ -26,6 +26,8 @@ variables:
 # template, still hidden
 .cache-warmup-template:
   stage: .pre
+  tags:
+  - shared-fi
   image: python:3.11-slim
   script:
     - mkdir -p .cache/pip .cache/pre-commit
