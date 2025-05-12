@@ -27,7 +27,9 @@
         <thead>
             <tr>
                 <th>Name</th>
-                <th>Image</th>
+                <th>Description</th>
+                <th>CPU</th>
+                <th>RAM</th>
                 <th>Access</th>
                 {% if session.get('is_admin') %}
                 <th>Actions</th>
@@ -38,7 +40,9 @@
             {% for config in configurations %}
             <tr id="config-{{ config.id }}">
                 <td>{{ config.name }}</td>
-                <td>{{ config.image }}</td>
+                <td>{{ config.description[:60] }}</td>
+                <td> {{ config.min_cpu }} - {{ config.max_cpu }} cores</td>
+                <td> {{ config.min_ram }} - {{ config.max_ram }} RAM</td>
                 <td>
                     {% if config.is_public %}
                     <span class="badge badge-success">Public</span>

@@ -21,6 +21,12 @@
       background-color: lighten($text-dark, 10%);
     }
 
+    &.active {
+      background-color: lighten($text-dark, 15%);
+      font-weight: 500;
+      box-shadow: 0 2px 0 rgba(255, 255, 255, 0.3);
+    }
+
     // Guacamole tab styles
     &[href*="guacamole-dashboard"] {
       background-color: $success-color;
@@ -29,6 +35,11 @@
 
       &:hover {
         background-color: $success-dark;
+      }
+
+      &.active {
+        background-color: darken($success-color, 10%);
+        box-shadow: 0 2px 0 rgba(255, 255, 255, 0.3);
       }
 
       &::before {

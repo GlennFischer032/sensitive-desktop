@@ -107,9 +107,30 @@ class StoragePVCService:
                 # For regular users, only show accessible PVCs
                 pvcs = pvc_repo.get_pvcs_for_user(current_user.username)
 
+            # Get Rancher client to update PVC statuses
+            rancher_client = client_factory.get_rancher_client()
+
             # Process the PVCs and add access information
             result = []
             for pvc in pvcs:
+                # Check and update PVC status from Kubernetes
+                try:
+                    pvc_k8s_data = rancher_client.get_pvc(
+                        name=pvc.name,
+                        namespace=pvc.namespace,
+                    )
+                    # Update status if needed
+                    k8s_status = pvc_k8s_data.get("status", {}).get("phase", "Unknown")
+                    if k8s_status != pvc.status:
+                        pvc_repo.update_storage_pvc(
+                            pvc.id,
+                            {"status": k8s_status},
+                        )
+                        pvc.status = k8s_status
+                except Exception as e:
+                    logging.warning("Failed to get PVC details from Rancher for %s: %s", pvc.name, str(e))
+                    # Continue with database data
+
                 # Get users with access to this PVC
                 allowed_users = pvc_repo.get_pvc_users(pvc.id)
 

@@ -438,6 +438,10 @@ table.accessible-table {
     transition: background-color 0.2s; }
     .nav-links a:hover {
       background-color: #3e5871; }
+    .nav-links a.active {
+      background-color: #476481;
+      font-weight: 500;
+      box-shadow: 0 2px 0 rgba(255, 255, 255, 0.3); }
     .nav-links a[href*="guacamole-dashboard"] {
       background-color: #2ecc71;
       display: flex;
@@ -448,6 +452,9 @@ table.accessible-table {
       gap: 5px; }
       .nav-links a[href*="guacamole-dashboard"]:hover {
         background-color: #27ae60; }
+      .nav-links a[href*="guacamole-dashboard"].active {
+        background-color: #25a25a;
+        box-shadow: 0 2px 0 rgba(255, 255, 255, 0.3); }
       .nav-links a[href*="guacamole-dashboard"]::before {
         content: "";
         display: inline-block;

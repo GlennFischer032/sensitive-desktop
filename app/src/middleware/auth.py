@@ -4,7 +4,7 @@ from collections.abc import Callable
 from http import HTTPStatus
 
 from clients.factory import client_factory
-from flask import flash, redirect, request, session, url_for
+from flask import abort, flash, redirect, request, session, url_for
 
 
 def token_required(view_func: Callable) -> Callable:
@@ -55,7 +55,7 @@ def admin_required(view_func: Callable) -> Callable:
     def wrapped_view(*args, **kwargs):
         if not session.get("is_admin"):
             flash("You need administrator privileges", "error")
-            return redirect(url_for("connections.view_connections"))
+            return abort(403, description="You need administrator privileges")
         return view_func(*args, **kwargs)
 
     return wrapped_view

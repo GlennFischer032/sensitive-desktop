@@ -111,7 +111,7 @@ services:
       - API_URL=http://desktop-api:5000
       - FLASK_ENV=development
       - FLASK_DEBUG=1
-      - LOG_LEVEL=DEBUG
+      - LOG_LEVEL=INFO
       - PYTHONUNBUFFERED=1
       - REDIS_URL=redis://redis:6379/0
       # Debug settingss

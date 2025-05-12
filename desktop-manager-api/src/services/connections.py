@@ -85,7 +85,7 @@ class ConnectionsService:
             if not pvc:
                 raise NotFoundError(f"PVC '{external_pvc}' not found")
 
-            allowed_users = [access.username for access in pvc.access_permissions]
+            allowed_users = [access.username for access in pvc.users]
 
             if current_user.is_admin:
                 logging.debug("Admin user - access granted to PVC")
@@ -114,7 +114,9 @@ class ConnectionsService:
 
             allowed_users = [access.username for access in config.users]
 
-            if not current_user.is_admin and current_user.username not in allowed_users:
+            if config.is_public or current_user.is_admin or current_user.username in allowed_users:
+                pass
+            else:
                 raise ForbiddenError("You do not have permission to use this configuration")
 
             desktop_image = config.image

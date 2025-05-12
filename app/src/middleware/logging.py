@@ -99,10 +99,14 @@ def init_request_logging(app):
         # Get username if available
         username = getattr(g, "username", "anonymous")
 
-        # Create log message
-        log_message = f"Response: {method} {path} - Status: {status_code} - User: {username}"
+        # Get IP address
+        ip_address = request.remote_addr
 
-        # Log the response
-        logger.info(log_message)
+        # Create log message
+        log_message = f"Response: {method} {path} - Status: {status_code} - User: {username} - IP: {ip_address}"
+        if status_code >= HTTPStatus.BAD_REQUEST:
+            logger.warning(log_message)
+        else:
+            logger.info(log_message)
 
         return response

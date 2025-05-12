@@ -227,7 +227,7 @@ def direct_connect(connection_id: str):
         logging.error("API error in direct_connect: %s (status: %s)", e.message, e.status_code)
         return jsonify({"error": e.message}), e.status_code
     except Exception as e:
-        logging.error("Error generating connection auth URL: %s", str(e))
+        logging.exception(e)
         return (
             jsonify({"error": "Internal server error", "details": str(e)}),
             HTTPStatus.INTERNAL_SERVER_ERROR,

@@ -124,13 +124,13 @@
         <div class="nav-links">
             {% if session.get('token') %}
                 {% if session.get('is_admin') %}
-                <a href="{{ url_for('users.dashboard') }}">Dashboard</a>
-                <a href="{{ url_for('users.view_users') }}">Users</a>
-                <a href="{{ url_for('tokens.view_tokens') }}">API Tokens</a>
+                <a href="{{ url_for('users.dashboard') }}" {% if request.path == url_for('users.dashboard') %}class="active"{% endif %}>Dashboard</a>
+                <a href="{{ url_for('users.view_users') }}" {% if request.path == url_for('users.view_users') %}class="active"{% endif %}>Users</a>
+                <a href="{{ url_for('tokens.view_tokens') }}" {% if request.path == url_for('tokens.view_tokens') %}class="active"{% endif %}>API Tokens</a>
                 {% endif %}
-                <a href="{{ url_for('configurations.list_configurations') }}">Configurations</a>
-                <a href="{{ url_for('storage.view_pvcs') }}">Storage PVCs</a>
-                <a href="{{ url_for('connections.view_connections') }}">Connections</a>
+                <a href="{{ url_for('configurations.list_configurations') }}" {% if request.path == url_for('configurations.list_configurations') %}class="active"{% endif %}>Configurations</a>
+                <a href="{{ url_for('storage.view_pvcs') }}" {% if request.path == url_for('storage.view_pvcs') %}class="active"{% endif %}>Storage PVCs</a>
+                <a href="{{ url_for('connections.view_connections') }}" {% if request.path == url_for('connections.view_connections') %}class="active"{% endif %}>Connections</a>
                 <a href="{{ url_for('auth.logout') }}">Logout</a>
             {% endif %}
         </div>

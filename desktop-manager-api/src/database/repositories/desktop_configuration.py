@@ -146,7 +146,7 @@ class DesktopConfigurationRepository(BaseRepository[DesktopConfiguration]):
             self.session.query(DesktopConfiguration)
             .filter(
                 or_(
-                    DesktopConfiguration.is_public is True,
+                    DesktopConfiguration.is_public == True,  # noqa
                     DesktopConfiguration.id.in_(
                         self.session.query(DesktopConfigurationAccess.desktop_configuration_id).filter(
                             DesktopConfigurationAccess.username == username

@@ -10,8 +10,11 @@
             <p>{{ error.message if error and error.message else "You don't have permission to access this resource." }}</p>
         </div>
         <div class="error-actions">
-            <a href="{{ url_for('auth.login') }}" class="button">Return to Login</a>
-            <a href="{{ url_for('connections.view_connections') }}" class="button secondary">Go to Connections</a>
+            {% if session.get("logged_in") %}
+                <a href="{{ url_for('connections.view_connections') }}" class="button secondary">Go to Connections</a>
+            {% else %}
+                <a href="{{ url_for('auth.login') }}" class="button">Return to Login</a>
+            {% endif %}
         </div>
     </div>
 </div>
