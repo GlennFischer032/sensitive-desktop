@@ -54,7 +54,7 @@ def test_view_tokens_page_authorized_non_admin(logged_in_client, mock_tokens_cli
 
     response = logged_in_client.get("/tokens/")
     # Application redirects non-admins instead of showing 403
-    assert response.status_code == HTTPStatus.FOUND  # 302 Found (redirect)
+    assert response.status_code == 403
 
 
 def test_view_tokens_page_admin(admin_client, mock_tokens_client):
@@ -87,7 +87,7 @@ def test_api_list_tokens_non_admin(logged_in_client, mock_tokens_client):
         sess["is_admin"] = False
 
     response = logged_in_client.get("/api/tokens/")
-    assert response.status_code == HTTPStatus.FOUND  # 302 Found (redirect)
+    assert response.status_code == 403
 
 
 def test_api_list_tokens_admin(admin_client, mock_tokens_client):

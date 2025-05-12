@@ -188,9 +188,7 @@ def test_create_pvc_unauthorized(logged_in_client):
             "/api/storage/pvcs", data=json.dumps(pvc_data), content_type="application/json", follow_redirects=False
         )
 
-        # Should either redirect to login or show service unavailable
-        # Both indicate the request was not processed as expected
-        assert response.status_code in [302, 503, 500]
+        assert response.status_code == 403
 
 
 def test_get_pvc_access_success(admin_client):
@@ -227,9 +225,7 @@ def test_get_pvc_access_unauthorized(logged_in_client):
 
         response = logged_in_client.get("/api/storage/pvcs/access/1", follow_redirects=False)
 
-        # Should either redirect to login or show service unavailable
-        # Both indicate the request was not processed as expected
-        assert response.status_code in [302, 503, 500]
+        assert response.status_code == 403
 
 
 def test_update_pvc_access_success(admin_client):
@@ -305,9 +301,7 @@ def test_update_pvc_access_unauthorized(logged_in_client):
             follow_redirects=False,
         )
 
-        # Should either redirect to login or show service unavailable
-        # Both indicate the request was not processed as expected
-        assert response.status_code in [302, 503, 500]
+        assert response.status_code == 403
 
 
 def test_get_pvc_connections_success(admin_client):
@@ -346,9 +340,7 @@ def test_get_pvc_connections_unauthorized(logged_in_client):
 
         response = logged_in_client.get("/api/storage/pvcs/connections/1", follow_redirects=False)
 
-        # Should either redirect to login or show service unavailable
-        # Both indicate the request was not processed as expected
-        assert response.status_code in [302, 503, 500]
+        assert response.status_code == 403
 
 
 def test_delete_pvc_success(admin_client):
@@ -391,6 +383,4 @@ def test_delete_pvc_unauthorized(logged_in_client):
 
         response = logged_in_client.delete("/api/storage/pvcs/test-pvc", follow_redirects=False)
 
-        # Should either redirect to login or show service unavailable
-        # Both indicate the request was not processed as expected
-        assert response.status_code in [302, 503, 500]
+        assert response.status_code == 403

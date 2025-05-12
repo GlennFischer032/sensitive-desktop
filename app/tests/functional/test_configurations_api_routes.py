@@ -189,7 +189,7 @@ def test_create_configuration_unauthorized(logged_in_client):
 
         # Should either redirect to login or show service unavailable
         # Both indicate the request was not processed as expected
-        assert response.status_code in [302, 503, 500]
+        assert response.status_code == 403
 
 
 def test_update_configuration_success(admin_client):
@@ -245,7 +245,7 @@ def test_update_configuration_unauthorized(logged_in_client):
 
         # Should either redirect to login or show service unavailable
         # Both indicate the request was not processed as expected
-        assert response.status_code in [302, 503, 500]
+        assert response.status_code == 403
 
 
 def test_delete_configuration_success(admin_client):
@@ -289,4 +289,4 @@ def test_delete_configuration_unauthorized(logged_in_client):
 
         # Should either redirect to login or show service unavailable
         # Both indicate the request was not processed as expected
-        assert response.status_code in [302, 503, 500]
+        assert response.status_code == 403

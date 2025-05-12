@@ -108,8 +108,7 @@ def test_admin_required_redirects_non_admin(logged_in_protected_client):
     # Access the admin route as a regular user
     response = logged_in_protected_client.get("/admin-only", follow_redirects=False)
 
-    assert response.status_code == 302
-    assert "connections" in response.location
+    assert response.status_code == 403
 
 
 def test_admin_required_allows_admin_access(admin_protected_client):

@@ -32,8 +32,7 @@ def test_view_users_non_admin(logged_in_client):
         sess["token"] = "test-token"
 
     response = logged_in_client.get("/users/", follow_redirects=False)
-    assert response.status_code == 302
-    assert "connections" in response.location
+    assert response.status_code == 403
 
 
 @patch("clients.factory.client_factory.get_users_client")

@@ -28,7 +28,7 @@ def test_list_users_non_admin(mock_users_client, logged_in_client):
     response = logged_in_client.get("/api/users/")
 
     # Verify redirect happens (indicating access control enforcement)
-    assert response.status_code == 302
+    assert response.status_code == 403
 
 
 @patch("clients.factory.client_factory.get_users_client")

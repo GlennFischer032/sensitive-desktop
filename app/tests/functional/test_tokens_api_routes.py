@@ -15,8 +15,7 @@ def test_api_tokens_unauthorized(client):
     THEN check that access is denied (redirects to login)
     """
     response = client.get("/api/tokens/")
-    assert response.status_code == 302  # Redirects to login page
-    assert "/login" in response.location
+    assert response.status_code == 302
 
 
 def test_api_tokens_non_admin(logged_in_client):
@@ -31,7 +30,7 @@ def test_api_tokens_non_admin(logged_in_client):
         sess["token"] = "test-token"
 
     response = logged_in_client.get("/api/tokens/")
-    assert response.status_code == 302  # Redirects
+    assert response.status_code == 403
 
 
 @patch("clients.factory.client_factory.get_tokens_client")
