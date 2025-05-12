@@ -4,7 +4,7 @@ from collections.abc import Callable
 from http import HTTPStatus
 
 from clients.factory import client_factory
-from flask import abort, flash, redirect, request, session, url_for
+from flask import abort, flash, request, session
 
 
 def token_required(view_func: Callable) -> Callable:
@@ -21,10 +21,14 @@ def token_required(view_func: Callable) -> Callable:
     def wrapped_view(*args, **kwargs):
         if request.headers.get("Authorization"):
             token = request.headers.get("Authorization").split(" ")[1]
-            user_data, status_code = client_factory.get_tokens_client().api_login(token)
-            if status_code != HTTPStatus.OK:
+            try:
+                user_data, status_code = client_factory.get_tokens_client().api_login(token)
+                if status_code != HTTPStatus.OK:
+                    flash("Invalid token", "error")
+                    return abort(403, description="Invalid token")
+            except Exception:
                 flash("Invalid token", "error")
-                return redirect(url_for("auth.login"))
+                return abort(403, description="Invalid token")
             session["username"] = user_data.get("username")
             session["is_admin"] = user_data.get("is_admin")
             session["email"] = user_data.get("email")
@@ -33,8 +37,8 @@ def token_required(view_func: Callable) -> Callable:
             return view_func(*args, **kwargs)
 
         if not session.get("logged_in") or "token" not in session:
-            flash("Please log in to access this page", "error")
-            return redirect(url_for("auth.login"))
+            flash("You need to log in to access this page", "error")
+            return abort(403, description="You need to log in to access this page")
         session["token"] = session.get("token")
         return view_func(*args, **kwargs)
 

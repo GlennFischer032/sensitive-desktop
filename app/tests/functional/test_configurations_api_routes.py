@@ -14,8 +14,8 @@ def test_list_configurations_unauthorized(client):
     THEN check the response is valid and redirects to login
     """
     response = client.get("/api/configurations/", follow_redirects=False)
-    assert response.status_code == 302
-    assert "auth/login" in response.location
+    assert response.status_code == 403
+    assert "You need to log in to access this page" in response.data.decode("utf-8")
 
 
 def test_list_configurations_authenticated(logged_in_client):
@@ -168,7 +168,7 @@ def test_create_configuration_missing_data(admin_client):
     assert "error" in json_data
 
 
-def test_create_configuration_unauthorized(logged_in_client):
+def test_create_configuration_non_admin(logged_in_client):
     """
     GIVEN a Flask application configured for testing
     WHEN a non-admin tries to create a configuration
@@ -190,6 +190,7 @@ def test_create_configuration_unauthorized(logged_in_client):
         # Should either redirect to login or show service unavailable
         # Both indicate the request was not processed as expected
         assert response.status_code == 403
+        assert "You need administrator privileges" in response.data.decode("utf-8")
 
 
 def test_update_configuration_success(admin_client):
@@ -243,9 +244,8 @@ def test_update_configuration_unauthorized(logged_in_client):
             follow_redirects=False,
         )
 
-        # Should either redirect to login or show service unavailable
-        # Both indicate the request was not processed as expected
         assert response.status_code == 403
+        assert "You need administrator privileges" in response.data.decode("utf-8")
 
 
 def test_delete_configuration_success(admin_client):
@@ -290,3 +290,4 @@ def test_delete_configuration_unauthorized(logged_in_client):
         # Should either redirect to login or show service unavailable
         # Both indicate the request was not processed as expected
         assert response.status_code == 403
+        assert "You need administrator privileges" in response.data.decode("utf-8")

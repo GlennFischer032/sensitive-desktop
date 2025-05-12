@@ -13,7 +13,8 @@ def test_list_users_unauthorized(mock_users_client, client):
     THEN check that access is denied
     """
     response = client.get("/api/users/")
-    assert response.status_code == 302  # Redirect to login page
+    assert response.status_code == 403
+    assert "You need to log in to access this page" in response.data.decode("utf-8")
 
 
 @patch("clients.factory.client_factory.get_users_client")
@@ -23,12 +24,9 @@ def test_list_users_non_admin(mock_users_client, logged_in_client):
     WHEN the users API endpoint is requested
     THEN check that access is denied via redirect
     """
-    # Flask test environment redirects instead of showing 403 directly
-    # in many cases due to how middleware and decorators work in test mode
     response = logged_in_client.get("/api/users/")
-
-    # Verify redirect happens (indicating access control enforcement)
     assert response.status_code == 403
+    assert "You need administrator privileges" in response.data.decode("utf-8")
 
 
 @patch("clients.factory.client_factory.get_users_client")

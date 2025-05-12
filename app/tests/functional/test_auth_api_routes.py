@@ -90,8 +90,8 @@ def test_token_refresh_unauthorized(mock_auth_client, client):
     THEN check that user is redirected to login page
     """
     response = client.post("/api/auth/refresh")
-    assert response.status_code == HTTPStatus.FOUND  # 302 redirect
-    assert "/auth/login" in response.location
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    assert "You need to log in to access this page" in response.data.decode("utf-8")
 
 
 @patch("clients.factory.client_factory.get_auth_client")

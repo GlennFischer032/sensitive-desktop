@@ -13,7 +13,8 @@ def test_list_connections_unauthorized(mock_connections_client, client):
     THEN check that access is denied
     """
     response = client.get("/api/connections/")
-    assert response.status_code == 302  # Redirect to login page
+    assert response.status_code == 403
+    assert "You need to log in to access this page" in response.data.decode("utf-8")
 
 
 @patch("clients.factory.client_factory.get_connections_client")

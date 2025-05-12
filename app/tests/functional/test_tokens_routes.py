@@ -38,8 +38,8 @@ def test_view_tokens_page_unauthorized(client):
     THEN check redirect to login page
     """
     response = client.get("/tokens/")
-    assert response.status_code == HTTPStatus.FOUND  # 302 Found (redirect)
-    assert "/auth/login" in response.headers["Location"]
+    assert response.status_code == 403
+    assert "You need to log in to access this page" in response.data.decode("utf-8")
 
 
 def test_view_tokens_page_authorized_non_admin(logged_in_client, mock_tokens_client):

@@ -15,8 +15,8 @@ def test_view_users_unauthorized(client):
     THEN check that the user is redirected to the login page
     """
     response = client.get("/users/", follow_redirects=False)
-    assert response.status_code == 302
-    assert "/login" in response.location
+    assert response.status_code == 403
+    assert "You need to log in to access this page" in response.data.decode("utf-8")
 
 
 def test_view_users_non_admin(logged_in_client):
@@ -33,6 +33,7 @@ def test_view_users_non_admin(logged_in_client):
 
     response = logged_in_client.get("/users/", follow_redirects=False)
     assert response.status_code == 403
+    assert "You need administrator privileges" in response.data.decode("utf-8")
 
 
 @patch("clients.factory.client_factory.get_users_client")
@@ -117,8 +118,8 @@ def test_dashboard_unauthorized(client):
     response = client.get("/users/dashboard", follow_redirects=False)
 
     # There should only be one correct behavior - redirect to login
-    assert response.status_code == 302
-    assert "/auth/login" in response.location
+    assert response.status_code == 403
+    assert "You need to log in to access this page" in response.data.decode("utf-8")
 
 
 @patch("clients.factory.client_factory.get_users_client")

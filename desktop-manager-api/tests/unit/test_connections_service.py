@@ -126,6 +126,7 @@ class TestConnectionsService:
             # Mock user access
             user_access = MagicMock()
             user_access.username = "user1"
+            config.is_public = False
             config.users = [user_access]
 
             # Configure mock methods

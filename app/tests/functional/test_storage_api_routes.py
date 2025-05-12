@@ -14,8 +14,8 @@ def test_list_pvcs_unauthorized(client):
     THEN check the response is valid and redirects to login
     """
     response = client.get("/api/storage/pvcs", follow_redirects=False)
-    assert response.status_code == 302
-    assert "auth/login" in response.location
+    assert response.status_code == 403
+    assert "You need to log in to access this page" in response.data.decode("utf-8")
 
 
 def test_list_pvcs_authenticated(logged_in_client):
@@ -172,7 +172,7 @@ def test_create_pvc_missing_data(admin_client):
     assert "No JSON data provided" in json_data["error"] or "Name and size are required" in json_data["error"]
 
 
-def test_create_pvc_unauthorized(logged_in_client):
+def test_create_pvc_non_admin(logged_in_client):
     """
     GIVEN a Flask application configured for testing
     WHEN a non-admin tries to create a PVC
@@ -189,6 +189,7 @@ def test_create_pvc_unauthorized(logged_in_client):
         )
 
         assert response.status_code == 403
+        assert "You need administrator privileges" in response.data.decode("utf-8")
 
 
 def test_get_pvc_access_success(admin_client):
@@ -302,6 +303,7 @@ def test_update_pvc_access_unauthorized(logged_in_client):
         )
 
         assert response.status_code == 403
+        assert "You need administrator privileges" in response.data.decode("utf-8")
 
 
 def test_get_pvc_connections_success(admin_client):
@@ -341,6 +343,7 @@ def test_get_pvc_connections_unauthorized(logged_in_client):
         response = logged_in_client.get("/api/storage/pvcs/connections/1", follow_redirects=False)
 
         assert response.status_code == 403
+        assert "You need administrator privileges" in response.data.decode("utf-8")
 
 
 def test_delete_pvc_success(admin_client):
@@ -384,3 +387,4 @@ def test_delete_pvc_unauthorized(logged_in_client):
         response = logged_in_client.delete("/api/storage/pvcs/test-pvc", follow_redirects=False)
 
         assert response.status_code == 403
+        assert "You need administrator privileges" in response.data.decode("utf-8")

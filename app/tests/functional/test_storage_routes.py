@@ -14,8 +14,8 @@ def test_view_pvcs_unauthorized(client):
     THEN check that the user is redirected to the login page
     """
     response = client.get("/storage/", follow_redirects=False)
-    assert response.status_code == 302
-    assert "/login" in response.location
+    assert response.status_code == 403
+    assert "You need to log in to access this page" in response.data.decode("utf-8")
 
 
 @patch("clients.factory.client_factory.get_storage_client")

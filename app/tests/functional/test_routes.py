@@ -66,17 +66,6 @@ def test_api_connection_error(client):
         assert "api_url" in data
 
 
-def test_redirect_when_not_logged_in(client):
-    """
-    GIVEN a Flask application with an unauthenticated client
-    WHEN the root endpoint is accessed
-    THEN check the user is redirected to the login page
-    """
-    response = client.get("/", follow_redirects=False)
-    assert response.status_code == HTTPStatus.FOUND  # 302 redirect
-    assert "/auth/login" in response.location
-
-
 def test_redirect_regular_user(logged_in_client):
     """
     GIVEN a Flask application with an authenticated regular user

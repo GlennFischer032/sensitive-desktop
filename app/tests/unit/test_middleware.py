@@ -71,7 +71,7 @@ def admin_protected_client(protected_client, fresh_app):
     return protected_client
 
 
-def test_token_required_redirects_when_not_logged_in(protected_client):
+def test_token_required_redirects_unauthorized(protected_client):
     """
     GIVEN a Flask application configured for testing
     WHEN a route protected by token_required is accessed without login
@@ -81,8 +81,8 @@ def test_token_required_redirects_when_not_logged_in(protected_client):
     response = protected_client.get("/protected", follow_redirects=False)
 
     # Should redirect to login
-    assert response.status_code == 302
-    assert "auth/login" in response.location
+    assert response.status_code == 403
+    assert "You need to log in to access this page" in response.data.decode("utf-8")
 
 
 def test_token_required_allows_access_when_logged_in(logged_in_protected_client):
