@@ -16,6 +16,7 @@ class Config:
 
     # Logging configuration
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+    AUDIT_LOG_FILE = os.environ.get("AUDIT_LOG_FILE", None)
 
     # Session configuration
     SESSION_TYPE = "redis"

@@ -19,14 +19,24 @@ if not logger.handlers:
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
 
-    # File handler
-    log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
-    os.makedirs(log_dir, exist_ok=True)
+    # File handler - check if we should use the persistent audit log file
+    audit_log_file = os.environ.get("AUDIT_LOG_FILE")
 
-    file_handler = logging.FileHandler(os.path.join(log_dir, "requests.log"))
-    file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    file_handler.setFormatter(file_formatter)
-    logger.addHandler(file_handler)
+    if audit_log_file:
+        # Use the audit log file from environment (used in Kubernetes)
+        audit_handler = logging.FileHandler(audit_log_file)
+        audit_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        audit_handler.setFormatter(audit_formatter)
+        logger.addHandler(audit_handler)
+    else:
+        # Fallback to local logs directory
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+        os.makedirs(log_dir, exist_ok=True)
+
+        file_handler = logging.FileHandler(os.path.join(log_dir, "requests.log"))
+        file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
 
 
 def init_request_logging(app):
