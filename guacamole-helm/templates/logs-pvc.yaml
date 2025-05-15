@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-audit-logs
+  labels:
+    {{- include "guacamole.labels" . | nindent 4 }}
+    component: audit-logs
+  annotations:
+    # This annotation is not needed and may cause issues with installation
+    # "helm.sh/hook": "pre-install,pre-upgrade"
+spec:
+  # ReadWriteOnce means this volume can only be mounted on one node
+  # For multi-node clusters with multiple frontend replicas, consider using
+  # a storage class that supports ReadWriteMany if horizontal scaling is needed
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.logs.size | default "1Gi" }}
+  storageClassName: {{ .Values.logs.storageClass | default "standard" }}

@@ -288,6 +288,94 @@ The chart implements several security best practices:
 - OIDC-based authentication for secure user access
 - All services use health checks for reliability
 
+## Audit Logging
+
+This Helm chart includes a persistent audit logging capability for security and compliance purposes.
+
+### How It Works
+
+1. A persistent volume claim (`<release-name>-audit-logs`) is created to store audit logs.
+2. The pod is configured with `fsGroup: 2000` to ensure proper file permissions without requiring privileged containers.
+3. The Desktop Frontend pod is configured with:
+   - An environment variable `AUDIT_LOG_FILE` pointing to the audit log file location
+   - A volume mount to the persistent storage with write access
+4. A sidecar container runs with:
+   - A different user ID than the main application (UID 2000)
+   - Read-only access to the logs
+   - A read-only root filesystem for additional security
+
+This approach ensures that:
+- The application can only append to logs, not modify existing entries
+- The audit log collector cannot modify the logs
+- Log files are retained across pod restarts and redeployments
+
+### Configuration
+
+You can configure the audit logging in the `values.yaml` file:
+
+```yaml
+logs:
+  size: "1Gi"           # Size of the persistent volume for logs
+  storageClass: "nfs-csi" # Storage class to use for the logs PVC
+  retention: 90         # Number of days to retain logs
+```
+
+### Accessing Logs
+
+To access the logs, you can:
+
+1. Connect to the audit-log-collector sidecar container:
+   ```bash
+   kubectl exec -it -n your-namespace <frontend-pod-name> -c audit-log-collector -- sh
+   ```
+
+2. View the logs directly:
+   ```bash
+   kubectl exec -it -n your-namespace <frontend-pod-name> -c audit-log-collector -- cat /audit-logs/frontend-audit.log
+   ```
+
+3. Copy the logs to your local machine:
+   ```bash
+   kubectl cp your-namespace/<frontend-pod-name>:/audit-logs/frontend-audit.log ./frontend-audit.log -c audit-log-collector
+   ```
+
+### Security and Operational Considerations
+
+- The pod uses `fsGroup: 2000` to set appropriate file permissions
+- The application container (UID 1000) can write to logs in the shared group (GID 2000)
+- The audit-log-collector (UID 2000) runs with read-only access to logs
+- The collector has a read-only root filesystem to prevent modifications
+
+#### Limitations and Production Recommendations
+
+This implementation has several limitations that should be addressed for production use:
+
+1. **Log Rotation**: No automatic log rotation is provided. For production:
+   - Implement log rotation in the application
+   - Consider using a dedicated sidecar for log rotation
+   - Configure retention policies based on compliance requirements
+
+2. **Scaling Limitations**: The PVC uses ReadWriteOnce access mode, meaning:
+   - Only one node can mount the volume at a time
+   - Horizontal scaling of the frontend is limited
+   - For multi-node deployment, use a storage class supporting ReadWriteMany
+
+3. **Tamper Resistance**: This implementation provides limited tamper evidence:
+   - Logs cannot be modified from within the pod
+   - However, cluster administrators can still access and modify the PVC directly
+   - For true tamper-proof auditing, consider off-cluster immutable storage
+
+4. **Log Collection**: The current implementation uses a simple BusyBox tail:
+   - No back-pressure handling if logs are generated rapidly
+   - No guaranteed delivery if the sidecar restarts
+   - Consider replacing with a dedicated log collector (Fluentd, Filebeat, etc.)
+
+For production environments, consider enhancing this setup with:
+- A dedicated log collection system (like Fluentd, Filebeat, or Loki)
+- Off-cluster log storage for tamper-proof audit records
+- Log rotation to manage disk space while maintaining compliance requirements
+- A ReadWriteMany storage class if you need to scale the frontend horizontally
+
 ## Authentication
 
 The system uses OpenID Connect (OIDC) for authentication. Configure the following OIDC parameters:

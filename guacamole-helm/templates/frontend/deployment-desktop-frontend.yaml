@@ -15,8 +15,11 @@ spec:
       labels:
         {{- include "desktop-frontend.selectorLabels" . | nindent 8 }}
     spec:
+      # Set fsGroup to match the collector's group ID for proper file permissions
+      # This ensures logs are readable by the collector without requiring a privileged init container
       securityContext:
         {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
+        fsGroup: 2000
       initContainers:
       - name: wait-for-redis
         image: redis:7-alpine
@@ -54,7 +57,6 @@ spec:
             value: "1"
           - name: REDIS_URL
             value: "redis://redis-{{ .Release.Name }}:{{ .Values.common.ports.redis }}/0"
-          # OIDC Configuration
           - name: OIDC_CLIENT_ID
             value: {{ .Values.common.oidc.clientId | quote }}
           - name: OIDC_CLIENT_SECRET
@@ -65,6 +67,8 @@ spec:
             value: {{ .Values.common.oidc.redirectUri | quote }}
           - name: FLASK_DEBUG
             value: "0"
+          - name: AUDIT_LOG_FILE
+            value: "/audit-logs/frontend-audit.log"
         ports:
         - containerPort: {{ .Values.desktopFrontend.containerPort }}
           name: http
@@ -86,3 +90,22 @@ spec:
           timeoutSeconds: {{ .Values.desktopFrontend.healthcheck.timeoutSeconds }}
           failureThreshold: {{ .Values.desktopFrontend.healthcheck.failureThreshold }}
         {{- end }}
+        volumeMounts:
+        - name: audit-logs
+          mountPath: /audit-logs
+      - name: audit-log-collector
+        image: busybox:1.36
+        command: ['sh', '-c', 'tail -F /audit-logs/frontend-audit.log']
+        securityContext:
+          {{- toYaml .Values.common.containerSecurityContext | nindent 10 }}
+          runAsUser: 2000
+          runAsGroup: 2000
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - name: audit-logs
+          mountPath: /audit-logs
+          readOnly: true
+      volumes:
+      - name: audit-logs
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-audit-logs
