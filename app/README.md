@@ -19,7 +19,6 @@ The frontend is designed to be run as part of a larger system, typically orchest
 -   **Storage Interaction:** Interface for interacting with storage services.
 -   **RESTful API Proxy:** Secure forwarding of API requests to the backend.
 -   **Security:** Multiple security measures implemented:
-    -   CSRF protection (Flask-Seasurf)
     -   Security headers (Flask-Talisman)
     -   Rate limiting (Flask-Limiter)
     -   Input validation (Pydantic)
@@ -38,7 +37,7 @@ The frontend is designed to be run as part of a larger system, typically orchest
 -   **Frontend Styling:** SCSS/Sass (compiled to CSS)
 -   **API Documentation:** Flasgger (Swagger UI)
 -   **Data Validation:** Pydantic
--   **Security Libraries:** Flask-Cors, Flask-Session, Flask-Limiter, Flask-Talisman, Flask-Seasurf, PyJWT, python-jose
+-   **Security Libraries:** Flask-Cors, Flask-Session, Flask-Limiter, Flask-Talisman, PyJWT, python-jose
 -   **Testing:** Pytest, pytest-cov, pytest-mock, pytest-flask, fakeredis
 -   **Linting/Formatting:** Ruff, Black, isort, pre-commit
 -   **Containerization:** Docker
