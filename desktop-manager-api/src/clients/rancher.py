@@ -264,13 +264,18 @@ class RancherClient(BaseClient):
             )
             response = requests.post(url, headers=self.headers, json={}, timeout=30)
 
+            res = response.json()
+
+            if res.get("code") == "NotFound":
+                return True
+
             if response.status_code >= 400:
                 error_message = f"Failed to uninstall Helm chart: {response.text}"
                 self.logger.error(error_message)
                 raise APIError(error_message, status_code=response.status_code)
 
             self.logger.debug("Helm chart uninstallation response: %s", response.status_code)
-            return response.json() if response.text else {}
+            return res
         except requests.RequestException as e:
             error_message = f"Failed to uninstall Helm chart: {e!s}"
             self.logger.error(error_message)
