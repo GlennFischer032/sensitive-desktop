@@ -285,7 +285,7 @@ class RancherClient(BaseClient):
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
 
-    def check_vnc_ready(self, connection_name: str, max_retries: int = 60, retry_interval: int = 2) -> bool:
+    def check_vnc_ready(self, connection_name: str, max_retries: int = 60, retry_interval: int = 3) -> bool:
         """Check if VNC server pod is ready and VNC port is accessible.
 
         Args:
