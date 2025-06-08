@@ -139,6 +139,7 @@ class ConnectionsService:
         self, name, vnc_password, desktop_image, min_cpu, max_cpu, min_ram, max_ram, persistent_home, external_pvc
     ):
         """Provision desktop resources using Rancher."""
+        settings = get_settings()
         # Create Rancher API client
         rancher_client = client_factory.get_rancher_client()
 
@@ -152,6 +153,12 @@ class ConnectionsService:
             minram=min_ram,
             maxram=max_ram,
             external_pvc=external_pvc,
+            guacamole={
+                "namespace": settings.NAMESPACE,
+                "releaseName": settings.GUACAMOLE_RELEASE_NAME,
+            }
+            if settings.DEBUG
+            else None,
         )
 
         # Configure storage with persistent_home setting
@@ -454,6 +461,7 @@ class ConnectionsService:
 
     def resume_connection(self, connection_name, current_user, session):
         """Resume a previously stopped connection."""
+        settings = get_settings()
         logging.debug("Resuming connection: %s", connection_name)
 
         # Get connection from database
@@ -488,6 +496,12 @@ class ConnectionsService:
             minram=min_ram,
             maxram=max_ram,
             external_pvc=external_pvc,  # Set external PVC if found
+            guacamole={
+                "namespace": settings.NAMESPACE,
+                "releaseName": settings.GUACAMOLE_RELEASE_NAME,
+            }
+            if settings.DEBUG
+            else None,
         )
 
         # Configure storage with persistent_home setting

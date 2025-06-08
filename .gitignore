@@ -2,12 +2,12 @@
 .env
 .env.*
 !.env.example
-
+desktop-manager-api/src/desktop_charts/config
 # Local configuration
 values.local.yaml
 *.local.yaml
 *.local.yml
-
+*desktop_oci*
 # Secrets
 *.key
 *.pem

@@ -21,6 +21,7 @@ dependencies = [
     "python-jose[cryptography]",
     "passlib[bcrypt]",
     "PyJWT",
+    "pyyaml",
     # Guacamole JSON Auth dependency
     "pycryptodome",
     "pydantic[email]",
@@ -177,6 +178,8 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
     "S105", "S106", "S108", "PT011", "ARG001",
     "E501", "C901", "PLR0911", "PLR0915", "SIM117"
 ]
+# Allow subprocess usage in rancher client with proper validation
+"src/clients/rancher.py" = ["S603"]
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.

@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     RANCHER_PROJECT_ID: str = os.getenv("RANCHER_PROJECT_ID", "")
     RANCHER_REPO_NAME: str = os.getenv("RANCHER_REPO_NAME", "")
     NAMESPACE: str = os.getenv("NAMESPACE", "default")
+    GUACAMOLE_RELEASE_NAME: str = os.getenv("GUACAMOLE_RELEASE_NAME", "guacamole")
+
+    # Kubernetes settings
+    KUBECONFIG: str = os.getenv("KUBECONFIG", "")
 
     # Desktop settings
     DESKTOP_IMAGE: str = os.getenv("DESKTOP_IMAGE", "cerit.io/desktops/ubuntu-xfce:22.04-user")
@@ -42,6 +46,7 @@ class Settings(BaseSettings):
     OIDC_CLIENT_SECRET: str = os.getenv("OIDC_CLIENT_SECRET", "")
     OIDC_CALLBACK_URL: str = os.getenv("OIDC_CALLBACK_URL", "http://localhost:5001/auth/oidc/callback")
     CORS_ALLOWED_ORIGINS: str = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5001")
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 
     @property
     def database_url(self) -> str:

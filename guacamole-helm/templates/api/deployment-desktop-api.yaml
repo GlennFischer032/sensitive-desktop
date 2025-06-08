@@ -15,6 +15,7 @@ spec:
       labels:
         {{- include "desktop-api.selectorLabels" . | nindent 8 }}
     spec:
+      serviceAccountName: desktop-api-{{ .Release.Name }}
       securityContext:
         {{- toYaml .Values.common.podSecurityContext | nindent 8 }}
       initContainers:
@@ -49,6 +50,9 @@ spec:
           runAsUser: 1000
           runAsGroup: 1000
         env:
+          # Kubernetes configuration for helm operations (in-cluster)
+          - name: KUBECONFIG
+            value: ""
           - name: POSTGRES_HOST
             value: {{ .Values.common.database.host | quote }}
           - name: POSTGRES_PORT
@@ -91,6 +95,8 @@ spec:
             value: {{ .Values.common.rancher.repoName | quote }}
           - name: NAMESPACE
             value: {{ .Values.common.rancher.namespace | quote }}
+          - name: GUACAMOLE_RELEASE_NAME
+            value: {{ .Release.Name | quote }}
           - name: FLASK_APP
             value: "app.py"
           - name: FLASK_ENV

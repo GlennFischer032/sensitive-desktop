@@ -5,12 +5,16 @@ This module provides a client for managing Rancher deployments.
 
 from dataclasses import dataclass
 import logging
+import os
+import subprocess
+import tempfile
 import time
 from typing import Any
 
 from clients.base import APIError, BaseClient
 from config.settings import get_settings
 import requests
+import yaml
 
 
 @dataclass
@@ -65,12 +69,14 @@ class DesktopValues:
     vnc_password: str = None
     external_pvc: str | None = None
     persistent_home: bool = True
+    guacamole: dict[str, Any] = None
 
     def __post_init__(self):
         self.webrtcimages = WebRTCImages()
         if self.storage is None:
             self.storage = Storage()
-
+        if self.guacamole is None:
+            self.guacamole = {"namespace": "", "releaseName": ""}
         # If external_pvc is provided, configure storage to use it
         if self.external_pvc:
             self.storage.use_external_pvc(self.external_pvc)
@@ -104,6 +110,7 @@ class DesktopValues:
                 "externalpvc": self.storage.externalpvc,
                 "persistenthome": self.storage.persistenthome,
             },
+            "guacamole": self.guacamole,
         }
         return values
 
@@ -155,7 +162,7 @@ class RancherClient(BaseClient):
         }
 
     def install(self, connection_name: str, values: DesktopValues) -> dict[str, Any]:
-        """Install a Helm chart via Rancher API.
+        """Install a Helm chart using local chart via helm CLI.
 
         Args:
             connection_name: Connection name
@@ -168,68 +175,101 @@ class RancherClient(BaseClient):
             APIError: If Helm chart installation fails
         """
         try:
-            # New endpoint for installing charts
-            url = (
-                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/"
-                f"catalog.cattle.io.clusterrepos/{self.repo_name}?action=install"
-            )
+            # Input validation for security
+            if not connection_name or not connection_name.replace("-", "").replace("_", "").isalnum():
+                error_message = "Invalid connection_name: must be alphanumeric with hyphens/underscores only"
+                self.logger.error(error_message)
+                raise APIError(error_message, status_code=400)
 
-            # New payload structure based on the updated Rancher API
-            helm_chart_info = {
-                "charts": [
-                    {
-                        # "desktop" is the chart name within the repo,
-                        # not necessarily the same as repo_name
-                        "chartName": "desktop",
-                        "version": "0.4",
-                        "releaseName": connection_name,
-                        "annotations": {
-                            "catalog.cattle.io/ui-source-repo-type": "cluster",
-                            "catalog.cattle.io/ui-source-repo": self.repo_name,
-                        },
-                        "values": values.to_dict(),
-                    }
-                ],
-                "noHooks": False,
-                "timeout": "600s",
-                "wait": True,
-                "namespace": self.namespace,
-                "disableOpenAPIValidation": False,
-                "skipCRDs": False,
-            }
+            # Path to the local helm chart and kubeconfig
+            chart_path = os.path.abspath("src/desktop_charts/default")
+            kubeconfig_path = os.path.abspath("src/desktop_charts/config")
 
-            # Add projectId if available
-            if self.project_id:
-                helm_chart_info["projectId"] = self.project_id
+            self.logger.debug("Using chart path: %s (exists: %s)", chart_path, os.path.exists(chart_path))
 
-            # Add global cattle settings
-            helm_chart_info["charts"][0]["values"]["global"] = {
-                "cattle": {
-                    "clusterId": self.cluster_id,
-                    "clusterName": self.cluster_name,
-                    "systemProjectId": "",
-                    "url": self.api_url,
-                    "rkePathPrefix": "",
-                    "rkeWindowsPathPrefix": "",
-                }
-            }
+            if not os.path.exists(chart_path):
+                # Debug current directory structure
+                cwd = os.getcwd()
+                self.logger.error("Chart not found. CWD: %s, Contents: %s", cwd, os.listdir(cwd))
+                raise APIError("Desktop chart not found at expected location", status_code=500)
+
+            # Prepare helm install command with validated inputs
+            helm_cmd = [
+                "helm",
+                "install",
+                connection_name,  # subprocess handles escaping automatically
+                chart_path,  # static path
+                "--namespace",
+                self.namespace,  # subprocess handles escaping automatically
+                "--create-namespace",
+                "--wait",
+                "--timeout",
+                "600s",
+            ]
+
+            # Use kubeconfig only if it exists, otherwise assume in-cluster config
+            if os.path.exists(kubeconfig_path):
+                self.logger.debug("Using kubeconfig path: %s", kubeconfig_path)
+                helm_cmd.extend(["--kubeconfig", kubeconfig_path])
+            else:
+                self.logger.info("Kubeconfig not found, assuming in-cluster config for Helm.")
+
+            # Create temporary values file
+            values_dict = values.to_dict()
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as values_file:
+                yaml.dump(values_dict, values_file, default_flow_style=False)
+                values_file_path = values_file.name
+
+            # Add values file to command
+            helm_cmd.extend(["--values", values_file_path])
 
             self.logger.debug(
-                "Installing Helm chart via Rancher API: %s (repo: %s, namespace: %s)",
+                "Installing Helm chart via helm CLI: %s (chart: %s, namespace: %s, kubeconfig: %s)",
                 connection_name,
-                self.repo_name,
+                chart_path,
                 self.namespace,
+                kubeconfig_path,
             )
-            response = requests.post(url, headers=self.headers, json=helm_chart_info, timeout=30)
 
-            if response.status_code >= 400:
-                error_message = f"Failed to install Helm chart: {response.text}"
+            # Log the full command for debugging
+            self.logger.debug("Executing helm command: %s", " ".join(helm_cmd))
+
+            # Execute helm install command - inputs are validated above
+            result = subprocess.run(
+                helm_cmd,
+                capture_output=True,
+                text=True,
+                timeout=630,  # Slightly longer than helm timeout
+                check=False,
+            )
+
+            # Clean up temporary values file
+            try:
+                os.unlink(values_file_path)
+            except OSError as cleanup_error:
+                self.logger.warning("Failed to clean up temporary values file: %s", cleanup_error)
+
+            if result.returncode != 0:
+                error_message = f"Failed to install Helm chart: {result.stderr}"
                 self.logger.error(error_message)
-                raise APIError(error_message, status_code=response.status_code)
+                raise APIError(error_message, status_code=500)
 
-            self.logger.debug("Helm chart installation response: %s", response.status_code)
-            return response.json() if response.text else {}
-        except requests.RequestException as e:
+            self.logger.debug("Helm chart installation successful: %s", result.stdout)
+
+            # Return a response similar to the original API response
+            return {
+                "status": "success",
+                "release_name": connection_name,
+                "namespace": self.namespace,
+                "chart_path": chart_path,
+                "output": result.stdout,
+            }
+
+        except subprocess.TimeoutExpired as e:
+            error_message = f"Helm installation timed out: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500) from e
+        except subprocess.SubprocessError as e:
             error_message = f"Failed to install Helm chart: {e!s}"
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
@@ -239,7 +279,7 @@ class RancherClient(BaseClient):
             raise APIError(error_message, status_code=500) from e
 
     def uninstall(self, connection_name: str) -> dict[str, Any]:
-        """Uninstall a Helm chart via Rancher API.
+        """Uninstall a Helm chart using helm CLI.
 
         Args:
             connection_name: Connection name
@@ -251,32 +291,76 @@ class RancherClient(BaseClient):
             APIError: If Helm chart uninstallation fails
         """
         try:
-            # Updated URL to match the new Rancher API flow
-            url = (
-                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/catalog.cattle.io.apps/"
-                f"{self.namespace}/{connection_name}?action=uninstall"
-            )
+            # Input validation for security
+            if not connection_name or not connection_name.replace("-", "").replace("_", "").isalnum():
+                error_message = "Invalid connection_name: must be alphanumeric with hyphens/underscores only"
+                self.logger.error(error_message)
+                raise APIError(error_message, status_code=400)
+
+            # Path to the kubeconfig
+            kubeconfig_path = os.path.abspath("src/desktop_charts/config")
+
+            # Prepare helm uninstall command
+            helm_cmd = [
+                "helm",
+                "uninstall",
+                connection_name,
+                "--namespace",
+                self.namespace,
+                "--wait",
+                "--timeout",
+                "600s",
+            ]
+
+            # Use kubeconfig only if it exists, otherwise assume in-cluster config
+            if os.path.exists(kubeconfig_path):
+                self.logger.debug("Using kubeconfig path: %s", kubeconfig_path)
+                helm_cmd.extend(["--kubeconfig", kubeconfig_path])
+            else:
+                self.logger.info("Kubeconfig not found, assuming in-cluster config for Helm.")
 
             self.logger.debug(
-                "Uninstalling Helm chart via Rancher API: %s (namespace: %s)",
+                "Uninstalling Helm chart via helm CLI: %s (namespace: %s)",
                 connection_name,
                 self.namespace,
             )
-            response = requests.post(url, headers=self.headers, json={}, timeout=30)
+            # Log the full command for debugging
+            self.logger.debug("Executing helm command: %s", " ".join(helm_cmd))
 
-            res = response.json()
+            # Execute helm uninstall command
+            result = subprocess.run(
+                helm_cmd,
+                capture_output=True,
+                text=True,
+                timeout=630,  # Slightly longer than helm timeout
+                check=False,
+            )
 
-            if res.get("code") == "NotFound":
-                return True
+            if result.returncode != 0:
+                # If the release is not found, it's a successful uninstallation for our purposes.
+                if "not found" in result.stderr:
+                    self.logger.warning("Release '%s' not found, assuming already uninstalled.", connection_name)
+                    return {"status": "success", "message": "Release not found."}
 
-            if response.status_code >= 400:
-                error_message = f"Failed to uninstall Helm chart: {response.text}"
+                error_message = f"Failed to uninstall Helm chart: {result.stderr}"
                 self.logger.error(error_message)
-                raise APIError(error_message, status_code=response.status_code)
+                raise APIError(error_message, status_code=500)
 
-            self.logger.debug("Helm chart uninstallation response: %s", response.status_code)
-            return res
-        except requests.RequestException as e:
+            self.logger.debug("Helm chart uninstallation successful: %s", result.stdout)
+
+            # Return a response similar to the original API response
+            return {
+                "status": "success",
+                "release_name": connection_name,
+                "namespace": self.namespace,
+                "output": result.stdout,
+            }
+
+        except subprocess.TimeoutExpired as e:
+            error_message = f"Helm uninstallation timed out: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500) from e
+        except subprocess.SubprocessError as e:
             error_message = f"Failed to uninstall Helm chart: {e!s}"
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
