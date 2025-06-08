@@ -201,7 +201,6 @@ class RancherClient(BaseClient):
                 chart_path,  # static path
                 "--namespace",
                 self.namespace,  # subprocess handles escaping automatically
-                "--create-namespace",
                 "--wait",
                 "--timeout",
                 "600s",
