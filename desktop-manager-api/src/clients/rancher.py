@@ -1,9 +1,10 @@
-"""Rancher client module for desktop-manager-api.
+"""Kubernetes client module for desktop-manager-api.
 
-This module provides a client for managing Rancher deployments.
+This module provides a client for managing Kubernetes deployments via helm and kubectl.
 """
 
 from dataclasses import dataclass
+import json
 import logging
 import os
 import subprocess
@@ -13,7 +14,6 @@ from typing import Any
 
 from clients.base import APIError, BaseClient
 from config.settings import get_settings
-import requests
 import yaml
 
 
@@ -116,14 +116,25 @@ class DesktopValues:
 
 
 class RancherClient(BaseClient):
-    """Client for managing Rancher deployments.
+    """Client for managing Kubernetes deployments via helm and kubectl.
 
     This client provides methods for:
-    - Installing Helm charts via Rancher API
-    - Uninstalling Helm charts via Rancher API
+    - Installing Helm charts via Helm CLI
+    - Uninstalling Helm charts via Helm CLI
     - Checking if VNC server is ready
     - Getting pod IP addresses
     """
+
+    def _get_base_kube_cmd(self, command: str) -> list[str]:
+        """Get the base command for helm or kubectl with kubeconfig if available."""
+        kubeconfig_path = os.path.abspath("src/desktop_charts/config")
+        cmd = [command]
+        if os.path.exists(kubeconfig_path):
+            self.logger.debug("Using kubeconfig path: %s", kubeconfig_path)
+            cmd.extend(["--kubeconfig", kubeconfig_path])
+        else:
+            self.logger.info("Kubeconfig not found, assuming in-cluster config for %s.", command)
+        return cmd
 
     def __init__(
         self,
@@ -135,20 +146,22 @@ class RancherClient(BaseClient):
         repo_name: str | None = None,
         namespace: str | None = None,
     ):
-        """Initialize RancherClient.
+        """Initialize Kubernetes client.
 
         Args:
-            api_url: Rancher API URL
-            api_token: Rancher API token
-            cluster_id: Rancher cluster ID
-            cluster_name: Rancher cluster name
-            project_id: Rancher project ID
-            repo_name: Repository name
+            api_url: Rancher API URL (ignored)
+            api_token: Rancher API token (ignored)
+            cluster_id: Rancher cluster ID (ignored)
+            cluster_name: Rancher cluster name (ignored)
+            project_id: Rancher project ID (ignored)
+            repo_name: Repository name (ignored)
             namespace: Kubernetes namespace
         """
         super().__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
         settings = get_settings()
+        # The following Rancher-specific attributes are kept for interface
+        # compatibility but are no longer used for core functionality.
         self.api_url = api_url or settings.RANCHER_API_URL
         self.api_token = api_token or settings.RANCHER_API_TOKEN
         self.cluster_id = cluster_id or settings.RANCHER_CLUSTER_ID
@@ -156,10 +169,6 @@ class RancherClient(BaseClient):
         self.project_id = project_id or settings.RANCHER_PROJECT_ID
         self.repo_name = repo_name or settings.RANCHER_REPO_NAME
         self.namespace = namespace or settings.NAMESPACE
-        self.headers = {
-            "Authorization": f"Bearer {self.api_token}",
-            "Content-Type": "application/json",
-        }
 
     def install(self, connection_name: str, values: DesktopValues) -> dict[str, Any]:
         """Install a Helm chart using local chart via helm CLI.
@@ -181,9 +190,8 @@ class RancherClient(BaseClient):
                 self.logger.error(error_message)
                 raise APIError(error_message, status_code=400)
 
-            # Path to the local helm chart and kubeconfig
+            # Path to the local helm chart
             chart_path = os.path.abspath("src/desktop_charts/default")
-            kubeconfig_path = os.path.abspath("src/desktop_charts/config")
 
             self.logger.debug("Using chart path: %s (exists: %s)", chart_path, os.path.exists(chart_path))
 
@@ -194,24 +202,19 @@ class RancherClient(BaseClient):
                 raise APIError("Desktop chart not found at expected location", status_code=500)
 
             # Prepare helm install command with validated inputs
-            helm_cmd = [
-                "helm",
-                "install",
-                connection_name,  # subprocess handles escaping automatically
-                chart_path,  # static path
-                "--namespace",
-                self.namespace,  # subprocess handles escaping automatically
-                "--wait",
-                "--timeout",
-                "600s",
-            ]
-
-            # Use kubeconfig only if it exists, otherwise assume in-cluster config
-            if os.path.exists(kubeconfig_path):
-                self.logger.debug("Using kubeconfig path: %s", kubeconfig_path)
-                helm_cmd.extend(["--kubeconfig", kubeconfig_path])
-            else:
-                self.logger.info("Kubeconfig not found, assuming in-cluster config for Helm.")
+            helm_cmd = self._get_base_kube_cmd("helm")
+            helm_cmd.extend(
+                [
+                    "install",
+                    connection_name,  # subprocess handles escaping automatically
+                    chart_path,  # static path
+                    "--namespace",
+                    self.namespace,  # subprocess handles escaping automatically
+                    "--wait",
+                    "--timeout",
+                    "600s",
+                ]
+            )
 
             # Create temporary values file
             values_dict = values.to_dict()
@@ -223,11 +226,10 @@ class RancherClient(BaseClient):
             helm_cmd.extend(["--values", values_file_path])
 
             self.logger.debug(
-                "Installing Helm chart via helm CLI: %s (chart: %s, namespace: %s, kubeconfig: %s)",
+                "Installing Helm chart via helm CLI: %s (chart: %s, namespace: %s)",
                 connection_name,
                 chart_path,
                 self.namespace,
-                kubeconfig_path,
             )
 
             # Log the full command for debugging
@@ -296,27 +298,19 @@ class RancherClient(BaseClient):
                 self.logger.error(error_message)
                 raise APIError(error_message, status_code=400)
 
-            # Path to the kubeconfig
-            kubeconfig_path = os.path.abspath("src/desktop_charts/config")
-
             # Prepare helm uninstall command
-            helm_cmd = [
-                "helm",
-                "uninstall",
-                connection_name,
-                "--namespace",
-                self.namespace,
-                "--wait",
-                "--timeout",
-                "600s",
-            ]
-
-            # Use kubeconfig only if it exists, otherwise assume in-cluster config
-            if os.path.exists(kubeconfig_path):
-                self.logger.debug("Using kubeconfig path: %s", kubeconfig_path)
-                helm_cmd.extend(["--kubeconfig", kubeconfig_path])
-            else:
-                self.logger.info("Kubeconfig not found, assuming in-cluster config for Helm.")
+            helm_cmd = self._get_base_kube_cmd("helm")
+            helm_cmd.extend(
+                [
+                    "uninstall",
+                    connection_name,
+                    "--namespace",
+                    self.namespace,
+                    "--wait",
+                    "--timeout",
+                    "600s",
+                ]
+            )
 
             self.logger.debug(
                 "Uninstalling Helm chart via helm CLI: %s (namespace: %s)",
@@ -506,7 +500,7 @@ class RancherClient(BaseClient):
             raise APIError(error_message, status_code=500) from e
 
     def get_pod_ip(self, connection_name: str) -> str | None:
-        """Get the IP address of the pod.
+        """Get the IP address of the pod using kubectl.
 
         Args:
             connection_name: Connection name
@@ -518,31 +512,45 @@ class RancherClient(BaseClient):
             APIError: If getting pod IP fails
         """
         try:
-            url = (
-                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/pod?namespaceId={self.namespace}"
-                f"&labelSelector=app.kubernetes.io%2Finstance%3D{connection_name}"
+            kubectl_cmd = self._get_base_kube_cmd("kubectl")
+            kubectl_cmd.extend(
+                [
+                    "get",
+                    "pods",
+                    "-n",
+                    self.namespace,
+                    "-l",
+                    f"app.kubernetes.io/instance={connection_name}",
+                    "-o",
+                    "json",
+                ]
+            )
+            self.logger.debug("Getting pod IP for connection: %s", connection_name)
+            result = subprocess.run(
+                kubectl_cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
             )
 
-            self.logger.debug("Getting pod IP for connection: %s", connection_name)
-            response = requests.get(url, headers=self.headers, timeout=10)
-
-            if response.status_code >= 400:
-                error_message = f"Failed to get pod IP: {response.text}"
+            if result.returncode != 0:
+                error_message = f"Failed to get pod(s) by label: {result.stderr}"
                 self.logger.error(error_message)
-                raise APIError(error_message, status_code=response.status_code)
+                raise APIError(error_message, status_code=500)
 
-            pods = response.json().get("data", [])
+            pods = json.loads(result.stdout).get("items", [])
             for pod in pods:
                 status = pod.get("status", {})
                 phase = status.get("phase")
                 if phase == "Running":
                     pod_ip = status.get("podIP")
-                    self.logger.debug("Found pod IP: %s", pod_ip)
+                    self.logger.debug("Found running pod IP: %s", pod_ip)
                     return pod_ip
 
             self.logger.warning("No running pod found for connection: %s", connection_name)
             return None
-        except requests.RequestException as e:
+        except (subprocess.SubprocessError, json.JSONDecodeError) as e:
             error_message = f"Failed to get pod IP: {e!s}"
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
@@ -552,7 +560,7 @@ class RancherClient(BaseClient):
             raise APIError(error_message, status_code=500) from e
 
     def list_releases(self) -> list[dict[str, Any]]:
-        """List Helm releases via Rancher API.
+        """List Helm releases via Helm CLI.
 
         Returns:
             List[Dict[str, Any]]: List of releases
@@ -561,23 +569,27 @@ class RancherClient(BaseClient):
             APIError: If listing releases fails
         """
         try:
-            url = (
-                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/catalog.cattle.io.apps"
-                f"?namespaceId={self.namespace}"
+            helm_cmd = self._get_base_kube_cmd("helm")
+            helm_cmd.extend(["list", "-n", self.namespace, "-o", "json"])
+
+            self.logger.debug("Listing Helm releases via Helm CLI")
+            result = subprocess.run(
+                helm_cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
             )
 
-            self.logger.debug("Listing Helm releases via Rancher API")
-            response = requests.get(url, headers=self.headers, timeout=10)
-
-            if response.status_code >= 400:
-                error_message = f"Failed to list releases: {response.text}"
+            if result.returncode != 0:
+                error_message = f"Failed to list releases: {result.stderr}"
                 self.logger.error(error_message)
-                raise APIError(error_message, status_code=response.status_code)
+                raise APIError(error_message, status_code=500)
 
-            releases = response.json().get("data", [])
+            releases = json.loads(result.stdout)
             self.logger.debug("Found %s releases", len(releases))
-            return releases
-        except requests.RequestException as e:
+            return [{"metadata": {"name": r.get("name")}} for r in releases]
+        except (subprocess.SubprocessError, json.JSONDecodeError) as e:
             error_message = f"Failed to list releases: {e!s}"
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
@@ -587,34 +599,38 @@ class RancherClient(BaseClient):
             raise APIError(error_message, status_code=500) from e
 
     def get_release(self, connection_name: str) -> dict[str, Any]:
-        """Get a Helm release via Rancher API.
+        """Get a Helm release's values via Helm CLI.
 
         Args:
             connection_name: Connection name
 
         Returns:
-            Dict[str, Any]: Release data
+            Dict[str, Any]: Release values
 
         Raises:
             APIError: If getting release fails
         """
         try:
-            url = (
-                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/catalog.cattle.io.apps"
-                f"/{self.namespace}/{connection_name}"
+            helm_cmd = self._get_base_kube_cmd("helm")
+            helm_cmd.extend(["get", "values", connection_name, "-n", self.namespace, "-o", "json"])
+
+            self.logger.debug("Getting Helm release values via Helm CLI: %s", connection_name)
+            result = subprocess.run(
+                helm_cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
             )
 
-            self.logger.debug("Getting Helm release via Rancher API: %s", connection_name)
-            response = requests.get(url, headers=self.headers, timeout=10)
-
-            if response.status_code >= 400:
-                error_message = f"Failed to get release: {response.text}"
+            if result.returncode != 0:
+                error_message = f"Failed to get release values: {result.stderr}"
                 self.logger.error(error_message)
-                raise APIError(error_message, status_code=response.status_code)
+                raise APIError(error_message, status_code=500)
 
-            self.logger.debug("Got release: %s", connection_name)
-            return response.json()
-        except requests.RequestException as e:
+            self.logger.debug("Got release values: %s", connection_name)
+            return json.loads(result.stdout)
+        except (subprocess.SubprocessError, json.JSONDecodeError) as e:
             error_message = f"Failed to get release: {e!s}"
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
@@ -629,7 +645,7 @@ class RancherClient(BaseClient):
         namespace: str | None = None,
         size: str = "10Gi",
     ) -> dict[str, Any]:
-        """Create a Persistent Volume Claim (PVC) via Rancher API.
+        """Create a Persistent Volume Claim (PVC) via kubectl.
 
         Args:
             name: PVC name
@@ -648,37 +664,47 @@ class RancherClient(BaseClient):
 
             namespace_to_use = namespace or self.namespace
 
-            # URL for creating PVCs via Rancher API
-            url = f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/persistentvolumeclaims"
-
             # Payload for PVC creation
-            pvc_data = {
-                "type": "persistentvolumeclaim",
+            pvc_manifest = {
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
                 "metadata": {"namespace": namespace_to_use, "name": name},
                 "spec": {
                     "accessModes": access_modes,
-                    "volumeName": "",
                     "resources": {"requests": {"storage": size}},
                 },
-                "accessModes": access_modes,  # This is required for the Rancher UI
             }
 
+            kubectl_cmd = self._get_base_kube_cmd("kubectl")
+            kubectl_cmd.extend(["apply", "-f", "-"])
+
             self.logger.debug(
-                "Creating PVC via Rancher API: %s (namespace: %s, size: %s)",
+                "Creating PVC via kubectl: %s (namespace: %s, size: %s)",
                 name,
                 namespace_to_use,
                 size,
             )
-            response = requests.post(url, headers=self.headers, json=pvc_data, timeout=30)
+            result = subprocess.run(
+                kubectl_cmd,
+                input=yaml.dump(pvc_manifest),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
 
-            if response.status_code >= 400:
-                error_message = f"Failed to create PVC: {response.text}"
+            if result.returncode != 0:
+                error_message = f"Failed to create PVC: {result.stderr}"
                 self.logger.error(error_message)
-                raise APIError(error_message, status_code=response.status_code)
+                raise APIError(error_message, status_code=500)
 
-            self.logger.debug("PVC creation response: %s", response.status_code)
-            return response.json() if response.text else {}
-        except requests.RequestException as e:
+            self.logger.debug("PVC creation response: %s", result.stdout)
+            return {"status": "success", "name": name, "namespace": namespace_to_use}
+        except subprocess.TimeoutExpired as e:
+            error_message = f"kubectl apply timed out for PVC creation: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500) from e
+        except subprocess.SubprocessError as e:
             error_message = f"Failed to create PVC: {e!s}"
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
@@ -688,7 +714,7 @@ class RancherClient(BaseClient):
             raise APIError(error_message, status_code=500) from e
 
     def get_pvc(self, name: str, namespace: str | None = None) -> dict[str, Any]:
-        """Get a Persistent Volume Claim (PVC) via Rancher API.
+        """Get a Persistent Volume Claim (PVC) via kubectl.
 
         Args:
             name: PVC name
@@ -703,26 +729,30 @@ class RancherClient(BaseClient):
         try:
             namespace_to_use = namespace or self.namespace
 
-            # URL for getting PVC via Rancher API
-            url = (
-                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/persistentvolumeclaims/" f"{namespace_to_use}/{name}"
-            )
+            kubectl_cmd = self._get_base_kube_cmd("kubectl")
+            kubectl_cmd.extend(["get", "pvc", name, "-n", namespace_to_use, "-o", "json"])
 
             self.logger.debug(
-                "Getting PVC via Rancher API: %s (namespace: %s)",
+                "Getting PVC via kubectl: %s (namespace: %s)",
                 name,
                 namespace_to_use,
             )
-            response = requests.get(url, headers=self.headers, timeout=10)
+            response = subprocess.run(
+                kubectl_cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
 
-            if response.status_code >= 400:
-                error_message = f"Failed to get PVC: {response.text}"
+            if response.returncode != 0:
+                error_message = f"Failed to get PVC: {response.stderr}"
                 self.logger.error(error_message)
-                raise APIError(error_message, status_code=response.status_code)
+                raise APIError(error_message, status_code=500)
 
             self.logger.debug("Got PVC: %s", name)
-            return response.json()
-        except requests.RequestException as e:
+            return json.loads(response.stdout)
+        except (subprocess.SubprocessError, json.JSONDecodeError) as e:
             error_message = f"Failed to get PVC: {e!s}"
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
@@ -732,7 +762,7 @@ class RancherClient(BaseClient):
             raise APIError(error_message, status_code=500) from e
 
     def delete_pvc(self, name: str, namespace: str | None = None) -> dict[str, Any]:
-        """Delete a Persistent Volume Claim (PVC) via Rancher API.
+        """Delete a Persistent Volume Claim (PVC) via kubectl.
 
         Args:
             name: PVC name
@@ -747,26 +777,30 @@ class RancherClient(BaseClient):
         try:
             namespace_to_use = namespace or self.namespace
 
-            # URL for deleting PVC via Rancher API
-            url = (
-                f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/persistentvolumeclaims/" f"{namespace_to_use}/{name}"
-            )
+            kubectl_cmd = self._get_base_kube_cmd("kubectl")
+            kubectl_cmd.extend(["delete", "pvc", name, "-n", namespace_to_use])
 
             self.logger.debug(
-                "Deleting PVC via Rancher API: %s (namespace: %s)",
+                "Deleting PVC via kubectl: %s (namespace: %s)",
                 name,
                 namespace_to_use,
             )
-            response = requests.delete(url, headers=self.headers, timeout=30)
+            result = subprocess.run(
+                kubectl_cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
 
-            if response.status_code >= 400:
-                error_message = f"Failed to delete PVC: {response.text}"
+            if result.returncode != 0 and "not found" not in result.stderr:
+                error_message = f"Failed to delete PVC: {result.stderr}"
                 self.logger.error(error_message)
-                raise APIError(error_message, status_code=response.status_code)
+                raise APIError(error_message, status_code=500)
 
-            self.logger.debug("PVC deletion response: %s", response.status_code)
-            return response.json() if response.text else {}
-        except requests.RequestException as e:
+            self.logger.debug("PVC deletion response: %s", result.stdout)
+            return {"status": "success", "name": name, "namespace": namespace_to_use}
+        except subprocess.SubprocessError as e:
             error_message = f"Failed to delete PVC: {e!s}"
             self.logger.error(error_message)
             raise APIError(error_message, status_code=500) from e
@@ -776,21 +810,38 @@ class RancherClient(BaseClient):
             raise APIError(error_message, status_code=500) from e
 
     def list_pods(self) -> list[dict[str, Any]]:
-        """List all pods in the cluster.
+        """List all pods in the namespace using kubectl.
 
         Returns:
             List[Dict[str, Any]]: List of pods
+
+        Raises:
+            APIError: if kubectl command fails.
         """
         try:
-            url = f"{self.api_url}/k8s/clusters/{self.cluster_id}/v1/pods"
-            response = requests.get(url, headers=self.headers, timeout=10)
+            kubectl_cmd = self._get_base_kube_cmd("kubectl")
+            kubectl_cmd.extend(["get", "pods", "-n", self.namespace, "-o", "json"])
 
-            if response.status_code >= 400:
-                error_message = f"Failed to list pods: {response.text}"
+            self.logger.debug("Listing pods via kubectl: %s", " ".join(kubectl_cmd))
+            result = subprocess.run(
+                kubectl_cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+
+            if result.returncode != 0:
+                error_message = f"Failed to list pods: {result.stderr}"
                 self.logger.error(error_message)
-                raise APIError(error_message, status_code=response.status_code)
+                raise APIError(error_message, status_code=500)
 
-            return response.json().get("data", [])
-        except requests.RequestException as e:
-            error_message = f"Failed to list pods: {e!s}"
+            return json.loads(result.stdout).get("items", [])
+        except subprocess.TimeoutExpired as e:
+            error_message = f"Kubectl command timed out while listing pods: {e!s}"
             self.logger.error(error_message)
+            raise APIError(error_message, status_code=500) from e
+        except (subprocess.SubprocessError, json.JSONDecodeError) as e:
+            error_message = f"Failed to list pods using kubectl: {e!s}"
+            self.logger.error(error_message)
+            raise APIError(error_message, status_code=500) from e

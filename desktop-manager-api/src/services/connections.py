@@ -157,7 +157,7 @@ class ConnectionsService:
                 "namespace": settings.NAMESPACE,
                 "releaseName": settings.GUACAMOLE_RELEASE_NAME,
             }
-            if settings.DEBUG
+            if not settings.DEBUG
             else None,
         )
 
@@ -500,7 +500,7 @@ class ConnectionsService:
                 "namespace": settings.NAMESPACE,
                 "releaseName": settings.GUACAMOLE_RELEASE_NAME,
             }
-            if settings.DEBUG
+            if not settings.DEBUG
             else None,
         )
 
